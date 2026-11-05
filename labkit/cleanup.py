@@ -54,6 +54,42 @@ class Cleaner:
         except Exception as e:  # noqa: BLE001 - keep going, verify() reports leftovers
             print(f"     ⚠️  {type(e).__name__}: {str(e)[:200]}")
 
+    def delete_online_configs(self, cfgs=None):
+        """Disable, wait until the config has left UPDATING, then delete (retrying on Conflict).
+
+        Deleting right after disabling fails with ConflictException "... in state: UPDATING"."""
+        if cfgs is None:
+            cfgs = self.safe('在线评估配置', self.online_configs)
+        for x in cfgs:
+            cid, name = x["onlineEvaluationConfigId"], x["onlineEvaluationConfigName"]
+            if x.get("executionStatus") != "DISABLED":
+                self.act(f"停用在线评估 {name}", self.ctl.update_online_evaluation_config,
+                         onlineEvaluationConfigId=cid, executionStatus="DISABLED")
+            if self.dry:
+                print(f"  [dry-run] 🗑  删除在线评估 {name}")
+                continue
+            print(f"  🗑  删除在线评估 {name}")
+            for attempt in range(30):
+                try:
+                    st = self.ctl.get_online_evaluation_config(onlineEvaluationConfigId=cid).get("status")
+                except Exception:  # noqa: BLE001 - already gone
+                    st = None
+                if st and st.upper().endswith("ING"):  # UPDATING / CREATING / DELETING
+                    time.sleep(5)
+                    continue
+                try:
+                    self.ctl.delete_online_evaluation_config(onlineEvaluationConfigId=cid)
+                    break
+                except self.ctl.exceptions.ConflictException:
+                    time.sleep(5)
+                except Exception as e:  # noqa: BLE001
+                    print(f"     ⚠️  {type(e).__name__}: {str(e)[:200]}")
+                    break
+            else:
+                print(f"     ⚠️  {name} 一直处于更新中，未能删除；稍后重新运行 ./99-cleanup.sh")
+        if cfgs and not self.dry:
+            time.sleep(10)
+
     def safe(self, what: str, fn):
         """Run a lister; an AccessDenied on one resource type must not abort the whole cleanup."""
         try:
@@ -157,14 +193,7 @@ class Cleaner:
         cfgs = self.safe('在线评估配置', self.online_configs)
         cfg_ids = [x["onlineEvaluationConfigId"] for x in cfgs]
         result_groups = [g for g in self.safe('评估结果日志组', lambda: self.eval_result_groups(cfg_ids))]
-        for x in cfgs:
-            cid = x["onlineEvaluationConfigId"]
-            self.act(f"停用在线评估 {x['onlineEvaluationConfigName']}", self.ctl.update_online_evaluation_config,
-                     onlineEvaluationConfigId=cid, executionStatus="DISABLED")
-            self.act(f"删除在线评估 {x['onlineEvaluationConfigName']}", self.ctl.delete_online_evaluation_config,
-                     onlineEvaluationConfigId=cid)
-        if cfgs and not self.dry:
-            time.sleep(10)
+        self.delete_online_configs(cfgs)
         for e in self.safe('评估器', self.evaluators):
             self.act(f"删除评估器 {e['evaluatorName']}", self.ctl.delete_evaluator, evaluatorId=e["evaluatorId"])
         lam = aws.client("lambda")

@@ -62,3 +62,41 @@ def test_n5_eval_errors_block_target_verdict():
     bad = {"scores": {}, "error": "LimitExceededException"}
     s = evaluate.summarize([ok] + [dict(bad) for _ in range(9)], 0.7)
     assert s["eval_errors"] == 9 and s["meets_target"] is False
+
+
+def test_online_config_delete_waits_for_updating_state(monkeypatch, tmp_path):
+    """Live EC2 run: DeleteOnlineEvaluationConfig right after disabling fails with ConflictException (UPDATING)."""
+    from labkit import aws, cleanup, config as labcfg
+    monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "none.env")
+    monkeypatch.setenv("LAB_SUFFIX", "zhang3")
+    monkeypatch.setattr(cleanup.time, "sleep", lambda s: None)
+
+    class Conflict(Exception):
+        pass
+
+    class Ctl:
+        class exceptions:
+            ConflictException = Conflict
+            ResourceNotFoundException = KeyError
+        def __init__(self):
+            self.status = "ACTIVE"; self.deleted = False; self.polls = 0
+        def list_online_evaluation_configs(self, **kw):
+            return {"onlineEvaluationConfigs": [] if self.deleted else [
+                {"onlineEvaluationConfigName": "s12lab_zhang3_online_b", "onlineEvaluationConfigId": "s12lab_zhang3_online_b-X",
+                 "executionStatus": "ENABLED", "status": self.status}]}
+        def update_online_evaluation_config(self, **kw):
+            self.status = "UPDATING"
+        def get_online_evaluation_config(self, **kw):
+            self.polls += 1
+            if self.polls >= 2:
+                self.status = "ACTIVE"
+            return {"status": self.status, "executionStatus": "DISABLED"}
+        def delete_online_evaluation_config(self, **kw):
+            if self.status == "UPDATING":
+                raise Conflict("Online evaluation configuration cannot be deleted when in state: UPDATING")
+            self.deleted = True
+    ctl = Ctl()
+    monkeypatch.setattr(aws, "client", lambda name: ctl)
+    cl = cleanup.Cleaner(False, False)
+    cl.delete_online_configs()
+    assert ctl.deleted

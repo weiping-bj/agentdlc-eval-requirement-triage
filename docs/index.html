@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>导读与路线选择 · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="index">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+
+<section class="card chapter-head">
+  <h1><span class="num">0</span>导读与路线选择 <span class="applies common">A/B 通用</span></h1>
+  <p class="lead">场景 12「需求价值打分」：平台每月收到大量需求反馈，希望 AI 先理解平台已有能力，再对每条需求给出<b>是否重要、是否紧急、处理建议（迭代 / 拒绝 / 待评估）</b>，对不合理或无法实现的需求给出<b>专业的拒绝理由和对客户的沟通话术</b>。目标：三项判断准确率都达到 <b>70%</b>。</p>
+</section>
+
+<section class="card">
+  <div class="step" id="s-0-1">
+    <div class="step-head"><span class="num">0.1</span><h3>今天下午要完成的 4 件事</h3><span class="time">14:00–17:00</span></div>
+    <p class="why">先看全貌：我们用“评估驱动”的方式迭代 Agent——先定标准答案，再打分，再按分数改进，再证明改进有效。</p>
+    <div class="flow">
+      <div class="f"><span class="n">1</span><b>准备 Agent + 遥测</b><span>A：自有 Agent 埋点/导日志<br>B：mock agent 上 Runtime</span></div>
+      <div class="f"><span class="n">2</span><b>确定黄金集</b><span>上午讨论的结论 → 30 条标准答案</span></div>
+      <div class="f"><span class="n">3</span><b>评估 V0</b><span>AgentCore Evaluations + 两个自定义评估器</span></div>
+      <div class="f"><span class="n">4</span><b>优化 → V1 → 再评估</b><span>对比页 + 控制台展示提升</span></div>
+      <div class="f hl"><span class="n">★</span><b>17:00 Demo</b><span>3 分钟讲清前后差异</span></div>
+    </div>
+  </div>
+
+  <div class="step" id="s-0-2">
+    <div class="step-head"><span class="num">0.2</span><h3>选择路线：A 版还是 B 版</h3><span class="time">2 分钟</span></div>
+    <p class="why">两条路线只在“Agent 从哪来、数据怎么进 CloudWatch”上不同，评估和优化完全相同。拿不准就选 B 版。</p>
+    <table>
+      <tr><th style="width:16%"></th><th>A 版：接入自有 Agent</th><th>B 版：mock agent 上 AgentCore Runtime（推荐）</th></tr>
+      <tr><td>适合</td><td>团队能在 1 小时内给自己的 Agent 加几行埋点，或能导出 Agent 调用日志</td><td>自有 Agent 改造难度大、日志缺字段，或想完整体验 AgentCore</td></tr>
+      <tr><td>Agent 在哪里跑</td><td>客户自己的环境（彩排时：讲师笔记本上的 mock agent）</td><td>AgentCore Runtime（托管）</td></tr>
+      <tr><td>数据怎么进 CloudWatch</td><td>OTel + ADOT 埋点，或已有日志 → 转换脚本 → CloudWatch</td><td>Runtime 自动发送，无需改代码</td></tr>
+      <tr><td>要做的章节</td><td><span class="pill p">1</span><span class="pill p">2</span><span class="pill p">A3</span><span class="pill p">A4</span><span class="pill p">A5</span><span class="pill p">6–10</span></td><td><span class="pill o">1</span><span class="pill o">2</span><span class="pill o">B3</span><span class="pill o">B4</span><span class="pill o">B5(可选)</span><span class="pill o">6–10</span></td></tr>
+      <tr><td>风险兜底</td><td>A5 检查不通过且差距大 → 直接切到 B 版，前面的数据和黄金集照用</td><td>—</td></tr>
+    </table>
+    <div class="tip">在页面右上角选择“我的路线”，手册会自动淡化另一条路线的内容。</div>
+  </div>
+
+  <div class="step" id="s-0-3">
+    <div class="step-head"><span class="num">0.3</span><h3>时间安排</h3><span class="time"></span></div>
+    <p class="why">按这个节奏推进，16:40 前完成对比，留 20 分钟准备 Demo。</p>
+    <table>
+      <tr><th>时间</th><th>A 版</th><th>B 版</th></tr>
+      <tr><td>14:00–14:25</td><td colspan="2">第 1 章 准备 EC2 环境（一组人可以共用讲师演示，每人仍建自己的 EC2）</td></tr>
+      <tr><td>14:25–14:55</td><td colspan="2">第 2 章 黄金集：把上午讨论结论落到模板，重新生成 / 校验黄金集</td></tr>
+      <tr><td>14:55–15:35</td><td>A3 埋点 / A4 导日志 → A5 检查</td><td>B3 部署 Runtime → B4 跑黄金集</td></tr>
+      <tr><td>15:35–16:05</td><td colspan="2">第 6–7 章 注册评估器、评估 V0、找失败用例</td></tr>
+      <tr><td>16:05–16:40</td><td colspan="2">第 8–9 章 优化到 V1、再评估、生成对比页</td></tr>
+      <tr><td>16:40–17:00</td><td colspan="2">准备 Demo；第 10 章清理（可在 Demo 后做）</td></tr>
+    </table>
+  </div>
+
+  <div class="step" id="s-0-4">
+    <div class="step-head"><span class="num">0.4</span><h3>整体架构</h3><span class="time"></span></div>
+    <p class="why">所有命令都在实验 EC2 上执行；Agent 的 trace 进入 CloudWatch，AgentCore Evaluations 从 CloudWatch 读取并打分。</p>
+    <div class="figure">
+      <svg viewBox="0 0 960 330" width="960" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="13">
+        <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5b6b7d"/></marker></defs>
+        <rect x="10" y="20" width="250" height="290" rx="10" fill="#f6f8fb" stroke="#9fb0c5" stroke-dasharray="5 4"/>
+        <text x="24" y="42" font-weight="700" fill="#1f3350">实验 EC2（SSM 登录，无入站端口）</text>
+        <rect x="26" y="56" width="218" height="46" rx="6" fill="#fff" stroke="#c9d4e3"/><text x="36" y="76">编号脚本 00–99 · 00-config.sh</text><text x="36" y="94" fill="#6b7785" font-size="11">一处配置：区域 / 模型 / 资源名</text>
+        <rect x="26" y="110" width="218" height="46" rx="6" fill="#fff" stroke="#c9d4e3"/><text x="36" y="130">数据 · 黄金集 · 模板</text><text x="36" y="148" fill="#6b7785" font-size="11">60 条需求反馈 · 30 条黄金集</text>
+        <rect x="26" y="164" width="218" height="46" rx="6" fill="#fff" stroke="#c9d4e3"/><text x="36" y="184">Coding Agent（Claude Code）</text><text x="36" y="202" fill="#6b7785" font-size="11">改数据 / 改黄金集 / 改提示词</text>
+        <rect x="26" y="218" width="218" height="80" rx="6" fill="#f0ebfd" stroke="#d2c6f5"/><text x="36" y="238" fill="#7b5bd6" font-weight="700">A 版：自有 Agent（本地跑）</text><text x="36" y="256" font-size="12">OTel + ADOT 埋点</text><text x="36" y="274" font-size="12">或 已有日志 → 转换脚本</text><text x="36" y="292" fill="#6b7785" font-size="11">彩排：讲师笔记本上的 mock agent</text>
+        <rect x="320" y="40" width="250" height="110" rx="10" fill="#fdf1e3" stroke="#f0cc9f"/>
+        <text x="334" y="62" font-weight="700" fill="#d9822b">B 版：AgentCore Runtime</text>
+        <text x="334" y="84">mock agent（Strands）V0 → V1</text><text x="334" y="104" font-size="12">工具：平台能力目录 · 相似需求</text><text x="334" y="124" font-size="12" fill="#6b7785">模型：Claude Sonnet 5.5（可切 Nova）</text>
+        <rect x="320" y="190" width="250" height="110" rx="10" fill="#e8f0fd" stroke="#b8cdf5"/>
+        <text x="334" y="212" font-weight="700" fill="#2f6fdc">Amazon CloudWatch</text>
+        <text x="334" y="234">aws/spans（Transaction Search）</text><text x="334" y="254">Agent 日志组（模型输入/输出事件）</text><text x="334" y="274" font-size="12" fill="#6b7785">GenAI Observability 控制台</text>
+        <rect x="640" y="40" width="300" height="160" rx="10" fill="#e6f6ec" stroke="#a9dcbc"/>
+        <text x="654" y="62" font-weight="700" fill="#1f9d55">AgentCore Evaluations</text>
+        <text x="654" y="86">① 标签准确率（代码型，Lambda）</text><text x="672" y="104" font-size="12" fill="#6b7785">是否重要 / 是否紧急 / 处理建议 vs 黄金集</text>
+        <text x="654" y="128">② 拒绝理由与话术质量（LLM 评审）</text>
+        <text x="654" y="152">③ 内置评估器（如 Helpfulness）</text>
+        <text x="654" y="180" font-size="12" fill="#6b7785">离线：黄金集 · 在线：抽样真实流量</text>
+        <rect x="640" y="230" width="300" height="70" rx="10" fill="#fff" stroke="#c9d4e3"/>
+        <text x="654" y="252" font-weight="700">结果与对比</text><text x="654" y="272" font-size="12">results/*.json → 静态对比页 compare.html</text><text x="654" y="290" font-size="12" fill="#6b7785">+ CloudWatch / Evaluations 控制台</text>
+        <path d="M244 258 C290 258 290 245 318 245" stroke="#7b5bd6" stroke-width="1.6" fill="none" marker-end="url(#ar)"/>
+        <path d="M244 80 C290 80 290 95 318 95" stroke="#d9822b" stroke-width="1.6" fill="none" marker-end="url(#ar)"/><text x="262" y="72" font-size="11" fill="#d9822b">部署/调用</text>
+        <path d="M445 150 L445 188" stroke="#d9822b" stroke-width="1.6" fill="none" marker-end="url(#ar)"/><text x="452" y="174" font-size="11" fill="#d9822b">自动发送</text>
+        <path d="M570 230 C605 230 605 150 638 150" stroke="#2f6fdc" stroke-width="1.6" fill="none" marker-end="url(#ar)"/><text x="580" y="206" font-size="11" fill="#2f6fdc">读取 span</text>
+        <path d="M790 200 L790 228" stroke="#1f9d55" stroke-width="1.6" fill="none" marker-end="url(#ar)"/>
+      </svg>
+      <div class="cap">图 0-1 整体架构：A 版（紫）与 B 版（橙）只在 Agent 运行位置和数据进入 CloudWatch 的方式上不同，评估链路（绿）完全相同。</div>
+    </div>
+  </div>
+
+  <div class="step" id="s-0-5">
+    <div class="step-head"><span class="num">0.5</span><h3>Agent 的输入与输出</h3><span class="time"></span></div>
+    <p class="why">一条需求反馈进来，Agent 输出一个固定结构的判断结果；评估器就按这个结构打分。</p>
+    <table>
+      <tr><th>字段</th><th>取值</th><th>说明</th></tr>
+      <tr><td><code>important</code> 是否重要</td><td><span class="pill b">是</span><span class="pill b">否</span></td><td>影响面、客户价值、是否通用</td></tr>
+      <tr><td><code>urgent</code> 是否紧急</td><td><span class="pill b">是</span><span class="pill b">否</span></td><td>是否阻断业务、有无替代方案、是否有时间节点</td></tr>
+      <tr><td><code>decision</code> 处理建议</td><td><span class="pill g">迭代</span><span class="pill r">拒绝</span><span class="pill o">待评估</span></td><td>拒绝时必须给出拒绝理由和对客户的话术</td></tr>
+      <tr><td><code>level</code> 优先级（可选）</td><td><span class="pill p">P0</span><span class="pill p">P1</span><span class="pill p">P2</span></td><td>预留字段：现场如果决定用分级代替“是/否”，直接启用（见 <a href="discussion.html#s-d-3">讨论 D.3</a>）</td></tr>
+      <tr><td><code>reasoning</code> / <code>reject_reason</code> / <code>customer_reply</code></td><td>文本</td><td>判断依据 / 专业拒绝理由 / 对客户的沟通话术</td></tr>
+    </table>
+    <div class="pending">完整输出格式见输出结构定义文件（M2 补链接到 agent 代码中的 schema）</div>
+  </div>
+
+  <div class="step" id="s-0-6">
+    <div class="step-head"><span class="num">0.6</span><h3>仓库文件地图</h3><span class="time"></span></div>
+    <p class="why">知道每类文件在哪里；手册里所有文件引用都可以直接点击打开。</p>
+    <p>仓库地址：<code data-repo-url></code></p>
+    <div class="pending">文件地图表格（M2 按最终目录结构填写，全部为可点击链接）</div>
+  </div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

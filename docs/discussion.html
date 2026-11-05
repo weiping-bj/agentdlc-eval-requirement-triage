@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>11:00 分组讨论材料 · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="discussion">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+
+<section class="card chapter-head">
+  <h1><span class="num">讨</span>11:00 分组讨论：用五维拆解“需求价值打分” <span class="applies common">A/B 通用</span></h1>
+  <p class="lead">40 分钟（10 分钟讲解 · 20 分钟讨论 · 10 分钟分享）。目标不是讨论理论，而是<b>定下下午黄金集的口径</b>：什么样的需求算重要、算紧急、该迭代 / 拒绝 / 待评估，以及拒绝时怎么说。</p>
+</section>
+
+<section class="card">
+  <div class="step" id="s-d-1">
+    <div class="step-head"><span class="num">D.1</span><h3>讨论要产出什么</h3><span class="time">讲解 2 分钟</span></div>
+    <p class="why">带着 4 个明确产出进讨论，结束时直接填进模板，下午用脚本 + coding agent 重新生成黄金集。</p>
+    <table>
+      <tr><th>#</th><th>产出</th><th>填到哪里</th></tr>
+      <tr><td>1</td><td>三项标签的判断口径（含“是/否”还是“P0/P1/P2”的选择）</td><td><a data-repo="templates/discussion-feedback.md">templates/discussion-feedback.md</a> 第 1 节</td></tr>
+      <tr><td>2</td><td>对样例黄金集的修改意见（哪些标错、缺哪类需求）</td><td><a data-repo="templates/golden-set-feedback.csv">templates/golden-set-feedback.csv</a></td></tr>
+      <tr><td>3</td><td>平台能力目录的补充（哪些能力已有、哪些明确不做）</td><td><a data-repo="templates/discussion-feedback.md">templates/discussion-feedback.md</a> 第 3 节</td></tr>
+      <tr><td>4</td><td>五维鱼骨图要点（认知 / 质量 / 责任 / 成本 / 性能）</td><td><a data-repo="templates/discussion-feedback.md">templates/discussion-feedback.md</a> 第 4 节</td></tr>
+    </table>
+  </div>
+
+  <div class="step" id="s-d-2">
+    <div class="step-head"><span class="num">D.2</span><h3>五维讨论提纲</h3><span class="time">讨论 15 分钟</span></div>
+    <p class="why">每一维对应黄金集里的一类“考点”。每维挑 1–2 个问题讨论即可，不求全。</p>
+    <table>
+      <tr><th style="width:9%">维度</th><th style="width:43%">讨论问题（场景 12）</th><th>落到黄金集 / 评估上的样子</th></tr>
+      <tr><td><span class="pill b">认知</span></td><td>Agent 要“懂平台”：哪些能力已经有（只是客户不会用）？哪些明确不做（超出平台定位）？什么叫“通用需求”——几个客户提过才算？</td><td>黄金集里放“已有能力被重复提出”“超出定位”“单客户定制”三类样例；能力目录是 Agent 的知识来源</td></tr>
+      <tr><td><span class="pill g">质量</span></td><td>三项判断谁说了算——产品还是研发？两边意见不一致时以谁为准？拒绝理由要专业到什么程度、话术要不要能直接发给客户？</td><td>标签准确率评估器（对应 70% 目标）；拒绝话术 LLM 评审评估器（专业性 / 说服力 / 是否给替代方案）</td></tr>
+      <tr><td><span class="pill r">责任</span></td><td>哪些需求<b>不能</b>让 AI 自动拒绝（安全合规、数据丢失、战略大客户、合同承诺）？自动拒绝后谁复核、客户不服怎么办？</td><td>“不可自动拒绝”样例必须判为“待评估”或“迭代”；评估中误拒比漏拒更严重</td></tr>
+      <tr><td><span class="pill o">成本</span></td><td>研发难度怎么估（人天？复杂度档位？）每条需求愿意花多少钱/时间做判断？误拒一条好需求的代价有多大？</td><td>样例里带“预估难度”；评估报告给出每条 token 与耗时</td></tr>
+      <tr><td><span class="pill p">性能</span></td><td>是每月批量跑一次，还是需求一进来就实时判断？上个月大概多少条需求？多久要出结果？</td><td>批量脚本 + 延迟统计；在线评估（B5）对应“实时”模式</td></tr>
+    </table>
+  </div>
+
+  <div class="step" id="s-d-3">
+    <div class="step-head"><span class="num">D.3</span><h3>必须当场决定：标签用“是/否”还是“P0/P1/P2”</h3><span class="time">讨论 3 分钟</span></div>
+    <p class="why">这决定黄金集怎么标、评估器怎么算准确率。我们默认用“是/否”，输出结构里已预留分级字段，现场选哪种都能当天跑通。</p>
+    <table>
+      <tr><th>方案</th><th>好处</th><th>代价</th><th>下午要改什么</th></tr>
+      <tr><td><b>A. 二元（默认）</b><br>是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估</td><td>和“三项指标 70%”目标一一对应；标注快，产品研发容易对齐</td><td>粒度粗，“重要”内部无法排序</td><td>不用改</td></tr>
+      <tr><td><b>B. 分级</b><br>优先级 P0/P1/P2 + 处理建议</td><td>直接可用于排期；分布图更有信息量</td><td>标注分歧更大；70% 目标需要重新定义（例如“等级完全一致”或“相差不超过一级”）</td><td>黄金集填 <code>level</code> 字段；评估器开启分级打分（一项配置）</td></tr>
+    </table>
+    <div class="note">记录方式：在 <a data-repo="templates/discussion-feedback.md">讨论反馈模板</a> 第 1 节勾选 A 或 B，并写下每一档的判断标准（一句话即可）。</div>
+  </div>
+
+  <div class="step" id="s-d-4">
+    <div class="step-head"><span class="num">D.4</span><h3>黄金集样例（拿来讨论“标得对不对”）</h3><span class="time">讨论 5 分钟</span></div>
+    <p class="why">先看几条具体样例再讨论口径，比空谈标准快得多。全部为合成数据。</p>
+    <table>
+      <tr><th style="width:8%">编号</th><th style="width:36%">需求反馈（摘要）</th><th style="width:20%">期望标签</th><th>考点 / 拒绝要点</th></tr>
+      <tr><td>G01</td><td>列表页希望能批量修改自定义字段，现在只能一条条改，销售运营每周要改几百条</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 否</span><span class="pill g">迭代</span></td><td><span class="pill b">认知</span>能力目录里“批量编辑”只支持标准字段 → 真实缺口、多客户提过 → 通用</td></tr>
+      <tr><td>G02</td><td>希望把我们自己的 ERP 订单页原样嵌进 CRM 首页，并按我们的审批流改首页布局</td><td><span class="pill b">重要 否</span><span class="pill b">紧急 否</span><span class="pill r">拒绝</span></td><td><span class="pill b">认知</span>单客户定制；首页已支持自定义组件 + 开放接口 → 话术要给出替代做法</td></tr>
+      <tr><td>G03</td><td>移动端提交审批后偶发数据丢失，已影响月底结账</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 是</span><span class="pill g">迭代</span></td><td><span class="pill r">责任</span>数据丢失类<b>不可</b>拒绝、不可降级</td></tr>
+      <tr><td>G04</td><td>希望 CRM 内置一套完整的财务总账和凭证模块</td><td><span class="pill b">重要 否</span><span class="pill b">紧急 否</span><span class="pill r">拒绝</span></td><td><span class="pill b">认知</span>超出平台定位 → 推荐集成连接器对接财务系统</td></tr>
+      <tr><td>G05</td><td>字段级数据权限希望按“项目成员”动态计算，3 家大客户都在问</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 否</span><span class="pill o">待评估</span></td><td><span class="pill o">成本</span>价值高但涉及权限引擎改造，研发难度大 → 需技术评估，不能直接承诺</td></tr>
+    </table>
+    <div class="pending">M2：样例与仓库中的黄金集文件同步，并链接到完整 30 条</div>
+  </div>
+
+  <div class="step" id="s-d-5">
+    <div class="step-head"><span class="num">D.5</span><h3>反馈收集模板</h3><span class="time">记录 5 分钟</span></div>
+    <p class="why">讨论结论直接写进模板文件；下午的 coding agent 提示词会读取这些模板，重新生成数据和黄金集。</p>
+    <table>
+      <tr><th>模板</th><th>内容</th><th>谁来填</th></tr>
+      <tr><td><a data-repo="templates/discussion-feedback.md">discussion-feedback.md</a></td><td>标签口径（含 D.3 选择）、不可自动拒绝的规则、能力目录补充、五维要点</td><td>组长 / 记录员</td></tr>
+      <tr><td><a data-repo="templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条：保留 / 修改标签 / 删除 / 新增样例</td><td>产品 + 研发代表</td></tr>
+      <tr><td><a data-repo="templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>任意组员</td></tr>
+    </table>
+    <div class="pending">M2：模板文件落地后补“填写示例”截图</div>
+  </div>
+
+  <div class="step" id="s-d-6">
+    <div class="step-head"><span class="num">D.6</span><h3>10 分钟分享怎么讲</h3><span class="time">分享 3 分钟/组</span></div>
+    <p class="why">用一句话讲清每一维的结论，下午 Demo 时可以直接复用。</p>
+    <ol class="clicks">
+      <li>我们的标签口径是：……（是/否 或 P0/P1/P2）</li>
+      <li>AI 绝对不能自动拒绝的需求是：……</li>
+      <li>拒绝话术必须包含：理由 + 替代方案 + 后续路径</li>
+      <li>我们最担心的一维是：……，下午用哪个评估器盯住它</li>
+    </ol>
+    <p>讨论结束后：到 <a href="02-data.html#s-2-5">第 2.5 步</a> 用这些结论更新黄金集。</p>
+  </div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

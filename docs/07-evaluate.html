@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>运行评估、查看分数 · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="07-evaluate">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+<section class="card chapter-head">
+<h1><span class="num">7</span>运行评估、查看分数 <span class="applies common">A/B 通用</span></h1>
+<p class="lead">用 Evaluations 对 V0 的每个 session 打分，把结果和“三项指标 70%”目标对比，找出失败用例。</p>
+</section>
+<section class="card">
+<div class="step" id="s-7-1">
+  <div class="step-head"><span class="num">7.1</span><h3>对 V0 运行评估</h3><span class="time">8 分钟</span></div>
+  <p class="why">脚本从 CloudWatch 取每个 session 的 trace，交给 Evaluations 打分，结果保存到本地。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-7-2">
+  <div class="step-head"><span class="num">7.2</span><h3>读懂分数：三项准确率 vs 70% 目标</h3><span class="time">5 分钟</span></div>
+  <p class="why">看是否重要、是否紧急、处理建议三项各自的准确率是否达标。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-7-3">
+  <div class="step-head"><span class="num">7.3</span><h3>在控制台查看评估结果</h3><span class="time">5 分钟</span></div>
+  <p class="why">在 CloudWatch / Evaluations 控制台看到同样的分数和解释。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-7-4">
+  <div class="step-head"><span class="num">7.4</span><h3>找出失败用例并归因</h3><span class="time">5 分钟</span></div>
+  <p class="why">列出判错的需求，按五维（认知/质量/责任/成本/性能）归因。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

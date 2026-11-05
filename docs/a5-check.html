@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>遥测检查：能否被 Evaluations 使用 · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="a5-check">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+<section class="card chapter-head">
+<h1><span class="num">A5</span>遥测检查：能否被 Evaluations 使用 <span class="applies a">A 版</span></h1>
+<p class="lead">用检查脚本读取 CloudWatch 里的数据，判断是否满足 AgentCore Evaluations 的要求；差距大时直接切换到 B 版。</p>
+</section>
+<section class="card">
+<div class="step" id="s-a5-1">
+  <div class="step-head"><span class="num">A5.1</span><h3>运行遥测检查器</h3><span class="time">3 分钟</span></div>
+  <p class="why">脚本逐项检查 session、trace、模型输入输出、工具调用等是否齐全。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-a5-2">
+  <div class="step-head"><span class="num">A5.2</span><h3>读懂检查结果：通过 / 有缺口 / 差距大</h3><span class="time">3 分钟</span></div>
+  <p class="why">按结果决定：继续评估、补埋点，还是换 B 版。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-a5-3">
+  <div class="step-head"><span class="num">A5.3</span><h3>差距大时：切换到 B 版</h3><span class="time">1 分钟</span></div>
+  <p class="why">不在现场硬改客户 Agent，改用我们准备好的 mock agent 完成评估闭环。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

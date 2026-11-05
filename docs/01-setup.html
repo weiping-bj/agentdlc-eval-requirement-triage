@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>准备实验环境（EC2 + Coding Agent） · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="01-setup">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+<section class="card chapter-head">
+<h1><span class="num">1</span>准备实验环境（EC2 + Coding Agent） <span class="applies common">A/B 通用</span></h1>
+<p class="lead">在实验账号里开一台只能通过 SSM 登录的 EC2，所有命令都在这台 EC2 上执行；你的笔记本只用来看手册和 AWS 控制台。</p>
+</section>
+<section class="card">
+<div class="step" id="s-1-1">
+  <div class="step-head"><span class="num">1.1</span><h3>登录 AWS 控制台并确认区域</h3><span class="time">3 分钟</span></div>
+  <p class="why">确认你在讲师指定的区域（us-west-2 或 us-east-1），后面所有资源都建在这里。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-2">
+  <div class="step-head"><span class="num">1.2</span><h3>一键创建实验 EC2（CloudShell + CloudFormation）</h3><span class="time">5 分钟</span></div>
+  <p class="why">用仓库里的模板创建一台 Amazon Linux 2023 EC2：无入站端口、带 SSM 和实验所需权限。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-3">
+  <div class="step-head"><span class="num">1.3</span><h3>（备选）在控制台手动创建 EC2</h3><span class="time">10 分钟</span></div>
+  <p class="why">CloudShell 不可用时，按截图在控制台点选创建同样的 EC2。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-4">
+  <div class="step-head"><span class="num">1.4</span><h3>通过 Session Manager 登录 EC2</h3><span class="time">2 分钟</span></div>
+  <p class="why">在浏览器里打开 EC2 的命令行窗口，不需要密钥、不开端口。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-5">
+  <div class="step-head"><span class="num">1.5</span><h3>克隆仓库并运行环境安装脚本</h3><span class="time">5 分钟</span></div>
+  <p class="why">把实验代码拉到 EC2，并安装 Python、Node.js、Claude Code 等工具。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-6">
+  <div class="step-head"><span class="num">1.6</span><h3>设置个人后缀并检查配置</h3><span class="time">1 分钟</span></div>
+  <p class="why">同一个账号里有多人做实验，用个人后缀区分各自的资源。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-7">
+  <div class="step-head"><span class="num">1.7</span><h3>检查 Bedrock 模型可用</h3><span class="time">2 分钟</span></div>
+  <p class="why">确认 Agent 和评审用的模型能调通；不通时一行命令切换到 Amazon Nova。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-8">
+  <div class="step-head"><span class="num">1.8</span><h3>开启 CloudWatch Transaction Search（每个账号一次）</h3><span class="time">2 分钟</span></div>
+  <p class="why">让 trace 数据写进 CloudWatch，评估服务才能读到。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-1-9">
+  <div class="step-head"><span class="num">1.9</span><h3>启动 Coding Agent（Claude Code，走 Bedrock）</h3><span class="time">2 分钟</span></div>
+  <p class="why">后面改数据、改提示词时，用 coding agent 帮你完成。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

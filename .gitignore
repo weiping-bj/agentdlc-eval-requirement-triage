@@ -1,0 +1,30 @@
+# Python / Node / tooling
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+node_modules/
+*.egg-info/
+# Lab runtime state and outputs (machine-local, may contain account ids)
+.lab-suffix
+.lab-state/
+build/
+dist/
+results/
+reports/
+logs/
+*.log
+*.zip
+outputs/
+.env
+.env.*
+# Generated compare pages (regenerate with 32-compare.sh)
+docs/compare/*.html
+!docs/compare/sample-compare.html
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

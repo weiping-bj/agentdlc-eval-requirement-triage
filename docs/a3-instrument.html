@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>埋点：OTel + ADOT → CloudWatch · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="a3-instrument">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+<section class="card chapter-head">
+<h1><span class="num">A3</span>埋点：OTel + ADOT → CloudWatch <span class="applies a">A 版</span></h1>
+<p class="lead">客户的 Agent 不在 AgentCore Runtime 上，需要自己加埋点，把 trace 发到 CloudWatch。这里用 mock agent 扮演“客户已有 Agent”演示同样的步骤。</p>
+</section>
+<section class="card">
+<div class="step" id="s-a3-1">
+  <div class="step-head"><span class="num">A3.1</span><h3>先不带遥测跑一次 Agent</h3><span class="time">3 分钟</span></div>
+  <p class="why">确认 Agent 本身能正常工作，排除和埋点无关的问题。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-a3-2">
+  <div class="step-head"><span class="num">A3.2</span><h3>安装 ADOT（AWS OpenTelemetry 发行版）</h3><span class="time">2 分钟</span></div>
+  <p class="why">装上负责采集和发送 trace 的组件。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-a3-3">
+  <div class="step-head"><span class="num">A3.3</span><h3>配置 OTel 环境变量（发往 CloudWatch）</h3><span class="time">3 分钟</span></div>
+  <p class="why">告诉 ADOT 把数据发到哪个区域、哪个日志组、服务叫什么名字。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-a3-4">
+  <div class="step-head"><span class="num">A3.4</span><h3>给每次请求带上 session.id（自有 Agent 需要改几行代码）</h3><span class="time">5 分钟</span></div>
+  <p class="why">评估服务按 session 找数据，没有 session.id 就找不到。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-a3-5">
+  <div class="step-head"><span class="num">A3.5</span><h3>带遥测运行黄金集（V0）</h3><span class="time">8 分钟</span></div>
+  <p class="why">让 Agent 处理黄金集里的需求，trace 自动进入 CloudWatch。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-a3-6">
+  <div class="step-head"><span class="num">A3.6</span><h3>在 CloudWatch GenAI Observability 中查看 trace</h3><span class="time">3 分钟</span></div>
+  <p class="why">在控制台确认数据已经到达。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

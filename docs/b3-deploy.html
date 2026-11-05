@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>部署 V0 到 AgentCore Runtime · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="b3-deploy">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+<section class="card chapter-head">
+<h1><span class="num">B3</span>部署 V0 到 AgentCore Runtime <span class="applies b">B 版</span></h1>
+<p class="lead">把我们准备好的 mock agent（V0，故意留有缺陷）部署到 AgentCore Runtime，Runtime 会自动把 trace 发到 CloudWatch。</p>
+</section>
+<section class="card">
+<div class="step" id="s-b3-1">
+  <div class="step-head"><span class="num">B3.1</span><h3>认识 mock agent（V0）</h3><span class="time">3 分钟</span></div>
+  <p class="why">了解 Agent 的输入、输出和两个工具，知道 V0 故意留了哪些缺陷。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-b3-2">
+  <div class="step-head"><span class="num">B3.2</span><h3>在 EC2 上本地冒烟测试</h3><span class="time">3 分钟</span></div>
+  <p class="why">部署前先在本机跑一条，确认代码和模型都正常。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-b3-3">
+  <div class="step-head"><span class="num">B3.3</span><h3>打包代码并上传到 S3</h3><span class="time">3 分钟</span></div>
+  <p class="why">Runtime 支持直接部署代码包，不需要 Docker。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-b3-4">
+  <div class="step-head"><span class="num">B3.4</span><h3>创建执行角色和 AgentCore Runtime</h3><span class="time">5 分钟</span></div>
+  <p class="why">脚本创建 Runtime 需要的 IAM 角色和 Runtime 本身，并等待就绪。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-b3-5">
+  <div class="step-head"><span class="num">B3.5</span><h3>调用一次 Runtime 确认可用</h3><span class="time">2 分钟</span></div>
+  <p class="why">发一条需求反馈给 Runtime，看到结构化的判断结果。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

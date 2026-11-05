@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>注册评估器 · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="06-evaluators">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+<section class="card chapter-head">
+<h1><span class="num">6</span>注册评估器 <span class="applies common">A/B 通用</span></h1>
+<p class="lead">评估器是“打分规则”。我们事先写好并测试过两个自定义评估器，再加上内置评估器，一起注册到 AgentCore Evaluations。</p>
+</section>
+<section class="card">
+<div class="step" id="s-6-1">
+  <div class="step-head"><span class="num">6.1</span><h3>认识评估器：标签准确率 / 拒绝话术质量 / 内置评估器</h3><span class="time">5 分钟</span></div>
+  <p class="why">标签准确率直接对应“三项指标 70%”目标；话术质量用 LLM 评审。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-6-2">
+  <div class="step-head"><span class="num">6.2</span><h3>本地运行评估器单元测试</h3><span class="time">2 分钟</span></div>
+  <p class="why">确认评估器代码在你的环境里工作正常。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-6-3">
+  <div class="step-head"><span class="num">6.3</span><h3>部署 Lambda 并注册代码型评估器（标签准确率）</h3><span class="time">5 分钟</span></div>
+  <p class="why">把打分代码部署成 Lambda，并登记到 Evaluations。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-6-4">
+  <div class="step-head"><span class="num">6.4</span><h3>注册 LLM 评审评估器（拒绝理由与话术质量）</h3><span class="time">2 分钟</span></div>
+  <p class="why">把评审提示词和打分档位登记到 Evaluations。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+<div class="step" id="s-6-5">
+  <div class="step-head"><span class="num">6.5</span><h3>确认评估器已注册</h3><span class="time">1 分钟</span></div>
+  <p class="why">列出评估器，看到你的两个自定义评估器。</p>
+  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+</div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

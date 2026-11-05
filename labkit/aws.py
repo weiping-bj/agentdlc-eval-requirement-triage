@@ -72,8 +72,16 @@ def wait_until(fn, desc: str, timeout: int = 600, interval: int = 10):
 def ensure_role(name: str, trust: dict, inline: dict, description: str = "") -> str:
     """Create (or update) an IAM role with one inline policy; return its ARN."""
     iam = client("iam")
+    on_lab_ec2 = "assumed-role/s12lab-ec2-" in caller_arn()
+    if on_lab_ec2 and not boundary_arn():
+        raise SystemExit(f"❌ 找不到实验权限边界 {cfg()['BOUNDARY_POLICY_NAME']}（由 EC2 堆栈创建）。"
+                         f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致（当前 {cfg()['AWS_REGION']}）。")
     try:
-        arn = iam.get_role(RoleName=name)["Role"]["Arn"]
+        role = iam.get_role(RoleName=name)["Role"]
+        if on_lab_ec2 and not role.get("PermissionsBoundary"):
+            raise SystemExit(f"❌ 角色 {name} 是在没有权限边界时创建的，实验 EC2 不能再修改它。"
+                             f"请先运行 ./99-cleanup.sh 删除旧资源，再重新运行本脚本。")
+        arn = role["Arn"]
         iam.update_assume_role_policy(RoleName=name, PolicyDocument=json.dumps(trust))
         created = False
     except iam.exceptions.NoSuchEntityException:
@@ -88,6 +96,11 @@ def ensure_role(name: str, trust: dict, inline: dict, description: str = "") -> 
     if created:
         time.sleep(12)  # IAM propagation before the role is assumable by a service
     return arn
+
+
+@functools.lru_cache(maxsize=1)
+def caller_arn() -> str:
+    return client("sts").get_caller_identity()["Arn"]
 
 
 @functools.lru_cache(maxsize=1)

@@ -94,14 +94,14 @@
 <pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
 📡 OTel 已配置：service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs · 区域 us-west-2
 ▶ 转换并发送 5 条日志 → service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
-  ✔ s12lab-zhang3-imp-cust-sess-0001-6d968605c85f  FB-2610-001
-  ✔ s12lab-zhang3-imp-cust-sess-0002-3d9428ffb843  FB-2610-002
-  ✔ s12lab-zhang3-imp-cust-sess-0003-75b320f2afc3  FB-2610-003
-  ✔ s12lab-zhang3-imp-cust-sess-0004-18befc970f97  FB-2610-005
-  ✔ s12lab-zhang3-imp-cust-sess-0005-abbcdc7f76cd  FB-2610-007
+  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0001  FB-2610-001
+  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0002  FB-2610-002
+  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0003  FB-2610-003
+  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0004  FB-2610-005
+  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0005  FB-2610-007
 ✅ 已发送 5 个 session（run_id = A-imported-20261105T144741Z）。约 2-3 分钟后可在 CloudWatch 查到。
    下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre>
-  <p>日志里的 <code>session_id</code> 太短时（少于 33 个字符），脚本会自动加上前缀和后缀，所以 session 名形如 <code>s12lab-zhang3-imp-cust-sess-0001-…</code>。中间若出现 OpenTelemetry 的 <code>WARNING</code> 行，可以忽略。</p></div>
+  <p>每次发送，脚本都会把日志里的 <code>session_id</code> 改写为 <code>s12lab-&lt;后缀&gt;-imp-&lt;发送时间&gt;-&lt;原 id&gt;</code>：同一个文件重复发送也不会和上一次混在一起，在 CloudWatch 里按这个前缀就能找到。</p></div>
 </div>
 
 <div class="step" id="s-a4-5">

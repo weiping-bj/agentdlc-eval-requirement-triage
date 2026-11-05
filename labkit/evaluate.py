@@ -106,14 +106,16 @@ def summarize(sessions: list, target: float) -> dict:
                 and s["scores"][name].get("label") not in skip_labels]
         return (sum(vals) / len(vals), len(vals)) if vals else (None, 0)
     summ = {"sessions": len(sessions), "agent_errors": sum(1 for s in sessions if s.get("agent_error")),
-            "target": target, "metrics": {}}
+            "eval_errors": sum(1 for s in sessions if s.get("error")), "target": target, "metrics": {}}
     names = sorted({n for s in sessions for n in s["scores"]})
     for n in names:
         m, k = mean(n)
         summ["metrics"][n] = {"mean": m, "n": k}
     summ["three_labels"] = {CN[v]: summ["metrics"].get(k, {}).get("mean") for k, v in LABEL_KEYS.items()}
     vals = [v for v in summ["three_labels"].values() if v is not None]
-    summ["meets_target"] = bool(vals) and len(vals) == 3 and all(v >= target for v in vals)
+    # an incomplete evaluation can never "meet the target": failed sessions are missing from the means
+    summ["meets_target"] = (bool(vals) and len(vals) == 3 and all(v >= target for v in vals)
+                            and summ["eval_errors"] == 0)
     return summ
 
 
@@ -171,7 +173,9 @@ def main(argv=None) -> int:
         m = summ["metrics"].get(n)
         if m and m["mean"] is not None:
             print(f"  {n}: 平均 {m['mean']:.2f}（{m['n']} 条）")
-    print(f"  {'✅ 达标' if summ['meets_target'] else '❌ 未达标'} · 详细结果：{out.relative_to(c['LAB_ROOT'])}")
+    if summ["eval_errors"]:
+        print(f"  ⚠️  {summ['eval_errors']} 个 session 评估失败（见上方错误），结论不完整：稍后运行 ./31-run-eval.sh --run {run['run_id']} 重试")
+    print(f"  {'✅ 达标' if summ['meets_target'] else '❌ 未达标或不完整'} · 详细结果：{out.relative_to(c['LAB_ROOT'])}")
     return 0
 
 

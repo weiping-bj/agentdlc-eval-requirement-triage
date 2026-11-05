@@ -67,7 +67,7 @@
 ✅ 评估器就绪：
    s12lab_zhang3_label_accuracy             s12lab_zhang3_label_accuracy-OTw0VCDAnG
    …
-   下一步：./33-online-eval.sh   （开启在线评估，让分数显示在 CloudWatch 控制台）</pre>
+   下一步：./33-online-eval.sh enable --path b   （A 版用 --path a；开启在线评估，让分数显示在 CloudWatch 控制台）</pre>
   <p>评估器 ID 末尾的 10 位随机字符每个人不同。实测全程约 1 分钟。</p></div>
   <div class="note"><b>关于“锁定”：</b>评估器一旦挂到在线评估配置上，就会被<b>永久锁定、不能再修改</b>（即使停用或删除在线评估配置也不会解锁，但可以删除）。<code>./30-create-evaluators.sh</code> 会自动处理：没有变化的评估器保持不动；有变化且被锁定的，脚本会先临时删除你的在线评估配置，再删除并重建这些评估器，最后重新创建在线评估配置。重跑时看到下面这类输出属于正常：
 <pre class="out">  ✔ 评估器无变化 s12lab_zhang3_label_accuracy

@@ -92,8 +92,11 @@ class Cleaner:
         iam = aws.client("iam")
         out = []
         for page in iam.get_paginator("list_roles").paginate():
+            # IAM is global; lab role names carry the region. Also catch roles from before the
+            # region suffix existed (legacy names) so nothing is left behind.
+            legacy = ("-runtime-role", "-eval-lambda-role", "-online-eval-role")
             out += [r["RoleName"] for r in page["Roles"] if r["RoleName"].startswith(self.dash)
-                    and r["RoleName"].endswith(f"-{self.c['AWS_REGION']}")]  # IAM is global; lab role names carry the region
+                    and (r["RoleName"].endswith(f"-{self.c['AWS_REGION']}") or r["RoleName"].endswith(legacy))]
         return out
 
     def log_groups(self, runtime_ids=()):
@@ -209,14 +212,16 @@ class Cleaner:
         if account_level:
             from . import observability
             st = aws.load_state("observability") or {}
-            if not st.get("enabled_by_lab") and not self.force_account:
-                print("  ⏭  跳过账号级还原：没有记录表明 Transaction Search 是本实验开启的"
-                      "（若确认是实验开启的，加 --force-account-level）")
+            same_region = st.get("region") in (None, self.c["AWS_REGION"])
+            if not (st.get("enabled_by_lab") and same_region) and not self.force_account:
+                print("  ⏭  跳过账号级还原：本机没有记录表明本区域的 Transaction Search 是本实验开启的"
+                      "（确认实验前账号未开启时，加 --force-account-level）")
                 account_level = False
+                self.account_level = False
         if account_level:
             from . import observability
             if not self.dry:
-                observability.disable()
+                self.act("还原 Transaction Search（trace 目的地改回 X-Ray）", observability.disable)
             for g in ("aws/spans", "/aws/application-signals/data"):
                 if self._exists_group(g):
                     self.act(f"删除日志组 {g}（账号级，Transaction Search 写入）", logs.delete_log_group, logGroupName=g)
@@ -234,6 +239,7 @@ class Cleaner:
             del shutil
 
     def verify(self) -> int:
+        self.list_errors = []  # only listing problems of this final check count
         print(f"\n▶ 残留检查（{self.c['AWS_REGION']}，前缀 {self.us}* / {self.dash}*）")
         checks = [
             ("在线评估配置", [x["onlineEvaluationConfigName"] for x in self.safe('在线评估配置', self.online_configs)]),
@@ -290,10 +296,11 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     if (a.account_level or a.service_linked_roles or a.force_account_level) and not a.all:
         print("❌ --account-level / --service-linked-roles 只用于讲师最终清理，必须和 --all 一起使用"); return 1
-    cl = Cleaner(a.all, a.dry_run, slr=a.service_linked_roles, account_level=a.account_level)
+    account_level = a.account_level or a.force_account_level  # --force-account-level implies it
+    cl = Cleaner(a.all, a.dry_run, slr=a.service_linked_roles, account_level=account_level)
     cl.force_account = a.force_account_level
     if not a.verify_only:
-        cl.run(a.account_level, a.stacks or a.all)
+        cl.run(account_level, a.stacks or a.all)
         if not a.dry_run:
             time.sleep(5)
     return cl.verify()

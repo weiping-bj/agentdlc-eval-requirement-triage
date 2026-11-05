@@ -1,6 +1,6 @@
 # ec2/ · 实验用 EC2
 
-> **只在专用的实验账号中使用。** 实例角色权限较宽（创建 `s12lab*` 的 IAM 角色——带权限边界、Lambda、AgentCore 资源，并可调整 Transaction Search 等账号级设置），不要部署到生产账号。手动创建路径（PowerUserAccess + 内联策略）没有权限边界，限制更少。
+> **只在专用的实验账号中使用。** 实例角色权限较宽（创建 `s12lab*` 的 IAM 角色——带权限边界、Lambda、AgentCore 资源，并可调整 Transaction Search 等账号级设置），不要部署到生产账号。**手动创建路径（PowerUserAccess + 内联策略）没有权限边界，EC2 上的人可以给自己提权到管理员——只在用完即弃的实验账号里用这条路径。**
 
 每位学员在实验账号里开一台自己的 EC2（Amazon Linux 2023），**只能通过 SSM Session Manager 登录**：不开任何入站端口、不用密钥对。所有实验命令都在这台 EC2 上执行。
 

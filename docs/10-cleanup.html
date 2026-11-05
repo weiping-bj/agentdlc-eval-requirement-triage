@@ -58,9 +58,9 @@
   ✅ S3 桶: 0
   ✅ IAM 角色: 0
   ✅ 日志组: 0
-  ❌ EC2 堆栈: 1 ['s12lab-ec2-zhang3']
-❌ 仍有 1 个资源（删除中的 Runtime/堆栈可稍后重查）</pre><!-- VERIFY --></div>
-  <div class="note">此时只剩 <b>EC2 堆栈 1 个</b>是正常的：你正在用这台 EC2，下一步才删除它。Runtime 删除需要 1–2 分钟，偶尔第一次检查还能看到它，稍后再查即可。</div>
+  ℹ️  EC2 堆栈 s12lab-ec2-zhang3 仍在（正常：最后在第 10.3 步删除）
+✅ 没有残留的实验资源</pre><!-- VERIFY: 按代码推导，待在实验 EC2 上实测 --></div>
+  <div class="note">EC2 堆栈还在是正常的：你正在用这台 EC2，下一步才删除它。Runtime 删除需要 1–2 分钟，偶尔第一次检查还能看到它，稍后再查即可。如果看到“有 N 类资源无法列出（权限不足）”，说明结论不完整，请把输出发给讲师。</div>
 </div>
 
 <div class="step" id="s-10-3">
@@ -76,10 +76,12 @@
 aws cloudformation wait stack-delete-complete --stack-name s12lab-ec2-zhang3 &amp;&amp; echo "✅ 已删除"</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">✅ 已删除</pre></div>
-  <div class="danger"><b>讲师专用（全组结束后）</b>：在讲师自己的电脑上（仓库已 clone、<code>config/local.env</code> 里设置了 <code>AWS_PROFILE</code>；不要在某台实验 EC2 上运行，它会把自己也删掉），删除本账号本区域<b>所有人</b>的 s12lab 资源（含所有 EC2 堆栈），并恢复账号级设置（关闭 Transaction Search、删除 <code>aws/spans</code> 日志组）：
+  <div class="danger"><b>讲师专用（全组结束后）</b>：在讲师自己的电脑上（仓库已 clone、<code>config/local.env</code> 里设置了 <code>AWS_PROFILE</code>；不要在某台实验 EC2 上运行，它会把自己也删掉），删除本账号本区域<b>所有人</b>的 s12lab 资源（含所有 EC2 堆栈）：
 <pre><code>./99-cleanup.sh --all --dry-run
-./99-cleanup.sh --all --account-level</code></pre>
-  <code>--account-level</code> 会影响整个账号的 trace 设置，只在确认所有人都结束后执行。</div>
+./99-cleanup.sh --all</code></pre>
+  如果<b>实验前这个账号没有开启 Transaction Search</b>（是第 1.8 步为实验开启的），再还原账号级设置（trace 目的地改回 X-Ray、删除 <code>aws/spans</code> 与 <code>/aws/application-signals/data</code> 日志组），并可删除实验中自动创建的服务关联角色：
+<pre><code>./99-cleanup.sh --all --force-account-level --service-linked-roles</code></pre>
+  这会影响整个账号的 trace 设置，只在确认所有人都结束、且账号原本没有使用 Transaction Search 时执行；不确定时不要加这些参数。</div>
 </div>
 
 </section>

@@ -314,12 +314,12 @@ Resources:
                   - logs:DescribeLogGroups
                   - logs:DescribeResourcePolicies
                   - logs:PutResourcePolicy
-                  - logs:StartQuery
                   - logs:StopQuery
                   - logs:GetQueryResults
                   - logs:DescribeQueries
-                  - logs:GetLogRecord
                 Resource: "*"
+              # logs:StartQuery is granted only on the lab log groups (LabLogGroups above), so the
+              # lab role cannot read other log groups in the account.
               - Sid: Observability
                 Effect: Allow
                 Action:

@@ -5,11 +5,13 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 source ./00-config.sh
+OTEL_BIN="$(dirname "${_S12_PY}")/opentelemetry-instrument"
+[ -x "$OTEL_BIN" ] || OTEL_BIN="opentelemetry-instrument"
 P="${1:-b}"
 if [ "$P" = "a" ]; then
   "${_S12_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
   source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"
-  "$(dirname "${_S12_PY}")/opentelemetry-instrument" "${_S12_PY}" -m labkit.batch --mode local --source feedback --workers 6
+  "$OTEL_BIN" "${_S12_PY}" -m labkit.batch --mode local --source feedback --workers 6
 else
   "${_S12_PY}" -m labkit.batch --mode runtime --source feedback --workers 6
 fi

@@ -12,12 +12,10 @@
         "iam:DeleteRolePolicy",
         "iam:GetRolePolicy",
         "iam:ListRolePolicies",
-        "iam:AttachRolePolicy",
         "iam:DetachRolePolicy",
         "iam:ListAttachedRolePolicies",
         "iam:TagRole",
-        "iam:UpdateAssumeRolePolicy",
-        "iam:PassRole"
+        "iam:UpdateAssumeRolePolicy"
       ],
       "Resource": "arn:aws:iam::*:role/s12lab*"
     },
@@ -42,6 +40,20 @@
         "iam:UpdateAssumeRolePolicy"
       ],
       "Resource": "arn:aws:iam::*:role/s12lab-ec2-*"
+    },
+    {
+      "Sid": "LabIamPassRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::*:role/s12lab*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "bedrock-agentcore.amazonaws.com",
+            "lambda.amazonaws.com"
+          ]
+        }
+      }
     }
   ]
 }

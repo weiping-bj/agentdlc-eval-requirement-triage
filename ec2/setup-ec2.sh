@@ -83,13 +83,15 @@ fi
 step 2 "读取区域和模型配置"
 IMDS_REGION="$(imds placement/region)"
 CFG_REGION="$(lab_env AWS_REGION)"
-REGION="${CFG_REGION:-${IMDS_REGION:-${AWS_REGION:-$(aws configure get region 2>/dev/null || true)}}}"
+# The EC2's own region wins: participants create the EC2 in the workshop region, and every lab
+# resource must land in that same region (config/lab.env is only the fallback off-EC2).
+REGION="${IMDS_REGION:-${CFG_REGION:-${AWS_REGION:-$(aws configure get region 2>/dev/null || true)}}}"
 if [ -z "$REGION" ]; then
   echo "无法确定 AWS 区域（config/lab.env 和实例元数据都没有）。" >&2
   exit 1
 fi
 if [ -n "$CFG_REGION" ] && [ -n "$IMDS_REGION" ] && [ "$CFG_REGION" != "$IMDS_REGION" ]; then
-  echo "    注意: config/lab.env 中 AWS_REGION=$CFG_REGION，但本机在 $IMDS_REGION。以 config/lab.env 为准。"
+  echo "    注意: config/lab.env 中 AWS_REGION=$CFG_REGION，但本机在 $IMDS_REGION。以本机所在区域 $IMDS_REGION 为准。"
 fi
 MODEL="$(lab_env CODING_AGENT_MODEL_ID)"; MODEL="${MODEL:-$DEFAULT_MODEL}"
 FAST_MODEL="$(lab_env CODING_AGENT_FAST_MODEL_ID)"; FAST_MODEL="${FAST_MODEL:-$DEFAULT_FAST_MODEL}"

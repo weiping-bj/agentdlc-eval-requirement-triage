@@ -55,8 +55,12 @@ def load(require_suffix: bool = True) -> dict:
     cfg.update(parse_env_file(BASE_FILE))
     cfg.update(parse_env_file(LOCAL_FILE))
     for k in KEYS:
-        if os.environ.get(k):
-            cfg[k] = os.environ[k]
+        v = os.environ.get(k)
+        # `source ./00-config.sh` exports every key plus a _S12_EXP_<key> snapshot. A value equal
+        # to its snapshot is just our own export, so config/local.env (e.g. 40-switch-version.sh,
+        # use-model.sh) still wins; only a value the user changed afterwards counts as an override.
+        if v and v != os.environ.get(f"_S12_EXP_{k}"):
+            cfg[k] = v
     suffix = cfg.get("LAB_SUFFIX", "")
     if require_suffix and not SUFFIX_RE.match(suffix or ""):
         raise ConfigError(
@@ -70,24 +74,27 @@ def load(require_suffix: bool = True) -> dict:
 def derive(cfg: dict) -> dict:
     p = cfg.get("LAB_PREFIX", "s12lab")
     s = cfg.get("LAB_SUFFIX", "") or "unset"
+    r = cfg.get("AWS_REGION", "us-west-2")
     dash, us = f"{p}-{s}", f"{p}_{s}"
     return {
         "LAB_NAME": dash,
         # AgentCore Runtime / evaluator names: [a-zA-Z][a-zA-Z0-9_]{0,47}
         "RUNTIME_NAME": f"{us}_agent",
-        "RUNTIME_ROLE_NAME": f"{dash}-runtime-role",
+        "RUNTIME_ROLE_NAME": f"{dash}-runtime-role-{r}",
         "EVAL_LAMBDA_NAME": f"{dash}-label-accuracy",
-        "EVAL_LAMBDA_ROLE_NAME": f"{dash}-eval-lambda-role",
+        "EVAL_LAMBDA_ROLE_NAME": f"{dash}-eval-lambda-role-{r}",
         "EVALUATOR_LABEL_NAME": f"{us}_label_accuracy",
         "EVALUATOR_JUDGE_NAME": f"{us}_reject_quality",
         "ONLINE_EVAL_NAME": f"{us}_online",
-        "ONLINE_EVAL_ROLE_NAME": f"{dash}-online-eval-role",
+        "ONLINE_EVAL_ROLE_NAME": f"{dash}-online-eval-role-{r}",
         # A path (agent not on Runtime): OTel service name + CloudWatch log group
         "LOCAL_SERVICE_NAME": f"{dash}-local-agent",
         "LOCAL_LOG_GROUP": f"/aws/bedrock-agentcore/{dash}-local-agent",
         "CONVERTED_SERVICE_NAME": f"{dash}-imported-logs",
         "CONVERTED_LOG_GROUP": f"/aws/bedrock-agentcore/{dash}-imported-logs",
-        # bucket also gets account id + region appended at runtime (see labkit.aws)
+        # IAM roles are global, so their names carry the region (policies are region-scoped);
+        # the bucket also gets account id + region appended at runtime (see labkit.aws)
+        "BOUNDARY_POLICY_NAME": f"{p}-boundary-{s}-{r}",
         "BUCKET_STEM": dash,
         "STATE_DIR": str(ROOT / ".lab-state"),
         "RESULTS_DIR": str(ROOT / "results"),
@@ -109,6 +116,8 @@ def main(argv: list) -> int:
             if k == "AWS_PROFILE" and not cfg[k]:
                 continue  # empty profile would break boto3/CLI; EC2 uses the instance role
             print(f"export {k}={shlex.quote(str(cfg[k]))}")
+            if k in KEYS:
+                print(f"export _S12_EXP_{k}={shlex.quote(str(cfg[k]))}")
         print("export AWS_DEFAULT_REGION=\"$AWS_REGION\"")
     else:
         w = max(len(k) for k in cfg)

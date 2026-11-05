@@ -46,6 +46,15 @@ def expected_text(row: dict) -> str:
 
 
 def evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str, start: int) -> dict:
+    try:
+        return _evaluate_session(rec, golden, evaluators, log_group, start)
+    except Exception as e:  # noqa: BLE001 - e.g. Logs Insights concurrency limit: keep the other sessions
+        return {"feedback_id": rec.get("feedback_id"), "session_id": rec.get("session_id"),
+                "agent_output": rec.get("result"), "agent_error": rec.get("error"), "scores": {},
+                "error": f"{type(e).__name__}: {str(e)[:300]}（可稍后用 ./31-run-eval.sh --run <run_id> 重试）"}
+
+
+def _evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str, start: int) -> dict:
     sid, fid = rec["session_id"], rec["feedback_id"]
     out = {"feedback_id": fid, "session_id": sid, "agent_output": rec.get("result"), "agent_error": rec.get("error"),
            "latency_ms": rec.get("latency_ms"), "scores": {}}
@@ -112,7 +121,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run")
     ap.add_argument("--no-builtin", action="store_true")
-    ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--workers", type=int, default=4)
     a = ap.parse_args(argv)
     c = aws.cfg()
     run = pick_run(a.run)

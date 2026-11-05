@@ -229,7 +229,7 @@ def main(argv=None) -> int:
     ap.add_argument("--mapping", help="JSON：{\"源列名\": \"目标字段\"}，目标字段见 data/schema/feedback_item.schema.json")
     ap.add_argument("--out-dir", default=os.path.join(C.DATA, "customer"))
     ap.add_argument("--no-mask", action="store_true")
-    ap.add_argument("--use-as-input", action="store_true", help="把结果复制为 data/feedback_last_month.jsonl（先备份）")
+    ap.add_argument("--use-as-input", action="store_true", help="生成 data/customer/agent_data/（需求池 + 能力目录副本），并提示 export S12_DATA_DIR=… 让 Agent 与批量脚本改用客户数据")
     ap.add_argument("--strict", action="store_true", help="结论不是“充足”时退出码 1")
     a = ap.parse_args(argv)
     rows = C.read_any(a.src, a.sheet)

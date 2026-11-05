@@ -293,7 +293,10 @@ def feedback_index(extra_paths=()) -> dict:
 
     Used for display only (titles, customer details, expected labels). Earlier files win.
     """
-    cands = [*extra_paths, *labitems.GOLDEN_CANDIDATES, *labitems.FEEDBACK_CANDIDATES, SEED_POOL]
+    import os
+    data_dir = os.environ.get("S12_DATA_DIR")
+    customer = [str(Path(data_dir) / n) for n in ("feedback_last_month.jsonl", "feedback.jsonl")] if data_dir else []
+    cands = [*extra_paths, *customer, *labitems.GOLDEN_CANDIDATES, *labitems.FEEDBACK_CANDIDATES, SEED_POOL]
     idx: dict = {}
     seen = set()
     for c in cands:
@@ -868,7 +871,9 @@ def pick_default() -> tuple:
     # after = the latest non-v0 evaluation; before = the latest v0 evaluation of the same
     # path (mode) that happened before it -> re-runs of V0 never pair with a stale baseline
     ver = lambda e: str(e.get("version") or "").lower()  # noqa: E731
-    after = next((e for e in reversed(evals) if ver(e) not in ("v0", "")), None)
+    import re as _re
+    after = next((e for e in reversed(evals) if _re.fullmatch(r"v\d+", ver(e)) and ver(e) != "v0"
+                  and e.get("mode") != "imported"), None)
     before = None
     if after is not None:
         idx = evals.index(after)
@@ -876,6 +881,9 @@ def pick_default() -> tuple:
             or next((e for e in reversed(evals[:idx]) if ver(e) == "v0"), None)
     if before is None or after is None:
         before, after = evals[-2], evals[-1]
+    if before.get("mode") != after.get("mode"):
+        print(f"⚠️  优化前后来自不同路线（{before.get('mode')} vs {after.get('mode')}），对比仅供参考；"
+              "可用 --before/--after 指定同一路线的两次评估", file=sys.stderr)
     return root() / str(before["file"]), root() / str(after["file"])
 
 

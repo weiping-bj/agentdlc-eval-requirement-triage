@@ -22,7 +22,11 @@ def enable() -> int:
     d = xray.get_trace_segment_destination()
     if d.get("Destination") == "CloudWatchLogs" and d.get("Status") == "ACTIVE":
         print("✅ Transaction Search 已经开启，无需操作。")
+        if not aws.load_state("observability"):
+            aws.save_state("observability", {"enabled_by_lab": False, "region": r})
         return 0
+    aws.save_state("observability", {"enabled_by_lab": True, "region": r,
+                                     "previous_destination": d.get("Destination")})
     doc = {"Version": "2012-10-17", "Statement": [{
         "Sid": "TransactionSearchXRayAccess", "Effect": "Allow",
         "Principal": {"Service": "xray.amazonaws.com"},

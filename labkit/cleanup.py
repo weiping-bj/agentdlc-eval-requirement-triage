@@ -1,7 +1,7 @@
 """Chapter 10: delete every lab resource and prove nothing is left.
 
   python -m labkit.cleanup                 # my resources (prefix s12lab, my suffix)
-  python -m labkit.cleanup --all           # instructor: every s12lab* resource in this account+region
+  python -m labkit.cleanup --all           # instructor: every s12lab* resource in this account+region (+ EC2 stacks)
   python -m labkit.cleanup --all --account-level   # + revert Transaction Search, delete aws/spans
   python -m labkit.cleanup --verify-only   # only list what is left
 Deletion order respects dependencies: online eval configs -> evaluators -> Lambdas ->
@@ -40,6 +40,8 @@ class Cleaner:
         self.all = all_suffixes
         self.dry = dry
         self.slr = slr
+        self.list_errors = []
+        self.force_account = False
         self.account_level = account_level
         self.ctl = aws.client("bedrock-agentcore-control")
 
@@ -51,6 +53,15 @@ class Cleaner:
             fn(*a, **kw)
         except Exception as e:  # noqa: BLE001 - keep going, verify() reports leftovers
             print(f"     ⚠️  {type(e).__name__}: {str(e)[:200]}")
+
+    def safe(self, what: str, fn):
+        """Run a lister; an AccessDenied on one resource type must not abort the whole cleanup."""
+        try:
+            return fn()
+        except Exception as e:  # noqa: BLE001
+            print(f"  ⚠️  无法列出{what}：{type(e).__name__}: {str(e)[:160]}")
+            self.list_errors.append(what)
+            return []
 
     # ---- listers (also used by verify) ----
     def online_configs(self):
@@ -73,13 +84,16 @@ class Cleaner:
         return out
 
     def buckets(self):
-        return [b["Name"] for b in aws.client("s3").list_buckets().get("Buckets", []) if b["Name"].startswith(self.dash)]
+        r = self.c["AWS_REGION"]  # list_buckets is global: only this region's lab buckets
+        return [b["Name"] for b in aws.client("s3").list_buckets().get("Buckets", [])
+                if b["Name"].startswith(self.dash) and b["Name"].endswith(f"-{r}")]
 
     def roles(self):
         iam = aws.client("iam")
         out = []
         for page in iam.get_paginator("list_roles").paginate():
-            out += [r["RoleName"] for r in page["Roles"] if r["RoleName"].startswith(self.dash)]
+            out += [r["RoleName"] for r in page["Roles"] if r["RoleName"].startswith(self.dash)
+                    and r["RoleName"].endswith(f"-{self.c['AWS_REGION']}")]  # IAM is global; lab role names carry the region
         return out
 
     def log_groups(self, runtime_ids=()):
@@ -137,9 +151,9 @@ class Cleaner:
     # ---- delete ----
     def run(self, account_level: bool, delete_stacks: bool) -> None:
         print(f"▶ 清理范围：{'本账号所有 s12lab 资源' if self.all else '我的资源 ' + self.dash + '*'} · 区域 {self.c['AWS_REGION']}")
-        cfgs = self.online_configs()
+        cfgs = self.safe('在线评估配置', self.online_configs)
         cfg_ids = [x["onlineEvaluationConfigId"] for x in cfgs]
-        result_groups = [g for g in self.eval_result_groups(cfg_ids)]
+        result_groups = [g for g in self.safe('评估结果日志组', lambda: self.eval_result_groups(cfg_ids))]
         for x in cfgs:
             cid = x["onlineEvaluationConfigId"]
             self.act(f"停用在线评估 {x['onlineEvaluationConfigName']}", self.ctl.update_online_evaluation_config,
@@ -148,18 +162,18 @@ class Cleaner:
                      onlineEvaluationConfigId=cid)
         if cfgs and not self.dry:
             time.sleep(10)
-        for e in self.evaluators():
+        for e in self.safe('评估器', self.evaluators):
             self.act(f"删除评估器 {e['evaluatorName']}", self.ctl.delete_evaluator, evaluatorId=e["evaluatorId"])
         lam = aws.client("lambda")
-        for f in self.lambdas():
+        for f in self.safe('Lambda', self.lambdas):
             self.act(f"删除 Lambda {f['FunctionName']}", lam.delete_function, FunctionName=f["FunctionName"])
-        rts = self.runtimes()
+        rts = self.safe('Runtime', self.runtimes)
         rids = [r["agentRuntimeId"] for r in rts]
         for r in rts:
             self.act(f"删除 Runtime {r['agentRuntimeName']} ({r['agentRuntimeId']})", self.ctl.delete_agent_runtime,
                      agentRuntimeId=r["agentRuntimeId"])
         s3 = aws.session().resource("s3")
-        for b in self.buckets():
+        for b in self.safe('S3 桶', self.buckets):
             def empty_and_delete(name=b):
                 bk = s3.Bucket(name)
                 bk.object_versions.delete()
@@ -167,31 +181,38 @@ class Cleaner:
                 bk.delete()
             self.act(f"清空并删除 S3 桶 {b}", empty_and_delete)
         logs = aws.client("logs")
-        for g in sorted(set(self.log_groups(rids) + result_groups)):
+        for g in sorted(set(self.safe('日志组', lambda: self.log_groups(rids)) + result_groups)):
             self.act(f"删除日志组 {g}", logs.delete_log_group, logGroupName=g)
         iam = aws.client("iam")
-        for rn in self.roles():
+        for rn in self.safe('IAM 角色', self.roles):
             def del_role(name=rn):
                 for pn in iam.list_role_policies(RoleName=name).get("PolicyNames", []):
                     iam.delete_role_policy(RoleName=name, PolicyName=pn)
                 for ap in iam.list_attached_role_policies(RoleName=name).get("AttachedPolicies", []):
                     iam.detach_role_policy(RoleName=name, PolicyArn=ap["PolicyArn"])
-                for ip in iam.list_instance_profiles_for_role(RoleName=name).get("InstanceProfiles", []):
-                    if ip["InstanceProfileName"].startswith("s12lab"):
-                        iam.remove_role_from_instance_profile(InstanceProfileName=ip["InstanceProfileName"], RoleName=name)
                 iam.delete_role(RoleName=name)
             if rn.startswith("s12lab-ec2-"):
                 continue  # owned by the EC2 CloudFormation stack
             self.act(f"删除 IAM 角色 {rn}", del_role)
         if delete_stacks:
             cfn = aws.client("cloudformation")
-            for s in self.stacks():
+            stacks = self.safe('EC2 堆栈', self.stacks)
+            for s in stacks:  # start all deletions first, then wait (20+ stacks would take an hour serially)
                 self.act(f"删除 CloudFormation 堆栈 {s}（EC2）", cfn.delete_stack, StackName=s)
-                if not self.dry:
+            if not self.dry:
+                for s in stacks:
                     try:
                         cfn.get_waiter("stack_delete_complete").wait(StackName=s, WaiterConfig={"Delay": 15, "MaxAttempts": 60})
+                        print(f"     ✔ 堆栈已删除 {s}")
                     except Exception as e:  # noqa: BLE001
                         print(f"     ⚠️  等待堆栈删除失败：{e}")
+        if account_level:
+            from . import observability
+            st = aws.load_state("observability") or {}
+            if not st.get("enabled_by_lab") and not self.force_account:
+                print("  ⏭  跳过账号级还原：没有记录表明 Transaction Search 是本实验开启的"
+                      "（若确认是实验开启的，加 --force-account-level）")
+                account_level = False
         if account_level:
             from . import observability
             if not self.dry:
@@ -215,15 +236,15 @@ class Cleaner:
     def verify(self) -> int:
         print(f"\n▶ 残留检查（{self.c['AWS_REGION']}，前缀 {self.us}* / {self.dash}*）")
         checks = [
-            ("在线评估配置", [x["onlineEvaluationConfigName"] for x in self.online_configs()]),
-            ("自定义评估器", [x["evaluatorName"] for x in self.evaluators()]),
-            ("AgentCore Runtime", [x["agentRuntimeName"] for x in self.runtimes()]),
-            ("Lambda 函数", [x["FunctionName"] for x in self.lambdas()]),
-            ("S3 桶", self.buckets()),
-            ("IAM 角色", self.roles()),
-            ("日志组", self.log_groups()),
+            ("在线评估配置", [x["onlineEvaluationConfigName"] for x in self.safe('在线评估配置', self.online_configs)]),
+            ("自定义评估器", [x["evaluatorName"] for x in self.safe('评估器', self.evaluators)]),
+            ("AgentCore Runtime", [x["agentRuntimeName"] for x in self.safe('Runtime', self.runtimes)]),
+            ("Lambda 函数", [x["FunctionName"] for x in self.safe('Lambda', self.lambdas)]),
+            ("S3 桶", self.safe('S3 桶', self.buckets)),
+            ("IAM 角色", self.safe('IAM 角色', self.roles)),
+            ("日志组", self.safe('日志组', self.log_groups)),
         ]
-        stacks = self.stacks()
+        stacks = self.safe('EC2 堆栈', self.stacks)
         left = 0
         for name, xs in checks:
             print(f"  {'✅' if not xs else '❌'} {name}: {len(xs)} {xs if xs else ''}")
@@ -248,6 +269,9 @@ class Cleaner:
             left += len(stacks)
         elif stacks:
             print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：最后在第 10.3 步删除）")
+        if self.list_errors:
+            print(f"⚠️  有 {len(self.list_errors)} 类资源无法列出（权限不足）：{self.list_errors}，结论不完整")
+            return 3
         print("✅ 没有残留的实验资源" if not left else f"❌ 仍有 {left} 个资源（删除中的 Runtime/堆栈可稍后重查）")
         return 0 if not left else 2
 
@@ -259,10 +283,15 @@ def main(argv=None) -> int:
     ap.add_argument("--stacks", action="store_true", help="also delete EC2 stacks (default with --all)")
     ap.add_argument("--service-linked-roles", action="store_true",
                     help="instructor: also delete the service-linked roles AgentCore/Application Signals created")
+    ap.add_argument("--force-account-level", action="store_true",
+                    help="instructor: revert Transaction Search even if this machine has no record that the lab enabled it")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--verify-only", action="store_true")
     a = ap.parse_args(argv)
+    if (a.account_level or a.service_linked_roles or a.force_account_level) and not a.all:
+        print("❌ --account-level / --service-linked-roles 只用于讲师最终清理，必须和 --all 一起使用"); return 1
     cl = Cleaner(a.all, a.dry_run, slr=a.service_linked_roles, account_level=a.account_level)
+    cl.force_account = a.force_account_level
     if not a.verify_only:
         cl.run(a.account_level, a.stacks or a.all)
         if not a.dry_run:

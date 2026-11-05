@@ -22,7 +22,8 @@
   <p class="why">脚本逐项检查 session、trace、模型输入输出、工具调用等是否齐全。</p>
 <pre><code>./12-A-check-telemetry.sh</code></pre>
   <p>默认检查最近一次运行（A3.5 的 3 条，或 A4.4 导入的日志）。检查指定运行：</p>
-<pre><code>./12-A-check-telemetry.sh --run A-imported-20261105T144741Z</code></pre>
+<pre><code>./12-A-check-telemetry.sh --run &lt;run_id&gt;</code></pre>
+  <p class="where"><code>&lt;run_id&gt;</code> 换成你自己的：A4.4 输出的最后一行 <code>run_id = A-imported-…</code>，或查看 <code>.lab-state/runs.json</code>。不加 <code>--run</code> 时检查最近一次运行/导入。</p>
   <p class="where">脚本：<a data-repo="12-A-check-telemetry.sh">12-A-check-telemetry.sh</a> → <a data-repo="labkit/check_telemetry.py">labkit/check_telemetry.py</a>；运行记录在 <code>.lab-state/runs.json</code></p>
   <div class="expect"><span class="label">预期输出（实测：A4 导入的 5 条样例日志）：</span>
 <pre class="out">▶ 检查 run A-imported-20261105T144741Z（imported）的 5 个 session · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs

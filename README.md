@@ -16,11 +16,13 @@
 | A 版 | 自有 Agent（不在 AgentCore Runtime 上）：OTel + ADOT 埋点，或已有日志 → 转换 → CloudWatch → Evaluations |
 | B 版 | mock agent 部署到 AgentCore Runtime → CloudWatch → Evaluations（含在线评估） |
 
-## 发布前（维护者）
+## 发布前检查清单（维护者）
 
-```bash
-./tools/set-repo-url.sh https://github.com/<owner>/<name>   # 替换仓库地址占位符
-```
+1. `./tools/set-repo-url.sh https://github.com/<owner>/<name>` 替换仓库地址占位符（否则手册 1.2 的 curl 与 1.5 的 git clone 会失败）。
+2. 确认 `config/lab.env` 的 `AWS_REGION` 与 workshop 区域一致（EC2 上会自动跟随实例所在区域）。
+3. 在实验账号提前开通 Anthropic 模型访问；不可用时 `./tools/use-model.sh nova`。
+4. GitHub → Settings → Pages：Branch `main`，folder `/docs`。
+5. 只在专用实验账号中部署 `ec2/s12lab-ec2.yaml`。
 
 ## License
 

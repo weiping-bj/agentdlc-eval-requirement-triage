@@ -260,7 +260,7 @@ def register() -> dict:
     for k, v in state.items():
         if not k.startswith("_"):
             print(f"   {ev_name(k):<40} {v['evaluatorId']}")
-    print("   下一步：./33-online-eval.sh   （开启在线评估，让分数显示在 CloudWatch 控制台）")
+    print("   下一步：./33-online-eval.sh enable --path b   （A 版用 --path a；开启在线评估，让分数显示在 CloudWatch 控制台）")
     return state
 
 

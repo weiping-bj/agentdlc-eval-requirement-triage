@@ -58,7 +58,7 @@
   <ol class="clicks">
     <li>用 <code>uv</code> 下载 <b>linux/arm64</b> 版依赖（Runtime 运行在 ARM 上），和 <code>agent/</code> 代码、能力目录一起打成 zip；</li>
     <li>上传到你的私有桶 <code>s3://s12lab-zhang3-&lt;账号&gt;-&lt;区域&gt;/runtime/</code>；</li>
-    <li>创建执行角色 <code>s12lab-zhang3-runtime-role</code>（调用 Bedrock 模型、写 CloudWatch）；</li>
+    <li>创建执行角色 <code>s12lab-zhang3-runtime-role-us-west-2</code>（调用 Bedrock 模型、写 CloudWatch）；</li>
     <li>创建 Runtime <code>s12lab_zhang3_agent</code>，入口 <code>opentelemetry-instrument main.py</code>（自动埋点），等待状态变为 READY。实测：首次下载依赖约 1–2 分钟，创建 Runtime 约 1 分钟；以后重新部署会复用依赖，整体约 1 分钟。</li>
   </ol>
   <div class="expect"><span class="label">预期输出：</span>
@@ -67,7 +67,7 @@
   ⬇️  下载 linux/arm64 依赖（Python 3.12，首次约 1-2 分钟）…
   📦 打包完成：build/runtime/agent-20261105T142531Z.zip（5552 个文件，39.6 MB）
   ⬆️  已上传 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/runtime/agent-20261105T142531Z.zip
-  🔐 执行角色 s12lab-zhang3-runtime-role
+  🔐 执行角色 s12lab-zhang3-runtime-role-us-west-2
   🆕 创建 Runtime s12lab_zhang3_agent-DdcMnlBX1R
   ⏳ Runtime 状态 CREATING
   ⏳ Runtime 状态 READY

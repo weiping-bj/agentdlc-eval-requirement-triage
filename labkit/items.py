@@ -26,6 +26,14 @@ def golden_path() -> Path:
 
 
 def feedback_path() -> Path:
+    """Last month's feedback pool; S12_DATA_DIR (customer data, see data/tools/ingest_customer_data.py)
+    wins over the shipped mock data."""
+    import os
+    d = os.environ.get("S12_DATA_DIR")
+    if d:
+        for n in ("feedback_last_month.jsonl", "feedback.jsonl"):
+            if (Path(d) / n).exists():
+                return Path(d) / n
     return _resolve(FEEDBACK_CANDIDATES)
 
 

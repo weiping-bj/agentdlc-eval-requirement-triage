@@ -210,23 +210,60 @@ Resources:
                 Effect: Allow
                 Action: bedrock-agentcore:*
                 Resource: "*"
-              - Sid: LabIamRoles
+              # Lab roles (Runtime / evaluator Lambda / online evaluation) may only be
+              # created WITH the lab permissions boundary below, so an inline policy on
+              # them can never exceed what the lab needs (no privilege escalation).
+              - Sid: LabIamCreateWithBoundary
                 Effect: Allow
                 Action:
                   - iam:CreateRole
+                  - iam:PutRolePolicy
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab*"
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Ref LabRoleBoundary
+              - Sid: LabIamRoles
+                Effect: Allow
+                Action:
                   - iam:DeleteRole
                   - iam:GetRole
-                  - iam:PutRolePolicy
                   - iam:DeleteRolePolicy
                   - iam:GetRolePolicy
                   - iam:ListRolePolicies
-                  - iam:AttachRolePolicy
                   - iam:DetachRolePolicy
                   - iam:ListAttachedRolePolicies
+                  - iam:ListInstanceProfilesForRole
                   - iam:TagRole
                   - iam:UpdateAssumeRolePolicy
-                  - iam:PassRole
                 Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab*"
+              - Sid: LabIamPassRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab*"
+                Condition:
+                  StringEquals:
+                    iam:PassedToService:
+                      - bedrock-agentcore.amazonaws.com
+                      - lambda.amazonaws.com
+              - Sid: LabIamReadBoundary
+                Effect: Allow
+                Action: iam:GetPolicy
+                Resource: !Ref LabRoleBoundary
+              - Sid: ListForCleanup
+                Effect: Allow
+                Action:
+                  - iam:ListRoles
+                  - lambda:ListFunctions
+                Resource: "*"
+              - Sid: KeepBoundary
+                Effect: Deny
+                Action:
+                  - iam:DeleteRolePermissionsBoundary
+                  - iam:PutRolePermissionsBoundary
+                  - iam:AttachRolePolicy
+                  - iam:CreatePolicyVersion
+                  - iam:SetDefaultPolicyVersion
+                Resource: "*"
               # Service-linked roles for bedrock-agentcore / application-signals /
               # observability are created on first use.
               - Sid: ServiceLinkedRoles
@@ -261,13 +298,37 @@ Resources:
                 Effect: Allow
                 Action: s3:ListAllMyBuckets
                 Resource: "*"
+              - Sid: LabLogGroups
+                Effect: Allow
+                Action: logs:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/s12lab*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans:*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/application-signals/data"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/application-signals/data:*"
+              - Sid: LogsAccountLevel
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:DescribeResourcePolicies
+                  - logs:PutResourcePolicy
+                  - logs:StartQuery
+                  - logs:StopQuery
+                  - logs:GetQueryResults
+                  - logs:DescribeQueries
+                  - logs:GetLogRecord
+                Resource: "*"
               - Sid: Observability
                 Effect: Allow
                 Action:
-                  - logs:*
                   - xray:*
-                  - cloudwatch:*
                   - application-signals:*
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:ListMetrics
                   - observabilityadmin:Get*
                   - observabilityadmin:List*
                 Resource: "*"
@@ -282,6 +343,58 @@ Resources:
       Tags:
         - { Key: "s12lab:lab", Value: scenario12 }
         - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+  # Permissions boundary for every IAM role the lab scripts create (see labkit/aws.py).
+  LabRoleBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "s12lab-boundary-${LabSuffix}-${AWS::Region}"
+      Description: Upper bound for roles created by the s12lab scripts
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ModelsAndAgentCore
+            Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+              - bedrock-agentcore:GetWorkloadAccessToken
+              - bedrock-agentcore:GetWorkloadAccessTokenForJWT
+              - bedrock-agentcore:GetWorkloadAccessTokenForUserId
+            Resource: "*"
+          - Sid: Telemetry
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+              - logs:PutResourcePolicy
+              - logs:StartQuery
+              - logs:StopQuery
+              - logs:GetQueryResults
+              - logs:FilterLogEvents
+              - logs:GetLogEvents
+              - logs:DescribeIndexPolicies
+              - logs:DescribeFieldIndexes
+              - logs:PutIndexPolicy
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+              - xray:GetSamplingRules
+              - xray:GetSamplingTargets
+              - cloudwatch:PutMetricData
+            Resource: "*"
+          - Sid: InvokeLabEvaluators
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+              - lambda:GetFunction
+            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:s12lab*"
+          - Sid: ReadLabBuckets
+            Effect: Allow
+            Action: s3:GetObject
+            Resource: !Sub "arn:${AWS::Partition}:s3:::s12lab-*/*"
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile

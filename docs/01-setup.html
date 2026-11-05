@@ -14,6 +14,7 @@
 <section class="card chapter-head">
 <h1><span class="num">1</span>准备实验环境（EC2 + Coding Agent） <span class="applies common">A/B 通用</span></h1>
 <p class="lead">在实验账号里开一台只能通过 SSM 登录的 EC2，所有命令都在这台 EC2 上执行；你的笔记本只用来看手册和 AWS 控制台。</p>
+<div class="warn"><b>请只在讲师发放的专用实验账号中使用。</b>实验 EC2 的角色有较宽的权限（创建实验用的 IAM 角色、Lambda、AgentCore 资源，并调整 CloudWatch Transaction Search 这类账号级设置）；不要部署到生产账号。</div>
 <div class="note">本章出现的 <code>zhang3</code> 是“个人后缀”的示例：<b>2–12 位小写字母或数字、字母开头</b>，同一账号里每人不同（建议用姓名拼音缩写 + 数字）。复制命令时把 <code>zhang3</code> 换成你自己的后缀。</div>
 </section>
 <section class="card">

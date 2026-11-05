@@ -16,6 +16,20 @@ def bad(msg):
     print(f"  ❌ {msg}")
 
 
+def imds_region():
+    """Region of this EC2 via IMDSv2 (None when not on EC2)."""
+    import urllib.request
+    try:
+        tok = urllib.request.urlopen(urllib.request.Request(
+            "http://169.254.169.254/latest/api/token", method="PUT",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"}), timeout=1).read().decode()
+        return urllib.request.urlopen(urllib.request.Request(
+            "http://169.254.169.254/latest/meta-data/placement/region",
+            headers={"X-aws-ec2-metadata-token": tok}), timeout=1).read().decode()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def ping_model(model_id: str) -> tuple:
     br = aws.client("bedrock-runtime")
     try:
@@ -43,6 +57,10 @@ def main() -> int:
 
     print("② 配置与身份")
     ok(f"区域 {c['AWS_REGION']} · 个人后缀 {c['LAB_SUFFIX']} · 资源名前缀 {c['LAB_NAME']}")
+    ec2_region = imds_region()
+    if ec2_region and ec2_region != c["AWS_REGION"]:
+        print(f"  ⚠️  这台 EC2 在 {ec2_region}，但实验配置的区域是 {c['AWS_REGION']}：资源会建到 {c['AWS_REGION']}。"
+              f"如需改成 EC2 所在区域：在 config/local.env 写 AWS_REGION={ec2_region}")
     try:
         arn = aws.client("sts").get_caller_identity()["Arn"]
         ok("身份 " + re.sub(r"\d{12}", "<account>", arn))

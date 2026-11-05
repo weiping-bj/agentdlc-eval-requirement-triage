@@ -13,6 +13,7 @@ than 14 days), keeping the original order. The run is registered in .lab-state/r
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 import uuid
@@ -25,6 +26,13 @@ REQUIRED = ["session_id", "timestamp", "user_input", "agent_output"]
 OPTIONAL = ["feedback_id", "model", "latency_ms", "agent_name", "tool_calls"]
 TRIAGE_KEYS = {"important": ("important", "是否重要"), "urgent": ("urgent", "是否紧急"),
                "decision": ("decision", "处理建议")}
+
+
+def imported_session_id(lab_name: str, ts_tag: str, original) -> str:
+    """Session id for one imported log line: always prefixed and salted with this send's timestamp,
+    so re-sending the same file never merges into an earlier send's sessions."""
+    orig = re.sub(r"[^A-Za-z0-9_.-]", "_", str(original))
+    return f"{lab_name}-imp-{ts_tag}-{orig}"[:256]
 
 
 def parse_ts(v) -> float | None:
@@ -106,7 +114,9 @@ def check(path: str) -> int:
         print(f"❌ {bad} 处问题，请按 telemetry/LOG_FORMAT.md 修正后重试")
         return 1
     print("✅ 字段检查通过。下一步：./11-A-convert-logs.sh send " + path)
-    return 0 if triage_ok / n >= 0.5 else 0
+    if triage_ok / n < 0.5:
+        print("  ⚠️  不到一半的输出能解析成三项判断：标签准确率评估器会大量 FormatError，建议先调整 agent_output 格式")
+    return 0
 
 
 def _content_record(logger, span, sid: str, t_ns: int, inp: list, out: list) -> None:
@@ -147,9 +157,7 @@ def send(path: str) -> int:
         for i, r in enumerate(rows):
             start = starts[i]
             dur = min(max(float(r.get("latency_ms") or 3000) / 1000.0, 0.2), 9.0)
-            sid = str(r["session_id"])
-            if len(sid) < 33:
-                sid = f"{c['LAB_NAME']}-imp-{sid}-{uuid.uuid5(uuid.NAMESPACE_URL, sid).hex[:12]}"
+            sid = imported_session_id(c["LAB_NAME"], ts_tag, r["session_id"])
             agent_name = r.get("agent_name") or "customer_agent"
             model = r.get("model") or "unknown"
             user = str(r["user_input"])

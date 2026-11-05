@@ -23,8 +23,8 @@ from . import aws, items
 
 
 def _session_id(prefix: str, version: str, fid: str) -> str:
-    # >= 33 chars (Runtime requirement); readable in the console
-    return f"{prefix}-{version}-{fid}-{uuid.uuid4().hex[:12]}"[:200]
+    # Runtime requires 33-256 chars: the full 32-char uuid guarantees the minimum
+    return f"{prefix}-{version}-{fid}-{uuid.uuid4().hex}"[:256]
 
 
 def _local_one(row: dict, version: str, model: str, sid: str) -> dict:
@@ -140,7 +140,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["local", "runtime"], required=True)
     ap.add_argument("--source", default="golden", help="golden | feedback | <jsonl path>")
-    ap.add_argument("--version", default=os.environ.get("AGENT_VERSION", aws.cfg()["AGENT_VERSION"]))
+    ap.add_argument("--version", default=aws.cfg()["AGENT_VERSION"])
     ap.add_argument("--limit", type=int)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--one", help="run a single feedback id")

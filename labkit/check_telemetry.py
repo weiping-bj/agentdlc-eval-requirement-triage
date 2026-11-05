@@ -101,6 +101,14 @@ def main(argv=None) -> int:
     recs = [r for r in recs if not r.get("error")][: a.sessions]
     start = int(datetime.strptime(run["created"], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).timestamp()) - 3600
     print(f"▶ 检查 run {run['run_id']}（{run['mode']}）的 {len(recs)} 个 session · 日志组 {run.get('log_group')}")
+    import time
+    if recs:  # spans become queryable 1-3 minutes after they are sent
+        for i in range(12):
+            d0 = spans.session_docs(recs[0]["session_id"], run.get("log_group"), start)
+            if spans.trace_ids(d0) and _content_ok(d0, "input"):
+                break
+            print(f"  ⏳ 等待数据在 CloudWatch 中可查询…（{(i + 1) * 15}s）")
+            time.sleep(15)
     results = []
     for rec in recs:
         r = check_session(rec["session_id"], run.get("log_group"), start)

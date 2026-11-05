@@ -13,5 +13,7 @@ if [ "$P" = "a" ]; then
 else
   "${_S12_PY}" -m labkit.batch --mode runtime --source feedback --workers 6
 fi
-OUT=$("${_S12_PY}" -m labkit.report | tee /dev/stderr | grep -Eo 'results/[^ ]+\.html' | tail -1)
+# labkit.report prints status to stderr and only the output path to stdout
+OUT=$("${_S12_PY}" -m labkit.report | tail -1)
+echo "$OUT"
 [ -n "$OUT" ] && [ -f "$OUT" ] && "${_S12_PY}" -m labkit.publish "$OUT"

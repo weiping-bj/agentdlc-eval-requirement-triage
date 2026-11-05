@@ -50,7 +50,7 @@ def score_record(pred: Dict[str, Any], gold: Dict[str, Any], scheme: str = "bina
         else:
             per[f] = {"expected": g, "predicted": p, "correct": p is not None and p == g}
     n_ok = sum(1 for v in per.values() if v["correct"])
-    critical = pred.get("decision") == "拒绝" and not gold.get("can_auto_reject", True)
+    critical = "decision" in fields and pred.get("decision") == "拒绝" and not gold.get("can_auto_reject", True)
     value = round(n_ok / len(fields), 4) if fields else 0.0
     if critical:
         label = "CriticalFail"

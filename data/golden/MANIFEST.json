@@ -1,0 +1,47 @@
+{
+  "file": "data/golden/golden_set.jsonl",
+  "sha256": "03f352cde9a96223c64b45f5a80f2c2a5c76bc84f341ad7f33d7f90e1eae66dd",
+  "count": 30,
+  "versions": [
+    "v1"
+  ],
+  "label_scheme": "binary",
+  "frozen_at": "2026-11-05T21:33:03",
+  "stats": {
+    "important": {
+      "是": 13,
+      "否": 17
+    },
+    "urgent": {
+      "否": 24,
+      "是": 6
+    },
+    "decision": {
+      "迭代": 11,
+      "拒绝": 13,
+      "待评估": 6
+    },
+    "level": {
+      "P1": 7,
+      "P2": 17,
+      "P0": 6
+    },
+    "case_type": {
+      "简单": 10,
+      "应拒绝": 7,
+      "模糊": 9,
+      "对抗": 4
+    },
+    "dimensions": {
+      "认知": 12,
+      "质量": 10,
+      "责任": 12,
+      "成本": 6,
+      "性能": 5
+    },
+    "n": 30,
+    "not_auto_rejectable": 6,
+    "ambiguous_multi_answer": 6
+  },
+  "warnings": []
+}

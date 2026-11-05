@@ -633,25 +633,23 @@
     },
     {
       "scenario_id": "G26",
-      "scenario_description": "Excel 导入时按客户编码更新已有客户",
+      "scenario_description": "ERP 订单同步从昨晚起全部失败",
       "turns": [
         {
-          "input": "需求编号: FB-2610-035\n标题: Excel 导入时按客户编码更新已有客户\n需求描述: 希望可以把 Excel 里的 5000 个客户一次导入，已有的客户按客户编码更新，而不是重复新建一条。\n客户: 晨光家居（示例）\n行业: 家居建材\n客户等级: 长尾\n来源渠道: 用户社区\n相关模块: 数据导入导出\n反馈类型: 新需求\n提交时间: 2026-10-19\n合同承诺: 否",
-          "expected_response": "{\"feedback_id\": \"FB-2610-035\", \"important\": \"否\", \"urgent\": \"否\", \"decision\": \"拒绝\", \"level\": \"P2\", \"acceptable_decisions\": [\"拒绝\"], \"can_auto_reject\": true, \"golden_id\": \"G26\"}"
+          "input": "需求编号: FB-2610-053\n标题: ERP 订单同步从昨晚起全部失败\n需求描述: 从昨晚 22 点开始，集成平台把 CRM 订单同步到 ERP 的任务全部失败，报错“目标系统认证失败”，我们没有改过任何配置。今天已经有 140 多张订单没法发货，仓库在等。\n客户: 博远工程机械（示例）\n行业: 制造\n客户等级: KA\n来源渠道: 工单系统\n相关模块: 集成与开放平台\n反馈类型: 功能缺陷\n提交时间: 2026-10-27\n合同承诺: 否",
+          "expected_response": "{\"feedback_id\": \"FB-2610-053\", \"important\": \"是\", \"urgent\": \"是\", \"decision\": \"迭代\", \"level\": \"P0\", \"acceptable_decisions\": [\"迭代\"], \"can_auto_reject\": false, \"golden_id\": \"G26\"}"
         }
       ],
       "assertions": [
-        "是否重要应为“否”，是否紧急应为“否”，处理建议应为“拒绝”",
-        "拒绝理由应包含：导入已支持按唯一字段（客户编码）更新（CAP-003）",
-        "客户话术应包含：感谢反馈",
-        "客户话术应包含：说明导入时选择“按唯一字段更新”的操作方法",
-        "客户话术应包含：提供导入模板与操作指引"
+        "是否重要应为“是”，是否紧急应为“是”，处理建议应为“迭代”",
+        "该需求不可被自动拒绝"
       ],
       "metadata": {
-        "feedback_id": "FB-2610-035",
+        "feedback_id": "FB-2610-053",
         "case_type": "简单",
         "dimensions": [
-          "认知"
+          "责任",
+          "性能"
         ],
         "version": "v1",
         "source": "synthetic"

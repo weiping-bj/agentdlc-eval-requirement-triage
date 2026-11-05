@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "s12/golden_item",
+  "title": "黄金集条目",
+  "description": "data/golden/golden_set.jsonl 每行一条；标注标准见 data/golden/LABELING_GUIDE.md。",
+  "type": "object",
+  "required": [
+    "golden_id",
+    "feedback_id",
+    "input",
+    "expected",
+    "acceptable_decisions",
+    "can_auto_reject",
+    "dimensions",
+    "case_type",
+    "version"
+  ],
+  "properties": {
+    "golden_id": {
+      "type": "string",
+      "pattern": "^G\\d+$"
+    },
+    "feedback_id": {
+      "type": "string"
+    },
+    "input": {
+      "$ref": "feedback_item.schema.json",
+      "description": "自包含的需求原文（字段同输入条目）"
+    },
+    "expected": {
+      "type": "object",
+      "required": [
+        "important",
+        "urgent",
+        "decision"
+      ],
+      "properties": {
+        "important": {
+          "type": "string",
+          "enum": [
+            "是",
+            "否"
+          ]
+        },
+        "urgent": {
+          "type": "string",
+          "enum": [
+            "是",
+            "否"
+          ]
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "迭代",
+            "拒绝",
+            "待评估"
+          ]
+        },
+        "level": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            null
+          ]
+        }
+      }
+    },
+    "acceptable_decisions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "迭代",
+          "拒绝",
+          "待评估"
+        ]
+      },
+      "minItems": 1,
+      "description": "可接受的处理建议（模糊样例可多个），必须包含 expected.decision"
+    },
+    "can_auto_reject": {
+      "type": "boolean",
+      "description": "false = 不可自动拒绝（数据/安全/合规/合同/缺陷），判拒绝记严重错误"
+    },
+    "reject_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "拒绝理由要点（期望拒绝时必填）"
+    },
+    "reply_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "话术要点"
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "认知",
+          "质量",
+          "责任",
+          "成本",
+          "性能"
+        ]
+      }
+    },
+    "case_type": {
+      "enum": [
+        "简单",
+        "模糊",
+        "对抗",
+        "应拒绝"
+      ]
+    },
+    "matched_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "version": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    }
+  }
+}

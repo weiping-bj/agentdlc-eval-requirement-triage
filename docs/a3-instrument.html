@@ -14,40 +14,107 @@
 <section class="card chapter-head">
 <h1><span class="num">A3</span>埋点：OTel + ADOT → CloudWatch <span class="applies a">A 版</span></h1>
 <p class="lead">客户的 Agent 不在 AgentCore Runtime 上，需要自己加埋点，把 trace 发到 CloudWatch。这里用 mock agent 扮演“客户已有 Agent”演示同样的步骤。</p>
+<div class="note">本章的命令在 EC2（或讲师彩排时的笔记本）上执行。接入你们自己的 Agent 时，只需要照 A3.3–A3.4 改环境变量和几行代码，其余步骤一样。前提：已完成 <a href="01-setup.html#s-1-8">1.8 开启 Transaction Search</a>。</div>
 </section>
 <section class="card">
+
 <div class="step" id="s-a3-1">
   <div class="step-head"><span class="num">A3.1</span><h3>先不带遥测跑一次 Agent</h3><span class="time">3 分钟</span></div>
   <p class="why">确认 Agent 本身能正常工作，排除和埋点无关的问题。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./10-A-run-local.sh smoke</code></pre>
+  <p class="where">脚本：<a data-repo="10-A-run-local.sh">10-A-run-local.sh</a> → <a data-repo="labkit/batch.py">labkit/batch.py</a>（逐条调用 Agent，结果写到 <code>results/</code>）</p>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">▶ 运行 1 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 1
+  [ 1/1] FB-2610-001      12.3s  重要=是 紧急=否 建议=迭代
+✅ 完成：1 条，用时 13s，失败 0 条 → results/run-A-smoke-213000.jsonl
+   run_id = A-smoke-213000</pre><!-- VERIFY --></div>
+  <div class="tip">想看 Agent 的完整输出：<code>tail -1 results/run-A-smoke-*.jsonl | python3 -m json.tool</code></div>
 </div>
+
 <div class="step" id="s-a3-2">
   <div class="step-head"><span class="num">A3.2</span><h3>安装 ADOT（AWS OpenTelemetry 发行版）</h3><span class="time">2 分钟</span></div>
   <p class="why">装上负责采集和发送 trace 的组件。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>实验环境里安装脚本已经装好了（见 <a data-repo="agent/requirements.txt">agent/requirements.txt</a>），确认一下即可：</p>
+<pre><code>pip show aws-opentelemetry-distro strands-agents | grep -E '^(Name|Version)'</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">Name: aws-opentelemetry-distro
+Version: 0.x.x
+Name: strands-agents
+Version: 1.x.x</pre></div>
+  <div class="note">给你们自己的 Agent 安装：<code>pip install "aws-opentelemetry-distro&gt;=0.18" boto3</code>；如果是 Strands Agent，再加 <code>"strands-agents[otel]"</code>。LangGraph / LangChain 等框架的支持情况见 AgentCore 文档 <a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/supported-frameworks-telemetry.html" target="_blank" rel="noopener">Telemetry setup and delivery</a>。</div>
 </div>
+
 <div class="step" id="s-a3-3">
   <div class="step-head"><span class="num">A3.3</span><h3>配置 OTel 环境变量（发往 CloudWatch）</h3><span class="time">3 分钟</span></div>
   <p class="why">告诉 ADOT 把数据发到哪个区域、哪个日志组、服务叫什么名字。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>环境变量都写在 <a data-repo="telemetry/otel_env.sh">telemetry/otel_env.sh</a>，执行一次看看效果：</p>
+<pre><code>source ./00-config.sh &amp;&amp; source telemetry/otel_env.sh</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">📡 OTel 已配置：service.name=s12lab-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent · 区域 us-west-2</pre></div>
+  <table>
+    <tr><th>环境变量</th><th>作用（一句话）</th></tr>
+    <tr><td><code>AGENT_OBSERVABILITY_ENABLED=true</code></td><td>打开 ADOT 的 GenAI 观测默认设置：100% 采样，并把 <code>session.id</code> 写到每个 span 上</td></tr>
+    <tr><td><code>OTEL_PYTHON_DISTRO=aws_distro</code><br><code>OTEL_PYTHON_CONFIGURATOR=aws_configurator</code></td><td>使用 AWS 发行版的采集与发送配置（SigV4 签名，走实例角色）</td></tr>
+    <tr><td><code>OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf</code></td><td>发送协议</td></tr>
+    <tr><td><code>OTEL_TRACES_EXPORTER=otlp</code></td><td>span 发送到 X-Ray OTLP 端点，进入 CloudWatch 的 <code>aws/spans</code></td></tr>
+    <tr><td><code>OTEL_LOGS_EXPORTER=otlp</code></td><td>模型输入 / 输出内容作为日志事件发送</td></tr>
+    <tr><td><code>OTEL_RESOURCE_ATTRIBUTES</code></td><td><code>service.name</code> = 控制台里显示的 Agent 名；<code>aws.log.group.names</code> = 关联的日志组</td></tr>
+    <tr><td><code>OTEL_EXPORTER_OTLP_LOGS_HEADERS</code></td><td>模型输入 / 输出事件写到哪个日志组、哪个日志流</td></tr>
+  </table>
+  <div class="tip">接入自己的 Agent 时，只要换服务名和日志组：<code>source telemetry/otel_env.sh my-agent /aws/bedrock-agentcore/my-agent</code>。日志组需要先存在（我们的脚本会自动创建：<a data-repo="labkit/loggroup.py">labkit/loggroup.py</a>）。</div>
 </div>
+
 <div class="step" id="s-a3-4">
   <div class="step-head"><span class="num">A3.4</span><h3>给每次请求带上 session.id（自有 Agent 需要改几行代码）</h3><span class="time">5 分钟</span></div>
   <p class="why">评估服务按 session 找数据，没有 session.id 就找不到。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>在你们 Agent 处理<b>一次请求</b>的入口处，加 4 行代码（把同一条需求的所有 span 归到同一个 session）：</p>
+<pre><code>from opentelemetry import baggage, context
+
+token = context.attach(baggage.set_baggage("session.id", session_id))  # 每条需求一个唯一 ID
+try:
+    result = agent(prompt)            # 你原来的 Agent 调用
+finally:
+    context.detach(token)</code></pre>
+  <p>然后用 <code>opentelemetry-instrument</code> 启动你的程序（代码其它地方不用改）：</p>
+<pre><code>opentelemetry-instrument python your_agent.py</code></pre>
+  <p>mock agent 的做法可以直接参考：</p>
+  <ul>
+    <li><a data-repo="labkit/batch.py">labkit/batch.py</a> 的 <code>_local_one()</code>：设置 baggage <code>session.id</code>；</li>
+    <li><a data-repo="agent/s12agent/core.py">agent/s12agent/core.py</a> 的 <code>triage()</code>：外层 <code>s12lab.triage</code> span，写入 <code>s12lab.feedback_id</code>、<code>s12lab.agent_version</code> 和最终结果 <code>s12lab.triage_output</code>（评估器优先从这里读 Agent 输出）。</li>
+  </ul>
+  <div class="note">评估器需要的数据：① 每个 span 带 <code>session.id</code>；② 一条需求 = 一个 trace；③ 能拿到 Agent 的最终输出（JSON）。Strands 框架自动产生 <code>invoke_agent</code> / <code>chat</code> / <code>execute_tool</code> span；其它框架看 A5 的检查结果决定要不要补。</div>
 </div>
+
 <div class="step" id="s-a3-5">
-  <div class="step-head"><span class="num">A3.5</span><h3>带遥测运行黄金集（V0）</h3><span class="time">8 分钟</span></div>
-  <p class="why">让 Agent 处理黄金集里的需求，trace 自动进入 CloudWatch。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <div class="step-head"><span class="num">A3.5</span><h3>带遥测发送 3 条需求</h3><span class="time">3 分钟</span></div>
+  <p class="why">先发少量数据确认链路通了；完整黄金集在第 7 章跑（要先注册评估器、开启在线评估）。</p>
+<pre><code>./10-A-run-local.sh trace 3</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent
+📡 OTel 已配置：service.name=s12lab-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent · 区域 us-west-2
+▶ 运行 3 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 4
+  [ 1/3] FB-2610-001      11.8s  重要=是 紧急=否 建议=迭代
+  [ 2/3] FB-2610-002      10.2s  重要=否 紧急=否 建议=拒绝
+  [ 3/3] FB-2610-003       9.7s  重要=是 紧急=是 建议=迭代
+✅ 完成：3 条，用时 14s，失败 0 条 → results/run-A-v0-20261107T063000Z.jsonl
+   run_id = A-v0-20261107T063000Z</pre><!-- VERIFY --></div>
+  <div class="warn">trace 进入 CloudWatch 有 <b>1–3 分钟</b>延迟。等两三分钟再做 A3.6 / A5。</div>
 </div>
+
 <div class="step" id="s-a3-6">
   <div class="step-head"><span class="num">A3.6</span><h3>在 CloudWatch GenAI Observability 中查看 trace</h3><span class="time">3 分钟</span></div>
   <p class="why">在控制台确认数据已经到达。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>打开 CloudWatch 控制台（右上角区域与实验一致）→ 左侧 <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span>。</li>
+    <li>在 <span class="ui">Agents</span> 列表里找到 <code>s12lab-zhang3-local-agent</code>（不在 Runtime 上的 Agent 也会列出，按 service.name 显示）。</li>
+    <li>点进去 → <span class="ui">Sessions</span>：能看到 3 个 session（名字形如 <code>s12lab-zhang3-v0-FB-2610-001-…</code>）→ 点任一 session → <span class="ui">Traces</span>：能看到 <code>s12lab.triage</code> → <code>invoke_agent</code> → <code>chat</code> / <code>execute_tool lookup_capability</code> 的调用树。</li>
+    <li>（可选）CloudWatch → <span class="ui">Application Signals</span> → <span class="ui">Transaction search</span>：筛选 <code>service.name = s12lab-zhang3-local-agent</code>，看到原始 span。</li>
+  </ol>
+  <div class="expect"><span class="label">预期结果：</span>3 个 session，每个 1 个 trace；trace 里有模型调用和工具调用。<!-- VERIFY: 控制台菜单名以实际界面为准 --></div>
+  <p>下一步：只有 Agent 埋点的组 → 直接到 <a href="a5-check.html">A5 遥测检查</a>；手里只有历史日志的组 → 先做 <a href="a4-logs.html">A4</a>。</p>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

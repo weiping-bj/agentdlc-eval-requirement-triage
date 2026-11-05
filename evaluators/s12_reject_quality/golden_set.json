@@ -1,0 +1,692 @@
+{
+ "version": "v1",
+ "source": "data/golden/golden_set.jsonl",
+ "count": 30,
+ "items": {
+  "FB-2610-001": {
+   "golden_id": "G01",
+   "feedback_id": "FB-2610-001",
+   "important": "是",
+   "urgent": "否",
+   "decision": "迭代",
+   "level": "P1",
+   "acceptable_decisions": [
+    "迭代"
+   ],
+   "can_auto_reject": true,
+   "case_type": "简单",
+   "dimensions": [
+    "认知"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "列表页批量修改自定义字段"
+  },
+  "FB-2610-002": {
+   "golden_id": "G02",
+   "feedback_id": "FB-2610-002",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "应拒绝",
+   "dimensions": [
+    "认知",
+    "质量"
+   ],
+   "reject_points": [
+    "属于单客户深度定制，不具备平台通用性",
+    "首页已支持按角色配置布局和网页组件嵌入外部页面（CAP-006）",
+    "不为单个客户修改首页框架"
+   ],
+   "reply_points": [
+    "认可其提升一线效率的诉求",
+    "说明平台不为单一客户改首页框架的原因",
+    "给出替代方案：网页组件嵌入 ERP 页面 + 按角色配置首页",
+    "可安排实施顾问或伙伴协助落地"
+   ],
+   "title": "首页原样嵌入我们的 ERP 订单页并按审批流改布局"
+  },
+  "FB-2610-003": {
+   "golden_id": "G03",
+   "feedback_id": "FB-2610-003",
+   "important": "是",
+   "urgent": "是",
+   "decision": "迭代",
+   "level": "P0",
+   "acceptable_decisions": [
+    "迭代"
+   ],
+   "can_auto_reject": false,
+   "case_type": "简单",
+   "dimensions": [
+    "责任"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "移动端提交审批后偶发明细行丢失"
+  },
+  "FB-2610-004": {
+   "golden_id": "G30",
+   "feedback_id": "FB-2610-004",
+   "important": "是",
+   "urgent": "否",
+   "decision": "迭代",
+   "level": "P1",
+   "acceptable_decisions": [
+    "迭代",
+    "待评估"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "性能"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "每月初全国业绩报表经常超时"
+  },
+  "FB-2610-005": {
+   "golden_id": "G04",
+   "feedback_id": "FB-2610-005",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "简单",
+   "dimensions": [
+    "认知",
+    "质量"
+   ],
+   "reject_points": [
+    "财务总账、凭证、会计核算超出 CRM 平台定位（明确不做）",
+    "平台通过集成平台的财务软件连接器对接财务系统"
+   ],
+   "reply_points": [
+    "理解业财一体化的诉求",
+    "说明 CRM 与专业财务系统的分工",
+    "推荐用财务软件连接器同步回款与开票数据",
+    "可提供对接方案或伙伴支持"
+   ],
+   "title": "希望 CRM 内置完整的财务总账和凭证模块"
+  },
+  "FB-2610-007": {
+   "golden_id": "G05",
+   "feedback_id": "FB-2610-007",
+   "important": "是",
+   "urgent": "否",
+   "decision": "待评估",
+   "level": "P1",
+   "acceptable_decisions": [
+    "待评估"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "成本"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "字段级数据权限按项目成员动态计算"
+  },
+  "FB-2610-009": {
+   "golden_id": "G06",
+   "feedback_id": "FB-2610-009",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "简单",
+   "dimensions": [
+    "认知"
+   ],
+   "reject_points": [
+    "平台已支持查重规则与合并（CAP-004）",
+    "属于配置问题，无需研发"
+   ],
+   "reply_points": [
+    "感谢反馈并认可数据质量诉求",
+    "告知已有查重规则功能及配置路径（后台 → 对象管理 → 查重规则）",
+    "可安排客户成功经理协助配置"
+   ],
+   "title": "录入客户时提示重复"
+  },
+  "FB-2610-011": {
+   "golden_id": "G07",
+   "feedback_id": "FB-2610-011",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "应拒绝",
+   "dimensions": [
+    "认知"
+   ],
+   "reject_points": [
+    "平台已支持离职交接一键转移（CAP-005）"
+   ],
+   "reply_points": [
+    "理解交接效率诉求",
+    "说明离职交接功能及入口（后台 → 员工管理 → 离职交接）",
+    "提供操作指引"
+   ],
+   "title": "销售离职后客户要一条条改负责人"
+  },
+  "FB-2610-013": {
+   "golden_id": "G08",
+   "feedback_id": "FB-2610-013",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "应拒绝",
+   "dimensions": [
+    "责任",
+    "质量"
+   ],
+   "reject_points": [
+    "批量导出敏感个人信息到个人邮箱违反数据安全与个人信息保护要求",
+    "平台导出受导出权限、字段权限与审计控制，不提供绕过（OOS-007）"
+   ],
+   "reply_points": [
+    "理解出差离线查看客户信息的需求",
+    "说明个人信息保护的合规要求与企业风险",
+    "替代：移动端离线查看最近数据；按权限申请导出（脱敏、留痕）"
+   ],
+   "title": "一键导出全公司联系人手机号和身份证号到个人邮箱"
+  },
+  "FB-2610-014": {
+   "golden_id": "G09",
+   "feedback_id": "FB-2610-014",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "对抗",
+   "dimensions": [
+    "责任"
+   ],
+   "reject_points": [
+    "审计日志任何人不可删除或修改，这是合规底线（CAP-014）",
+    "删除日志以规避审计会带来更大的合规风险"
+   ],
+   "reply_points": [
+    "理解担心误操作记录引发疑问",
+    "说明审计日志不可删除的原因",
+    "建议导出相关日志并附实施说明，向审计方解释误操作背景"
+   ],
+   "title": "客户 IT 要求删除一段时间的审计日志"
+  },
+  "FB-2610-015": {
+   "golden_id": "G10",
+   "feedback_id": "FB-2610-015",
+   "important": "否",
+   "urgent": "否",
+   "decision": "待评估",
+   "level": "P2",
+   "acceptable_decisions": [
+    "待评估"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "质量"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "系统最近太慢了"
+  },
+  "FB-2610-017": {
+   "golden_id": "G11",
+   "feedback_id": "FB-2610-017",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "对抗",
+   "dimensions": [
+    "责任",
+    "质量"
+   ],
+   "reject_points": [
+    "属于界面个性化偏好，通用价值低",
+    "已支持企业 Logo 与主题色设置（CAP-019）"
+   ],
+   "reply_points": [
+    "感谢反馈",
+    "说明可通过品牌设置配置 Logo 与主题色",
+    "说明登录页背景暂不开放个性化"
+   ],
+   "title": "登录页换成公司宣传图并加欢迎语"
+  },
+  "FB-2610-018": {
+   "golden_id": "G12",
+   "feedback_id": "FB-2610-018",
+   "important": "是",
+   "urgent": "否",
+   "decision": "待评估",
+   "level": "P1",
+   "acceptable_decisions": [
+    "待评估"
+   ],
+   "can_auto_reject": true,
+   "case_type": "对抗",
+   "dimensions": [
+    "责任",
+    "质量"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "下周一必须上线商机赢单预测大屏"
+  },
+  "FB-2610-021": {
+   "golden_id": "G13",
+   "feedback_id": "FB-2610-021",
+   "important": "是",
+   "urgent": "是",
+   "decision": "迭代",
+   "level": "P0",
+   "acceptable_decisions": [
+    "迭代"
+   ],
+   "can_auto_reject": false,
+   "case_type": "简单",
+   "dimensions": [
+    "责任"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "电子签章签署状态自动回写（合同约定）"
+  },
+  "FB-2610-022": {
+   "golden_id": "G14",
+   "feedback_id": "FB-2610-022",
+   "important": "否",
+   "urgent": "否",
+   "decision": "待评估",
+   "level": "P2",
+   "acceptable_decisions": [
+    "待评估",
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "成本",
+    "性能"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "报表支持 4 层以上跨对象关联"
+  },
+  "FB-2610-023": {
+   "golden_id": "G15",
+   "feedback_id": "FB-2610-023",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "应拒绝",
+   "dimensions": [
+    "认知"
+   ],
+   "reject_points": [
+    "生产排产、车间报工超出 CRM 平台定位（明确不做）",
+    "可通过 MES/ERP 连接器打通销售订单与生产"
+   ],
+   "reply_points": [
+    "理解订单到生产打通的诉求",
+    "说明 CRM 与 MES 的分工",
+    "推荐 MES 连接器同步订单并回写交期"
+   ],
+   "title": "CRM 里直接做生产排产和车间报工"
+  },
+  "FB-2610-024": {
+   "golden_id": "G16",
+   "feedback_id": "FB-2610-024",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "简单",
+   "dimensions": [
+    "认知"
+   ],
+   "reject_points": [
+    "平台不自研即时通讯工具（明确不做）",
+    "已支持与主流企业 IM 集成（CAP-017）"
+   ],
+   "reply_points": [
+    "理解沟通效率诉求",
+    "说明平台与企业 IM 集成的方式",
+    "引导配置企业 IM 集成"
+   ],
+   "title": "CRM 自带聊天工具"
+  },
+  "FB-2610-025": {
+   "golden_id": "G17",
+   "feedback_id": "FB-2610-025",
+   "important": "是",
+   "urgent": "否",
+   "decision": "迭代",
+   "level": "P1",
+   "acceptable_decisions": [
+    "迭代"
+   ],
+   "can_auto_reject": true,
+   "case_type": "简单",
+   "dimensions": [
+    "认知"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "报表订阅推送到企业 IM 群"
+  },
+  "FB-2610-026": {
+   "golden_id": "G18",
+   "feedback_id": "FB-2610-026",
+   "important": "是",
+   "urgent": "是",
+   "decision": "迭代",
+   "level": "P0",
+   "acceptable_decisions": [
+    "迭代"
+   ],
+   "can_auto_reject": false,
+   "case_type": "简单",
+   "dimensions": [
+    "责任"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "报表外链过期后仍可访问且含手机号"
+  },
+  "FB-2610-027": {
+   "golden_id": "G19",
+   "feedback_id": "FB-2610-027",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "简单",
+   "dimensions": [
+    "认知"
+   ],
+   "reject_points": [
+    "审批流已支持超时提醒与超时自动转交（CAP-007）"
+   ],
+   "reply_points": [
+    "感谢反馈",
+    "给出配置路径：流程管理 → 审批流 → 节点设置 → 超时处理",
+    "可由实施顾问协助配置"
+   ],
+   "title": "审批超过 48 小时自动提醒并转上级"
+  },
+  "FB-2610-028": {
+   "golden_id": "G20",
+   "feedback_id": "FB-2610-028",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "应拒绝",
+   "dimensions": [
+    "认知",
+    "成本",
+    "质量"
+   ],
+   "reject_points": [
+    "属于单客户特有的计算规则，不具备通用性",
+    "可用自定义对象 + 自定义函数实现（CAP-008）"
+   ],
+   "reply_points": [
+    "理解激励核算的重要性",
+    "说明平台不内置单一客户规则的原因",
+    "给出自定义函数实现方案，或推荐实施伙伴"
+   ],
+   "title": "平台内置我们公司的三层佣金计算规则"
+  },
+  "FB-2610-029": {
+   "golden_id": "G21",
+   "feedback_id": "FB-2610-029",
+   "important": "是",
+   "urgent": "否",
+   "decision": "迭代",
+   "level": "P1",
+   "acceptable_decisions": [
+    "迭代",
+    "待评估"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "认知",
+    "成本"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "AI 根据历史拜访记录生成下次拜访建议"
+  },
+  "FB-2610-030": {
+   "golden_id": "G22",
+   "feedback_id": "FB-2610-030",
+   "important": "否",
+   "urgent": "否",
+   "decision": "待评估",
+   "level": "P2",
+   "acceptable_decisions": [
+    "待评估"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "性能",
+    "质量"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "一条反馈里的四个诉求"
+  },
+  "FB-2610-031": {
+   "golden_id": "G23",
+   "feedback_id": "FB-2610-031",
+   "important": "是",
+   "urgent": "否",
+   "decision": "待评估",
+   "level": "P1",
+   "acceptable_decisions": [
+    "待评估",
+    "迭代"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "成本"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "外勤完全离线录入并自动同步"
+  },
+  "FB-2610-032": {
+   "golden_id": "G24",
+   "feedback_id": "FB-2610-032",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "应拒绝",
+   "dimensions": [
+    "性能",
+    "责任",
+    "质量"
+   ],
+   "reject_points": [
+    "取消限流会影响多租户平台稳定性，平台不提供（CAP-009）",
+    "默认 100 QPS 可申请提升到 300 QPS",
+    "可用批量接口（每次 100 条）或集成平台队列削峰"
+   ],
+   "reply_points": [
+    "理解大促期间订单同步的压力",
+    "说明限流保障所有客户稳定性的原因",
+    "给出批量接口、异步导入、申请提升配额等替代方案",
+    "可安排技术支持协助大促前压测"
+   ],
+   "title": "大促期间取消接口限流"
+  },
+  "FB-2610-033": {
+   "golden_id": "G25",
+   "feedback_id": "FB-2610-033",
+   "important": "是",
+   "urgent": "是",
+   "decision": "迭代",
+   "level": "P0",
+   "acceptable_decisions": [
+    "迭代",
+    "待评估"
+   ],
+   "can_auto_reject": false,
+   "case_type": "模糊",
+   "dimensions": [
+    "责任"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "拜访记录 5 年不可篡改（行业新规）"
+  },
+  "FB-2610-037": {
+   "golden_id": "G27",
+   "feedback_id": "FB-2610-037",
+   "important": "是",
+   "urgent": "是",
+   "decision": "迭代",
+   "level": "P0",
+   "acceptable_decisions": [
+    "迭代"
+   ],
+   "can_auto_reject": false,
+   "case_type": "对抗",
+   "dimensions": [
+    "责任",
+    "质量"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "商机阶段一推进就报错"
+  },
+  "FB-2610-039": {
+   "golden_id": "G28",
+   "feedback_id": "FB-2610-039",
+   "important": "否",
+   "urgent": "否",
+   "decision": "迭代",
+   "level": "P2",
+   "acceptable_decisions": [
+    "迭代",
+    "待评估"
+   ],
+   "can_auto_reject": true,
+   "case_type": "模糊",
+   "dimensions": [
+    "成本"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "列表页记住上次的筛选条件和列宽"
+  },
+  "FB-2610-041": {
+   "golden_id": "G29",
+   "feedback_id": "FB-2610-041",
+   "important": "否",
+   "urgent": "否",
+   "decision": "拒绝",
+   "level": "P2",
+   "acceptable_decisions": [
+    "拒绝"
+   ],
+   "can_auto_reject": true,
+   "case_type": "应拒绝",
+   "dimensions": [
+    "责任",
+    "认知"
+   ],
+   "reject_points": [
+    "不同租户之间数据严格隔离，不允许跨租户直接查询或修改（CAP-027）",
+    "这是平台的安全与合规底线"
+   ],
+   "reply_points": [
+    "理解集团统一管理客户的诉求",
+    "说明租户隔离对数据安全的意义",
+    "替代：集团合并到一个租户并使用多组织架构，或用集成平台在租户间同步"
+   ],
+   "title": "在 A 租户里直接查改 B、C 租户的客户数据"
+  },
+  "FB-2610-053": {
+   "golden_id": "G26",
+   "feedback_id": "FB-2610-053",
+   "important": "是",
+   "urgent": "是",
+   "decision": "迭代",
+   "level": "P0",
+   "acceptable_decisions": [
+    "迭代"
+   ],
+   "can_auto_reject": false,
+   "case_type": "简单",
+   "dimensions": [
+    "责任",
+    "性能"
+   ],
+   "reject_points": [],
+   "reply_points": [],
+   "title": "ERP 订单同步从昨晚起全部失败"
+  }
+ }
+}

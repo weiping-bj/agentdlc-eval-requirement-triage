@@ -14,55 +14,179 @@
 <section class="card chapter-head">
 <h1><span class="num">1</span>准备实验环境（EC2 + Coding Agent） <span class="applies common">A/B 通用</span></h1>
 <p class="lead">在实验账号里开一台只能通过 SSM 登录的 EC2，所有命令都在这台 EC2 上执行；你的笔记本只用来看手册和 AWS 控制台。</p>
+<div class="note">本章出现的 <code>zhang3</code> 是“个人后缀”的示例：<b>2–12 位小写字母或数字、字母开头</b>，同一账号里每人不同（建议用姓名拼音缩写 + 数字）。复制命令时把 <code>zhang3</code> 换成你自己的后缀。</div>
 </section>
 <section class="card">
+
 <div class="step" id="s-1-1">
   <div class="step-head"><span class="num">1.1</span><h3>登录 AWS 控制台并确认区域</h3><span class="time">3 分钟</span></div>
   <p class="why">确认你在讲师指定的区域（us-west-2 或 us-east-1），后面所有资源都建在这里。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>用讲师发放的账号登录 AWS 控制台。</li>
+    <li>点右上角的区域名称，选择讲师指定的区域：<span class="ui">美国西部（俄勒冈）us-west-2</span> 或 <span class="ui">美国东部（弗吉尼亚北部）us-east-1</span>。</li>
+  </ol>
+  <div class="expect"><span class="label">预期结果：</span>控制台右上角显示你选择的区域名。</div>
+  <div class="warn">后面所有控制台操作都要在<b>同一个区域</b>里进行；看不到自己的资源时，先检查右上角的区域。</div>
 </div>
+
 <div class="step" id="s-1-2">
   <div class="step-head"><span class="num">1.2</span><h3>一键创建实验 EC2（CloudShell + CloudFormation）</h3><span class="time">5 分钟</span></div>
   <p class="why">用仓库里的模板创建一台 Amazon Linux 2023 EC2：无入站端口、带 SSM 和实验所需权限。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>点控制台顶部工具栏的 CloudShell 图标 <span class="kbd">&gt;_</span>，等命令行出现（首次约 30 秒）。</li>
+    <li>复制下面整段到 CloudShell 执行（<b>先把最后一行的 zhang3 换成你的后缀</b>）：</li>
+  </ol>
+<pre><code>mkdir -p ~/s12lab &amp;&amp; cd ~/s12lab
+curl -fsSLO <span data-raw="ec2/s12lab-ec2.yaml"></span>
+curl -fsSLO <span data-raw="ec2/launch-from-cloudshell.sh"></span>
+bash launch-from-cloudshell.sh zhang3</code></pre>
+  <p class="where">用到的文件：<a data-repo="ec2/s12lab-ec2.yaml">ec2/s12lab-ec2.yaml</a>（CloudFormation 模板）· <a data-repo="ec2/launch-from-cloudshell.sh">ec2/launch-from-cloudshell.sh</a>（启动脚本）· 说明 <a data-repo="ec2/README.md">ec2/README.md</a></p>
+  <div class="expect"><span class="label">预期输出（约 3–5 分钟）：</span>
+<pre class="out">==&gt; 区域: us-west-2    堆栈: s12lab-ec2-zhang3
+==&gt; 选择网络（机型 t3.large）...
+    使用默认 VPC: vpc-0abc...  子网: subnet-0def...
+==&gt; 正在创建/更新 EC2（约 3-5 分钟，请勿关闭窗口）...
+==&gt; 实例 ID:   i-0123456789abcdef0
+==&gt; 登录链接:  https://us-west-2.console.aws.amazon.com/systems-manager/session-manager/i-0123...?region=us-west-2
+==&gt; 等待 EC2 在 Session Manager 中上线（最多约 5 分钟）...
+
+==================== s12lab EC2 ====================
+  后缀:      zhang3
+  区域:      us-west-2
+  实例 ID:   i-0123456789abcdef0
+  登录链接:  https://us-west-2.console.aws.amazon.com/systems-manager/session-manager/i-0123...
+  状态:      已上线，可以登录
+  下一步:    打开登录链接 → 点击 Connect / 连接 → 在命令行中先执行:
+             sudo su - ec2-user
+====================================================</pre><!-- VERIFY -->
+  </div>
+  <div class="tip">重复运行是安全的：堆栈已存在时不会重新部署，只会再打印一次登录链接。如果提示“堆栈已存在”但不是你创建的，说明后缀和别人重了，换一个后缀重新运行。</div>
 </div>
+
 <div class="step" id="s-1-3">
   <div class="step-head"><span class="num">1.3</span><h3>（备选）在控制台手动创建 EC2</h3><span class="time">10 分钟</span></div>
   <p class="why">CloudShell 不可用时，按截图在控制台点选创建同样的 EC2。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>只有 1.2 失败时才做这一步。完整的点击步骤见 <a data-repo="ec2/README.md">ec2/README.md「方式二：控制台手动创建」</a>，要点：</p>
+  <ol class="clicks">
+    <li><b>IAM 控制台</b> → 角色 → 创建角色 → 可信实体 <span class="ui">AWS 服务 / EC2</span> → 勾选 <code>AmazonSSMManagedInstanceCore</code> 和 <code>PowerUserAccess</code> → 角色名 <code>s12lab-ec2-zhang3</code> → 创建；再给它“创建内联策略”，JSON 粘贴 <a data-repo="ec2/manual-iam-inline-policy.json">ec2/manual-iam-inline-policy.json</a> 的内容，策略名 <code>s12lab-iam</code>。</li>
+    <li><b>EC2 控制台</b> → 启动实例：名称 <code>s12lab-zhang3</code> · AMI <span class="ui">Amazon Linux 2023（x86）</span> · 机型 <code>t3.large</code> · 密钥对 <span class="ui">在没有密钥对的情况下继续</span>。</li>
+    <li>网络设置：默认 VPC、自动分配公有 IP 启用；创建安全组并<b>取消勾选“允许 SSH 流量”</b>（入站规则必须为空）。</li>
+    <li>存储 <code>30</code> GiB gp3；高级详细信息：IAM 实例配置文件选 <code>s12lab-ec2-zhang3</code>，元数据版本 <span class="ui">仅 V2</span>，跃点限制 <code>2</code> → 启动实例。</li>
+  </ol>
+  <div class="expect"><span class="label">预期结果：</span>2–3 分钟后实例状态为“正在运行”，选中实例 →「连接」→「Session Manager」选项卡上的「连接」按钮可以点击。</div>
 </div>
+
 <div class="step" id="s-1-4">
   <div class="step-head"><span class="num">1.4</span><h3>通过 Session Manager 登录 EC2</h3><span class="time">2 分钟</span></div>
   <p class="why">在浏览器里打开 EC2 的命令行窗口，不需要密钥、不开端口。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>打开 1.2 打印的<b>登录链接</b>（或：EC2 控制台 → 选中 <code>s12lab-zhang3</code> →「连接」→「Session Manager」→「连接」）。</li>
+    <li>浏览器新标签页里出现黑色命令行后，<b>先切换到 ec2-user</b>：</li>
+  </ol>
+<pre><code>sudo su - ec2-user</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">[ec2-user@ip-10-0-1-23 ~]$</pre></div>
+  <div class="note">以后每次重新登录都要先执行 <code>sudo su - ec2-user</code>，再 <code>cd ~/scenario12-lab &amp;&amp; source .venv/bin/activate</code>。</div>
 </div>
+
 <div class="step" id="s-1-5">
   <div class="step-head"><span class="num">1.5</span><h3>克隆仓库并运行环境安装脚本</h3><span class="time">5 分钟</span></div>
   <p class="why">把实验代码拉到 EC2，并安装 Python、Node.js、Claude Code 等工具。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>git clone <span data-clone-url></span> ~/scenario12-lab &amp;&amp; cd ~/scenario12-lab
+bash ec2/setup-ec2.sh</code></pre>
+  <p class="where">脚本：<a data-repo="ec2/setup-ec2.sh">ec2/setup-ec2.sh</a>（可重复运行；日志在 <code>~/s12lab-setup.log</code>）· Python 依赖清单：<a data-repo="requirements.txt">requirements.txt</a></p>
+  <div class="expect"><span class="label">预期输出（结尾，约 3–5 分钟）：</span>
+<pre class="out">==================== s12lab 安装完成 ====================
+  python(.venv) Python 3.12.x
+  node         v22.x.x
+  npm          10.x.x
+  aws          aws-cli/2.x.x Python/3.x Linux/...
+  claude       x.y.z (Claude Code)
+  region       us-west-2
+  model        us.anthropic.claude-sonnet-5-5  (fast: us.anthropic.claude-haiku-5-5)
+  identity     arn:aws:sts::&lt;account&gt;:assumed-role/s12lab-ec2-zhang3-us-west-2/i-0123...
+  日志:   /home/ec2-user/s12lab-setup.log
+
+下一步（复制整行执行）:
+  cd /home/ec2-user/scenario12-lab &amp;&amp; source ~/.bashrc &amp;&amp; source .venv/bin/activate &amp;&amp; ./01-check-env.sh
+=========================================================</pre><!-- VERIFY --></div>
+  <p>然后执行脚本最后打印的那一行（加载环境变量、进入 Python 虚拟环境）：</p>
+<pre><code>cd ~/scenario12-lab &amp;&amp; source ~/.bashrc &amp;&amp; source .venv/bin/activate</code></pre>
 </div>
+
 <div class="step" id="s-1-6">
   <div class="step-head"><span class="num">1.6</span><h3>设置个人后缀并检查配置</h3><span class="time">1 分钟</span></div>
   <p class="why">同一个账号里有多人做实验，用个人后缀区分各自的资源。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./tools/set-suffix.sh zhang3
+./00-config.sh</code></pre>
+  <p class="where">所有配置只有一个来源：<a data-repo="config/lab.env">config/lab.env</a>；个人设置写在 <code>config/local.env</code>（不提交到 git）。名字的推导规则见 <a data-repo="labkit/config.py">labkit/config.py</a>。</p>
+  <div class="expect"><span class="label">预期输出（节选）：</span>
+<pre class="out">✅ 个人后缀已设置为: zhang3   （你的资源名形如 s12lab-zhang3-...）
+AWS_REGION                  us-west-2
+LAB_PREFIX                  s12lab
+LAB_SUFFIX                  zhang3
+AGENT_MODEL_ID              us.anthropic.claude-sonnet-5-5
+JUDGE_MODEL_ID              us.anthropic.claude-sonnet-5-5
+FALLBACK_MODEL_ID           us.amazon.nova-2-lite-v1:0
+AGENT_VERSION               v0
+TARGET_ACCURACY             0.70
+...
+RUNTIME_NAME                s12lab_zhang3_agent
+LOCAL_SERVICE_NAME          s12lab-zhang3-local-agent</pre></div>
 </div>
+
 <div class="step" id="s-1-7">
   <div class="step-head"><span class="num">1.7</span><h3>检查 Bedrock 模型可用</h3><span class="time">2 分钟</span></div>
   <p class="why">确认 Agent 和评审用的模型能调通；不通时一行命令切换到 Amazon Nova。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./01-check-env.sh</code></pre>
+  <p class="where">检查逻辑：<a data-repo="labkit/checkenv.py">labkit/checkenv.py</a></p>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">① Python 与依赖
+  ✅ Python 3.12.x
+  ✅ strands-agents 1.x
+  ✅ bedrock-agentcore 1.x
+  ✅ aws-opentelemetry-distro 0.x
+  ✅ boto3 1.x
+② 配置与身份
+  ✅ 区域 us-west-2 · 个人后缀 zhang3 · 资源名前缀 s12lab-zhang3
+  ✅ 身份 arn:aws:sts::&lt;account&gt;:assumed-role/s12lab-ec2-zhang3-us-west-2/i-0123...
+③ Bedrock 模型
+  ✅ Agent 模型 us.anthropic.claude-sonnet-5-5 可用（回复：收到）
+④ CloudWatch Transaction Search
+  ⚠️  未开启（当前 XRay/ACTIVE）→ 运行 ./02-enable-observability.sh
+
+✅ 环境检查通过。下一步：./02-enable-observability.sh（每个账号/区域只需一次）</pre><!-- VERIFY --></div>
+  <div class="warn">如果 ③ 显示 <code>❌ ... 不可用：AccessDeniedException</code>（账号没有开通 Claude 模型），执行下面一行切换到 Amazon Nova，再重跑检查：
+<pre><code>./tools/use-model.sh nova &amp;&amp; ./01-check-env.sh</code></pre>
+  切回 Claude：<code>./tools/use-model.sh claude</code>。脚本：<a data-repo="tools/use-model.sh">tools/use-model.sh</a></div>
 </div>
+
 <div class="step" id="s-1-8">
   <div class="step-head"><span class="num">1.8</span><h3>开启 CloudWatch Transaction Search（每个账号一次）</h3><span class="time">2 分钟</span></div>
   <p class="why">让 trace 数据写进 CloudWatch，评估服务才能读到。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./02-enable-observability.sh</code></pre>
+  <p class="where">脚本：<a data-repo="labkit/observability.py">labkit/observability.py</a>（可重复运行；同组有人已开启时会直接提示“已经开启”）</p>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">  ✅ 已授权 X-Ray 写入 aws/spans
+  ✅ span 索引比例设为 100%
+  ⏳ 等待生效… 当前状态 PENDING
+✅ Transaction Search 已开启。新的 trace 会写入 CloudWatch Logs 的 aws/spans。</pre><!-- VERIFY -->
+  或（同账号已有人开启过）：
+<pre class="out">✅ Transaction Search 已经开启，无需操作。</pre></div>
+  <div class="note">控制台确认位置：CloudWatch →（左侧）Application Signals → <span class="ui">Transaction search</span>，状态显示已启用。</div>
 </div>
+
 <div class="step" id="s-1-9">
   <div class="step-head"><span class="num">1.9</span><h3>启动 Coding Agent（Claude Code，走 Bedrock）</h3><span class="time">2 分钟</span></div>
   <p class="why">后面改数据、改提示词时，用 coding agent 帮你完成。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>cd ~/scenario12-lab &amp;&amp; claude</code></pre>
+  <p>Claude Code 已由安装脚本配置为通过 EC2 实例角色调用 Amazon Bedrock（<code>CLAUDE_CODE_USE_BEDROCK=1</code>，模型取自 <a data-repo="config/lab.env">config/lab.env</a> 的 <code>CODING_AGENT_MODEL_ID</code>），不需要 API Key。进入后先试一句：</p>
+<pre><code>用三句话介绍这个仓库的目录结构，以及第 2 章要用到哪些文件</code></pre>
+  <div class="expect"><span class="label">预期结果：</span>Claude Code 读取仓库后用中文回答；退出按 <kbd>Ctrl</kbd>+<kbd>C</kbd> 两次或输入 <code>/exit</code>。</div>
+  <div class="tip">所有给 coding agent 的提示词都放在 <a data-repo="data/prompts/">data/prompts/</a>，是普通中文文本，换成其它 coding agent（Kiro、Cursor、Codex 等）也可以直接使用。</div>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

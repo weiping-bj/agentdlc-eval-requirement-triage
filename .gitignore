@@ -29,3 +29,4 @@ docs/compare/*.html
 .vscode/
 *.swp
 config/local.env
+data/customer/

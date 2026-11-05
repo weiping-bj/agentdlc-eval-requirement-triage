@@ -87,7 +87,7 @@ def evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str, 
 
 
 def summarize(sessions: list, target: float) -> dict:
-    def mean(name, only_numeric=True, skip_labels=("Skipped",)):
+    def mean(name, only_numeric=True, skip_labels=("Skipped", "不适用")):
         vals = [s["scores"][name]["value"] for s in sessions
                 if name in s["scores"] and isinstance(s["scores"][name].get("value"), (int, float))
                 and s["scores"][name].get("label") not in skip_labels]

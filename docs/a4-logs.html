@@ -14,35 +14,79 @@
 <section class="card chapter-head">
 <h1><span class="num">A4</span>已有日志：转换并导入 CloudWatch <span class="applies a">A 版</span></h1>
 <p class="lead">如果客户的 Agent 已经有自己的日志（但不是 OTel 格式），用转换脚本把日志变成 Evaluations 能读的 trace 并导入 CloudWatch。</p>
+<div class="note">适合“现场来不及改代码，但能导出最近的 Agent 调用记录”的组。仓库里带了一份样例日志，可以先用它把流程走通，再换成你们自己的日志。</div>
 </section>
 <section class="card">
+
 <div class="step" id="s-a4-1">
   <div class="step-head"><span class="num">A4.1</span><h3>了解转换器需要哪些字段</h3><span class="time">3 分钟</span></div>
   <p class="why">评估至少需要：会话 ID、用户输入、模型输出、时间；有工具调用更好。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>完整说明见 <a data-repo="telemetry/LOG_FORMAT.md">telemetry/LOG_FORMAT.md</a>。格式是 JSONL：<b>每次 Agent 调用一行</b>。</p>
+  <table>
+    <tr><th>字段</th><th>必填</th><th>说明</th></tr>
+    <tr><td><code>session_id</code></td><td>是</td><td>会话 ID；每条需求一个（评估按 session 取数据）</td></tr>
+    <tr><td><code>timestamp</code></td><td>是</td><td>调用时间，ISO 8601，例如 <code>2026-10-15T09:30:00+08:00</code></td></tr>
+    <tr><td><code>user_input</code></td><td>是</td><td>发给 Agent 的内容（需求反馈原文）</td></tr>
+    <tr><td><code>agent_output</code></td><td>是</td><td>Agent 的最终输出；本场景最好是 0.5 节的 JSON（是否重要 / 是否紧急 / 处理建议…）</td></tr>
+    <tr><td><code>feedback_id</code></td><td>建议</td><td>需求编号，用来和黄金集对上；缺失时从 <code>user_input</code> 的“需求编号: …”里找</td></tr>
+    <tr><td><code>model</code> · <code>latency_ms</code> · <code>agent_name</code></td><td>否</td><td>模型名、耗时、Agent 名</td></tr>
+    <tr><td><code>tool_calls</code></td><td>否</td><td>工具调用列表：<code>[{"name","input","output","status"}]</code></td></tr>
+  </table>
 </div>
+
 <div class="step" id="s-a4-2">
   <div class="step-head"><span class="num">A4.2</span><h3>把自有日志导出成 JSONL（按模板）</h3><span class="time">10 分钟</span></div>
   <p class="why">按模板把每次 Agent 调用整理成一行 JSON。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>先看样例：<a data-repo="telemetry/samples/customer-agent-logs.jsonl">telemetry/samples/customer-agent-logs.jsonl</a></p>
+<pre><code>head -1 telemetry/samples/customer-agent-logs.jsonl | python3 -m json.tool</code></pre>
+  <div class="expect"><span class="label">预期输出（节选）：</span>
+<pre class="out">{
+    "session_id": "cust-sess-0001",
+    "timestamp": "2026-10-15T09:30:00+08:00",
+    "feedback_id": "FB-2610-001",
+    "user_input": "需求编号: FB-2610-001\n标题: 列表页批量修改自定义字段\n...",
+    "agent_output": "{\"feedback_id\": \"FB-2610-001\", \"important\": \"是\", ...}",
+    "model": "...",
+    "latency_ms": 8200,
+    "tool_calls": [ ... ]
+}</pre><!-- VERIFY --></div>
+  <div class="tip">你们的日志字段名不一样？把一两行原始日志和 <a data-repo="telemetry/LOG_FORMAT.md">LOG_FORMAT.md</a> 一起交给 coding agent：“写一个脚本把这种日志转换成 LOG_FORMAT.md 的 JSONL 格式”。把转换后的文件放在仓库里，例如 <code>mylogs.jsonl</code>。</div>
 </div>
+
 <div class="step" id="s-a4-3">
   <div class="step-head"><span class="num">A4.3</span><h3>先检查日志字段是否齐全</h3><span class="time">2 分钟</span></div>
   <p class="why">在导入前就发现缺字段的问题。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./11-A-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl</code></pre>
+  <p class="where">脚本：<a data-repo="11-A-convert-logs.sh">11-A-convert-logs.sh</a> → <a data-repo="telemetry/">telemetry/</a></p>
+  <div class="expect"><span class="label">预期输出：</span>每个字段的覆盖率（例如 <code>session_id 100%</code>、<code>tool_calls 0%</code>），能否解析出三项标签，以及结论“可以导入 / 缺少必填字段”。<!-- VERIFY: 以脚本实际输出为准 --></div>
+  <div class="warn">必填字段缺失（没有会话 ID、没有输出、没有时间）时不能导入。这种情况先和客户确认能否补导出；补不了就到 <a href="a5-check.html#s-a5-3">A5.3</a> 切换到 B 版。</div>
 </div>
+
 <div class="step" id="s-a4-4">
   <div class="step-head"><span class="num">A4.4</span><h3>转换并发送到 CloudWatch</h3><span class="time">5 分钟</span></div>
   <p class="why">把日志转换成 OTel trace，通过 ADOT 发到 CloudWatch。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./11-A-convert-logs.sh send telemetry/samples/customer-agent-logs.jsonl</code></pre>
+  <p>脚本做了三件事：</p>
+  <ol class="clicks">
+    <li>把每行日志变成一组 OTel span（Agent 调用 + 工具调用 + 输入输出事件），格式和 Strands Agent 埋点产生的一致；</li>
+    <li>把时间平移到<b>最近 14 天内</b>（CloudWatch 不接收更早的 span），保留各条之间的先后间隔；</li>
+    <li>以服务名 <code>s12lab-zhang3-imported-logs</code> 发送到 CloudWatch，并登记为一次“运行”，后面 <code>./31-run-eval.sh</code> 可以直接评估它。</li>
+  </ol>
+  <div class="expect"><span class="label">预期输出：</span>发送了多少个 session / span，以及 <code>run_id = A-imported-…</code>。<!-- VERIFY: 以脚本实际输出为准 --></div>
 </div>
+
 <div class="step" id="s-a4-5">
   <div class="step-head"><span class="num">A4.5</span><h3>在 CloudWatch 中确认导入结果</h3><span class="time">3 分钟</span></div>
   <p class="why">在控制台看到导入的会话和 trace。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>等 2–3 分钟。CloudWatch → <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → Agents 列表找到 <code>s12lab-zhang3-imported-logs</code>。</li>
+    <li>点进去 → <span class="ui">Sessions</span>：session 名就是日志里的 <code>session_id</code>；点开看 trace 里的输入和输出。</li>
+  </ol>
+  <div class="expect"><span class="label">预期结果：</span>session 数量与日志行数（不同 session_id 的个数）一致。<!-- VERIFY --></div>
+  <p>下一步：<a href="a5-check.html">A5 遥测检查</a>。</p>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

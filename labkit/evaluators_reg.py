@@ -39,7 +39,7 @@ CODE_EVALUATORS = [
     ("label_decision", "label", "处理建议 单项准确率（0/1）"),
     ("reject_quality", "reject", "拒绝理由与客户话术质量（LLM 评审，非拒绝则 Skipped）"),
 ]
-JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
+JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/s12_reject_quality.json", "llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
                            "llm_judge_config/config.json"]
 
 

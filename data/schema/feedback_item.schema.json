@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "s12/feedback_item",
+  "title": "需求反馈条目（Agent 输入）",
+  "description": "data/feedback_last_month.jsonl 每行一条。必需：id、title、content；推荐：customer、customer_tier、module、submitted_at、feedback_type。",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "content"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "需求编号，如 FB-2610-001"
+    },
+    "title": {
+      "type": "string",
+      "description": "标题"
+    },
+    "content": {
+      "type": "string",
+      "description": "需求描述（原文）"
+    },
+    "customer": {
+      "type": "string",
+      "description": "客户（合成公司名，带“（示例）”）"
+    },
+    "industry": {
+      "type": "string",
+      "description": "行业"
+    },
+    "customer_tier": {
+      "type": "string",
+      "enum": [
+        "战略",
+        "KA",
+        "腰部",
+        "长尾"
+      ],
+      "description": "客户等级"
+    },
+    "channel": {
+      "type": "string",
+      "description": "来源渠道"
+    },
+    "module": {
+      "type": "string",
+      "description": "相关模块"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date",
+      "description": "提交日期 YYYY-MM-DD"
+    },
+    "feedback_type": {
+      "type": "string",
+      "enum": [
+        "新需求",
+        "功能缺陷",
+        "体验优化",
+        "咨询"
+      ],
+      "description": "反馈类型"
+    },
+    "contract_commitment": {
+      "type": "string",
+      "enum": [
+        "是",
+        "否"
+      ],
+      "description": "是否合同承诺"
+    },
+    "extra": {
+      "type": "object",
+      "description": "客户数据中未映射的列（仅 ingest 输出）"
+    }
+  },
+  "additionalProperties": true
+}

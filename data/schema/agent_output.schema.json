@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "s12/agent_output",
+  "title": "Agent 分诊输出（评估器契约）",
+  "description": "Agent 最终消息只输出一个这样的 JSON；同时写入 span 属性 s12lab.triage_output。批量模式可输出 {\"results\": [ ... ]}。",
+  "type": "object",
+  "required": [
+    "feedback_id",
+    "important",
+    "urgent",
+    "decision"
+  ],
+  "properties": {
+    "feedback_id": {
+      "type": "string"
+    },
+    "important": {
+      "type": "string",
+      "enum": [
+        "是",
+        "否"
+      ]
+    },
+    "urgent": {
+      "type": "string",
+      "enum": [
+        "是",
+        "否"
+      ]
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "迭代",
+        "拒绝",
+        "待评估"
+      ]
+    },
+    "level": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "P0",
+        "P1",
+        "P2",
+        null
+      ],
+      "description": "分级模式才填，否则 null"
+    },
+    "reasoning": {
+      "type": "string",
+      "description": "判断依据：能力目录结论 + 相似需求客户数 + 适用口径"
+    },
+    "reject_reason": {
+      "type": "string",
+      "description": "decision=拒绝 时必填：内部专业理由"
+    },
+    "customer_reply": {
+      "type": "string",
+      "description": "decision=拒绝 时必填：对客户话术"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "拒绝"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reject_reason": {
+            "minLength": 1
+          },
+          "customer_reply": {
+            "minLength": 1
+          }
+        },
+        "required": [
+          "reject_reason",
+          "customer_reply"
+        ]
+      }
+    }
+  ]
+}

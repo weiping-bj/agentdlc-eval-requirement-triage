@@ -14,40 +14,121 @@
 <section class="card chapter-head">
 <h1><span class="num">2</span>输入数据与黄金集 <span class="applies common">A/B 通用</span></h1>
 <p class="lead">Agent 的输入是“上个月的需求反馈”，评判标准是“黄金集”。这一章确认两者都准备好了，并能按上午讨论的结论快速修改。</p>
+<div class="note">本章所有命令都在 EC2 的仓库目录 <code>~/scenario12-lab</code> 下执行，并已 <code>source .venv/bin/activate</code>。数据全部为合成数据，客户名均带“（示例）”。数据说明总览：<a data-repo="data/HANDOFF.md">data/HANDOFF.md</a>。</div>
 </section>
 <section class="card">
+
 <div class="step" id="s-2-1">
   <div class="step-head"><span class="num">2.1</span><h3>认识 mock 输入数据：需求反馈 + 平台能力目录</h3><span class="time">5 分钟</span></div>
   <p class="why">看一眼 60 条合成需求反馈和平台能力目录，知道 Agent 要处理什么。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <table>
+    <tr><th>文件</th><th>内容</th></tr>
+    <tr><td><a data-repo="data/feedback_last_month.jsonl">data/feedback_last_month.jsonl</a>（Excel 版 <a data-repo="data/feedback_last_month.csv">.csv</a>）</td><td>60 条“上个月的需求反馈”，每行一条：编号、标题、描述、客户、行业、客户等级、渠道、模块、提交日期、反馈类型、是否合同承诺。<b>不含任何标签</b>。</td></tr>
+    <tr><td><a data-repo="data/capability_catalog.json">data/capability_catalog.json</a></td><td>平台能力目录（39 项）：已支持 24 · 部分支持 8 · 明确不做 7；每项有限制、替代方案和用法。Agent 判断“已有能力 / 真实缺口 / 超出定位”的依据。</td></tr>
+  </table>
+<pre><code>head -c 600 data/feedback_last_month.jsonl; echo
+python3 -c "import json;d=json.load(open('data/capability_catalog.json'));print(d['platform']['name']);[print(c['id'],c['status'],c['name']) for c in d['capabilities'][:8]]"</code></pre>
+  <div class="expect"><span class="label">预期输出（节选）：</span>
+<pre class="out">{"id": "FB-2610-001", "title": "列表页批量修改自定义字段", "content": "我们在客户列表页想批量修改自定义字段……", "customer": "澜川精密制造（示例）", "industry": "制造", "customer_tier": "战略", ...
+示例 CRM PaaS 平台（合成）
+CAP-001 已支持 自定义对象与字段
+CAP-002 部分支持 列表页批量编辑
+CAP-003 已支持 数据导入导出
+CAP-004 已支持 查重与合并
+CAP-005 已支持 离职交接与负责人批量转移
+CAP-006 已支持 页面布局与首页自定义组件
+CAP-007 已支持 审批流
+CAP-008 已支持 自定义函数</pre></div>
+  <div class="tip">在笔记本上看更方便：点上面的 <code>.csv</code> 链接，在 GitHub 页面里可以直接以表格形式浏览。</div>
 </div>
+
 <div class="step" id="s-2-2">
   <div class="step-head"><span class="num">2.2</span><h3>认识黄金集：30 条带标注的样例</h3><span class="time">5 分钟</span></div>
   <p class="why">黄金集是“标准答案”：每条都标好是否重要、是否紧急、处理建议和拒绝要点。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <table>
+    <tr><th>文件</th><th>内容</th></tr>
+    <tr><td><a data-repo="data/golden/golden_set.jsonl">data/golden/golden_set.jsonl</a>（Excel 版 <a data-repo="data/golden/golden_set.csv">golden_set.csv</a>）</td><td>30 条：需求原文 + 期望标签（重要 / 紧急 / 处理建议 / 优先级）+ 可接受的其它建议 + 是否可自动拒绝 + 拒绝要点 + 话术要点 + 标注理由 + 五维标签 + 样例类型</td></tr>
+    <tr><td><a data-repo="data/golden/LABELING_GUIDE.md">data/golden/LABELING_GUIDE.md</a></td><td>标注标准：什么算重要、什么算紧急、何时迭代 / 拒绝 / 待评估、哪些<b>不可自动拒绝</b></td></tr>
+    <tr><td><a data-repo="data/schema/">data/schema/</a></td><td>输入条目 / 黄金集条目 / Agent 输出的 JSON Schema</td></tr>
+  </table>
+<pre><code>python3 data/tools/golden_tool.py stats</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">黄金集共 30 条
+- 是否重要：否 17，是 13
+- 是否紧急：否 24，是 6
+- 处理建议：待评估 6，拒绝 13，迭代 11（多答案可接受 6 条）
+- 优先级：P0 6，P1 7，P2 17
+- 样例类型：对抗 4，应拒绝 7，模糊 9，简单 10
+- 五维覆盖：性能 5，成本 6，认知 12，责任 12，质量 10
+- 不可自动拒绝：6 条</pre></div>
+  <p>每条样例都标了它主要考察的<b>五维</b>（认知 / 质量 / 责任 / 成本 / 性能），和上午 <a href="discussion.html#s-d-2">讨论提纲</a> 一一对应；样例类型里的“对抗”是故意施压或夹带指令的需求，用来检查 Agent 会不会被带偏。</p>
 </div>
+
 <div class="step" id="s-2-3">
   <div class="step-head"><span class="num">2.3</span><h3>（客户自带数据时）校验并标准化客户数据</h3><span class="time">10 分钟</span></div>
   <p class="why">检查客户给的数据字段够不够做判断，并转换成实验统一格式。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>把客户导出的需求反馈（CSV 或 JSONL）上传到 EC2：最简单的方式是让客户把文件放进你的 S3 桶，或直接把几十行内容粘贴进 coding agent 让它写成文件。</li>
+    <li>运行校验：它会逐字段检查（编号、标题、描述是必填；客户、客户等级、模块、反馈类型、提交日期越全越好），并给出“足够 / 勉强 / 不足”的结论。</li>
+  </ol>
+<pre><code>python3 data/tools/validate_input.py customer_feedback.csv
+python3 data/tools/normalize_input.py customer_feedback.csv --out data/customer/feedback.jsonl</code></pre><!-- VERIFY: 校验/标准化脚本名以 data/HANDOFF.md 为准 -->
+  <div class="expect"><span class="label">预期输出：</span>每个字段的覆盖率、缺失示例，以及结论。<!-- VERIFY --></div>
+  <div class="warn">如果结论是“不足”（例如只有一句话标题、没有客户信息、没有反馈类型），黄金集的“重要 / 紧急”很难标准，建议<b>继续使用我们的 mock 数据</b>，只把客户提供的几条典型需求作为新样例加进来（见 2.4）。</div>
+  <p>也可以把这件事交给 coding agent：提示词见 <a data-repo="data/prompts/">data/prompts/</a>（读模板 → 跑脚本 → 校验）。</p>
 </div>
+
 <div class="step" id="s-2-4">
   <div class="step-head"><span class="num">2.4</span><h3>按讨论反馈修改 mock 数据</h3><span class="time">10 分钟</span></div>
   <p class="why">把现场确认的参数填进模板，再让 coding agent 按模板重新生成 mock 数据。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>打开参数模板 <a data-repo="data/templates/mock-data-params.yaml">data/templates/mock-data-params.yaml</a>，按讨论结论修改（月份、条数、需求类别配比、客户行业、来源渠道）。不改任何参数 = 原样复现仓库里的 60 条数据。</li>
+    <li>如果需要“种子库里没有”的新类型需求，让 coding agent 按提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">data/prompts/02-regenerate-mock-data.md</a> 把新条目写进 <a data-repo="data/templates/extra-feedback.jsonl">data/templates/extra-feedback.jsonl</a>：</li>
+  </ol>
+<pre><code>claude "$(cat data/prompts/02-regenerate-mock-data.md)"</code></pre>
+  <p>（或者先运行 <code>claude</code>，再把提示词文件内容粘贴进去。）只改参数、不加新条目时，直接运行生成脚本：</p>
+<pre><code>python3 data/tools/generate_mock_data.py</code></pre>
+  <p class="where">脚本：<a data-repo="data/tools/generate_mock_data.py">data/tools/generate_mock_data.py</a>（同样的参数 + 同样的随机种子 = 同样的结果）</p>
+  <div class="expect"><span class="label">预期结果：</span><code>data/feedback_last_month.jsonl</code> 与 <code>.csv</code> 按新参数重新生成，脚本打印条数和各类别数量。<!-- VERIFY --></div>
+  <div class="tip">默认不覆盖黄金集。黄金集请走 2.5 的流程修改，这样每条改动都有记录。</div>
 </div>
+
 <div class="step" id="s-2-5">
   <div class="step-head"><span class="num">2.5</span><h3>按讨论反馈修改黄金集</h3><span class="time">15 分钟</span></div>
   <p class="why">把现场确认的标注口径填进模板，再让 coding agent 按模板更新黄金集。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>口径类结论（标签用“是/否”还是 P0/P1/P2、不可自动拒绝的规则、能力目录补充）写进 <a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a>。</li>
+    <li>逐条意见写进 <a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a>：“操作”列填 <code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code>，改标签就直接改对应列。可以先用当前黄金集预填这张表：</li>
+  </ol>
+<pre><code>python3 data/tools/golden_tool.py feedback-template</code></pre>
+  <ol class="clicks" start="3">
+    <li>把两份模板交给 coding agent，它会读模板、调用脚本更新黄金集并校验：</li>
+  </ol>
+<pre><code>claude "$(cat data/prompts/03-update-golden-set.md)"</code></pre><!-- VERIFY: 提示词文件由数据组提供 -->
+  <p>如果只是按 CSV 改标签（不需要 coding agent 写新样例），也可以直接运行：</p>
+<pre><code>python3 data/tools/golden_tool.py apply-feedback --feedback data/templates/golden-set-feedback.csv --version v2</code></pre>
+  <p>选了分级（P0/P1/P2）但还有条目没填优先级时，可以先按“重要 / 紧急”自动推导一版再人工确认：<code>python3 data/tools/golden_tool.py fill-levels</code></p>
+  <div class="expect"><span class="label">预期结果：</span><code>data/golden/golden_set.jsonl</code> 更新，脚本打印改了几条、新增几条，并给出新的标签分布。<!-- VERIFY --></div>
+  <div class="note">标注标准变了，记得同时更新 <a data-repo="data/golden/LABELING_GUIDE.md">LABELING_GUIDE.md</a>（coding agent 提示词会提醒你）。后面第 8 章优化 Agent 时，提示词也要和新口径一致。</div>
 </div>
+
 <div class="step" id="s-2-6">
   <div class="step-head"><span class="num">2.6</span><h3>校验黄金集并冻结版本</h3><span class="time">3 分钟</span></div>
-  <p class="why">用脚本检查黄金集格式和标签分布，确认后提交一个版本，后面评估都以它为准。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p class="why">用脚本检查黄金集格式和标签分布，确认后冻结一个版本，后面评估都以它为准。</p>
+<pre><code>python3 data/tools/golden_tool.py validate
+python3 data/tools/golden_tool.py freeze</code></pre>
+  <p class="where">脚本：<a data-repo="data/tools/golden_tool.py">data/tools/golden_tool.py</a>。<code>freeze</code> = 校验 + 导出 CSV / AgentCore 数据集格式 + 写 <a data-repo="data/golden/MANIFEST.json">MANIFEST.json</a> + 把黄金集同步进评估器目录（<code>evaluators/*/golden_set.json</code>）。</p>
+  <div class="expect"><span class="label">预期输出（validate）：</span>
+<pre class="out">黄金集共 30 条
+- 是否重要：否 17，是 13
+- 是否紧急：否 24，是 6
+- 处理建议：待评估 6，拒绝 13，迭代 11（多答案可接受 6 条）
+...
+校验通过</pre></div>
+  <div class="warn">黄金集冻结后再修改，需要重新运行 <code>freeze</code> <b>并</b>重新注册评估器（第 6 章 <code>./30-create-evaluators.sh</code>），否则评估器里还是旧答案。</div>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

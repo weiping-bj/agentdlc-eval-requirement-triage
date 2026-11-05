@@ -234,14 +234,14 @@ def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> None:
     if "优先级" in row and row.get("优先级") is not None:
         lv = row.get("优先级", "").strip()
         e["level"] = C.norm_level(lv) if lv else e.get("level")
-    acc = C.split_list(row.get("可接受建议"), C.TAG_SEPS)
-    if acc:
-        g["acceptable_decisions"] = [C.norm_decision(a) or a for a in acc]
+    acc = [C.norm_decision(a) or a for a in C.split_list(row.get("可接受建议"), C.TAG_SEPS)]
     dec = e.get("decision")
     current = g.get("acceptable_decisions") or []
-    if dec and dec not in current:
-        # explicit 可接受建议 given -> keep it and add the expected decision; otherwise reset to [decision]
-        g["acceptable_decisions"] = [dec] + current if acc else [dec]
+    if acc and dec in acc:
+        g["acceptable_decisions"] = acc
+    elif dec and (acc or dec not in current):
+        # stale / missing 可接受建议 (e.g. pre-filled list from the old decision) -> only the new decision
+        g["acceptable_decisions"] = [dec]
     if row.get("可自动拒绝"):
         g["can_auto_reject"] = C.norm_yes_no(row["可自动拒绝"]) != "否"
     if row.get("五维"):

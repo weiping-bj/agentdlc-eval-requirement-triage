@@ -105,8 +105,17 @@ CAP-008 已支持 自定义函数</pre></div>
   <p class="why">把现场确认的标注口径填进模板，再让 coding agent 按模板更新黄金集。</p>
   <ol class="clicks">
     <li>口径类结论（标签用“是/否”还是 P0/P1/P2、不可自动拒绝的规则、能力目录补充）写进 <a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a>。</li>
-    <li>逐条意见写进 <a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a>：“操作”列填 <code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code>，改标签就直接改对应列。可以先用当前黄金集预填这张表：</li>
+    <li>逐条意见写进 <a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a>：“操作”列（C 列）填 <code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code>，改标签就直接改对应列。可以先用当前黄金集预填这张表：</li>
   </ol>
+  <table>
+    <tr><th style="width:18%">列</th><th>含义</th><th style="width:30%">怎么填</th></tr>
+    <tr><td>A–B <code>golden_id</code> / <code>feedback_id</code></td><td>样例编号 / 需求编号</td><td>“新增”可留空，脚本自动编号</td></tr>
+    <tr><td>C 操作</td><td>这一行要做什么</td><td>只填 <code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code></td></tr>
+    <tr><td>D–N</td><td>期望标签、可接受建议、可自动拒绝、五维、拒绝要点、话术要点、标注理由</td><td>“修改”“新增”时按讨论结论填写</td></tr>
+    <tr><td>O–U 标题 … 合同承诺</td><td><b>需求原文</b>：对照它判断标签；它也是 Agent 的输入</td><td>“修改”时一般不动；“新增”时必须填写</td></tr>
+    <tr><td>V 备注</td><td>评审人的自由文字说明（例如“产品和研发有分歧”）</td><td><b>不会</b>进入 Agent 输入，也不影响标签</td></tr>
+  </table>
+  <div class="warn">“操作”列写成其它文字（例如“改一下”）的行不会生效：<code>apply-feedback</code> 会在最后用醒目的 ❌ 列出这些行并且<b>不写入</b>，改好后重新运行即可。<code>修改标签</code>、<code>新增样例</code> 这类常见写法也能识别。</div>
 <pre><code>python3 data/tools/golden_tool.py feedback-template</code></pre>
   <ol class="clicks" start="3">
     <li>把两份模板交给 coding agent，它会读模板、调用脚本更新黄金集并校验：</li>

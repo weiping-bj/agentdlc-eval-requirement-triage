@@ -136,14 +136,29 @@ def cmd_apply(a) -> int:
     version = a.version or _bump(rows)
     new_rows, log = G.apply_feedback(rows, fb, version, pool)
     errors, warns = G.validate(new_rows, a.scheme, _catalog_ids())
+    bad_ops = G.unknown_ops(fb)
     for line in log:
         print(line)
-    if errors and not a.allow_errors:
+
+    def unknown_summary():
+        if not bad_ops:
+            return
+        print("")
+        print("!" * 66)
+        print(f"❌ 有 {len(bad_ops)} 行的“操作”无法识别，这些行的修改【没有生效】：")
+        for n, key, raw in bad_ops:
+            print(f"   - CSV 第 {n} 行 {key or '(无编号)'}：操作 = {raw!r}")
+        print(f"   “操作”列只能填：{G.OP_CHOICES}（也接受 修改标签 / 新增样例 等写法）")
+        print("!" * 66)
+
+    if (errors or bad_ops) and not a.allow_errors:
         for e in errors:
             print("错误：" + e)
+        unknown_summary()
         print("未写入：请修正模板后重试（或加 --allow-errors 先写入草稿）")
         return 1
     if a.dry_run:
+        unknown_summary()
         print("（dry-run，未写入）")
         print(G.stats_markdown(new_rows))
         return 0
@@ -153,6 +168,7 @@ def cmd_apply(a) -> int:
     applied[fb_sha] = datetime.now().isoformat(timespec="seconds") + f" → {version}"
     C.write_json(applied_path, applied)
     print(f"已写入 {len(new_rows)} 条（版本 {version}），备份：{os.path.relpath(bk, C.REPO) if bk else '无'}")
+    unknown_summary()
     print(G.stats_markdown(new_rows))
     for w in warns:
         print("警告：" + w)

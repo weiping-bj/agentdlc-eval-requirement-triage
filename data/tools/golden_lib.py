@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -15,8 +16,29 @@ GOLDEN_CSV_FIELDS = ["golden_id", "feedback_id", "case_type", "dimensions", "imp
 FEEDBACK_CSV_FIELDS = ["golden_id", "feedback_id", "操作", "是否重要", "是否紧急", "处理建议", "可接受建议", "优先级",
                        "可自动拒绝", "五维", "样例类型", "拒绝要点", "话术要点", "标注理由", "标题", "需求描述", "客户",
                        "客户等级", "相关模块", "反馈类型", "合同承诺", "备注"]
-OPS = {"保留": "keep", "keep": "keep", "": "keep", "修改": "modify", "modify": "modify", "删除": "delete",
-       "delete": "delete", "新增": "add", "add": "add"}
+OPS = {"保留": "keep", "keep": "keep", "": "keep", "不变": "keep",
+       "修改": "modify", "modify": "modify", "修改标签": "modify", "改标签": "modify", "改": "modify", "update": "modify",
+       "删除": "delete", "delete": "delete", "删": "delete", "删除样例": "delete", "remove": "delete",
+       "新增": "add", "add": "add", "新增样例": "add", "新增用例": "add", "添加": "add", "增加": "add"}
+OP_CHOICES = "保留 / 修改 / 删除 / 新增"
+
+
+def normalize_op(text) -> Optional[str]:
+    """Map the 操作 cell to keep/modify/delete/add, tolerating spaces, full-width spaces,
+    trailing punctuation and the wording variants people actually type (修改标签, 新增样例 ...).
+    Returns None for an unknown operation."""
+    s = str(text or "").replace("\u3000", " ").strip().strip("。.;；,，:：!！").strip().lower()
+    s = re.sub(r"\s+", "", s)
+    return OPS.get(s)
+
+
+def unknown_ops(fb_rows: List[Dict[str, str]]) -> List[Tuple[int, str, str]]:
+    """(CSV line number, golden_id/feedback_id, raw 操作) for every row whose operation is not recognised."""
+    out = []
+    for n, row in enumerate(fb_rows, 2):
+        if normalize_op(row.get("操作")) is None:
+            out.append((n, (row.get("golden_id") or row.get("feedback_id") or "").strip(), str(row.get("操作"))))
+    return out
 
 
 def input_of(item: Dict[str, Any]) -> Dict[str, Any]:
@@ -277,9 +299,9 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
     idx = {r["golden_id"]: r for r in new_rows}
     used_g = set(by_gid)
     for n, row in enumerate(fb_rows, 2):
-        op = OPS.get((row.get("操作") or "").strip().lower(), OPS.get((row.get("操作") or "").strip()))
+        op = normalize_op(row.get("操作"))
         if op is None:
-            log.append(f"CSV 第 {n} 行：未知操作 {row.get('操作')!r}，已跳过（可选：保留/修改/删除/新增）")
+            log.append(f"CSV 第 {n} 行：未知操作 {row.get('操作')!r}，已跳过（可选：{OP_CHOICES}）")
             continue
         gid = (row.get("golden_id") or "").strip()
         fid = (row.get("feedback_id") or "").strip()

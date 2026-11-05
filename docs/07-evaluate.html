@@ -26,15 +26,18 @@
   <div class="pathbox" data-path="b"><div class="ph">B 版：AgentCore Runtime</div>
 <pre><code>./21-B-run-golden.sh</code></pre></div>
   <p class="where">两者都调用 <a data-repo="labkit/batch.py">labkit/batch.py</a>：并发 4 条，结果写到 <code>results/run-&lt;路线&gt;-&lt;版本&gt;-&lt;时间&gt;.jsonl</code>，并登记到 <code>.lab-state/runs.json</code>。</p>
-  <div class="expect"><span class="label">预期输出（B 版示例，约 2–4 分钟）：</span>
+  <div class="expect"><span class="label">预期输出（B 版实测，约 2 分钟）：</span>
 <pre class="out">▶ 运行 30 条需求 · 路线 B · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 4
-  [ 1/30] FB-2610-001      12.1s  重要=是 紧急=否 建议=迭代
-  [ 2/30] FB-2610-002      10.4s  重要=否 紧急=否 建议=拒绝
-  [ 3/30] FB-2610-003       9.8s  重要=是 紧急=是 建议=迭代
-  ...
-✅ 完成：30 条，用时 110s，失败 0 条 → results/run-B-v0-20261107T070000Z.jsonl
-   run_id = B-v0-20261107T070000Z</pre><!-- VERIFY --></div>
-  <div class="tip">有个别 <code>❌</code>（超时、限流）不影响后续：评估会跳过失败的条目。失败太多就再跑一次。</div>
+  [ 1/30] FB-2610-001       13.3s  重要=是 紧急=否 建议=待评估
+  [ 2/30] FB-2610-002       17.5s  重要=是 紧急=否 建议=待评估
+  [ 3/30] FB-2610-003       14.4s  重要=是 紧急=是 建议=待评估
+  [ 4/30] FB-2610-005       22.9s  重要=是 紧急=否 建议=待评估
+  …
+  [30/30] FB-2610-004       17.3s  重要=是 紧急=否 建议=待评估
+✅ 完成：30 条，用时 121s，失败 1 条 → results/run-B-v0-20261105T142708Z.jsonl
+   run_id = B-v0-20261105T142708Z</pre>
+  <p>A 版（<code>./10-A-run-local.sh golden</code>）的输出格式相同，开头多两行“日志组 / OTel 已配置”，实测 30 条用时约 115 秒。V0 的典型表现：几乎所有需求都判“重要”，处理建议大量是“待评估”——这正是它的缺陷。</p></div>
+  <div class="tip">有个别 <code>❌</code>（例如 <code>RuntimeClientError</code>、超时、限流）不影响后续：脚本会对同一条自动重试 2 次，仍失败的条目评估时会跳过。失败太多就再跑一次。</div>
 </div>
 
 <div class="step" id="s-7-2">
@@ -43,21 +46,31 @@
   <div class="warn">跑完 7.1 后先等 <b>2–3 分钟</b>（trace 写入 CloudWatch 有延迟）。脚本自己也会重试，找不到 trace 时会等待再查。</div>
 <pre><code>./31-run-eval.sh</code></pre>
   <p class="where">脚本：<a data-repo="31-run-eval.sh">31-run-eval.sh</a> → <a data-repo="labkit/evaluate.py">labkit/evaluate.py</a>（调用 Evaluate API；把黄金集答案作为参考输入一起传入）。评估指定运行：<code>./31-run-eval.sh --run &lt;run_id&gt;</code></p>
-  <div class="expect"><span class="label">预期输出（数字为示意）：</span>
-<pre class="out">▶ 评估 run B-v0-20261107T070000Z：30 个 session × 8 个评估器
+  <div class="expect"><span class="label">预期输出（B 版 V0 实测，约 2–3 分钟）：</span>
+<pre class="out">▶ 评估 run B-v0-20261105T142708Z：30 个 session × 8 个评估器
   评估器：label_accuracy, label_important, label_urgent, label_decision, reject_quality, reject_quality_llm, Builtin.Correctness, Builtin.Helpfulness
-  [ 1/30] FB-2610-001    三项=Pass     重要=Pass  紧急=Pass  建议=Pass  话术=Skipped
-  [ 2/30] FB-2610-002    三项=Fail     重要=Pass  紧急=Pass  建议=Fail  话术=-
-  ...
+  [ 1/30] FB-2610-009    三项=Fail     重要=Pass  紧急=Pass  建议=Fail  话术=不适用
+  [ 2/30] FB-2610-002    三项=Fail     重要=Fail  紧急=Pass  建议=Fail  话术=不适用
+  [ 3/30] FB-2610-005    三项=Fail     重要=Fail  紧急=Pass  建议=Fail  话术=不适用
+  …
+  [30/30] FB-2610-041    三项=Fail     重要=Fail  紧急=Pass  建议=Pass  话术=Pass
 
-═══ 结果（150s）· 目标：三项各 ≥ 70% ═══
-  是否重要：63% ❌
-  是否紧急：57% ❌
-  处理建议：60% ❌
-  label_accuracy: 平均 0.60（30 条）
-  reject_quality: 平均 0.55（12 条）
-  Builtin.Helpfulness: 平均 0.70（30 条）
-  ❌ 未达标 · 详细结果：results/eval-B-v0-20261107T070000Z.json</pre><!-- VERIFY: 以实测 V0 分数替换 --></div>
+═══ 结果（142s）· 目标：三项各 ≥ 70% ═══
+  是否重要：66% ❌
+  是否紧急：86% ✅
+  处理建议：48% ❌
+  label_accuracy: 平均 0.67（29 条）
+  reject_quality: 平均 0.55（4 条）
+  reject_quality_llm: 平均 0.47（3 条）
+  Builtin.Correctness: 平均 0.14（29 条）
+  Builtin.Helpfulness: 平均 0.81（29 条）
+  ❌ 未达标 · 详细结果：results/eval-B-v0-20261105T142708Z.json</pre>
+  <table>
+    <tr><th>实测 V0（30 条黄金集）</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>结论</th></tr>
+    <tr><td>A 版（本机 + ADOT）</td><td>67%</td><td>83%</td><td>43%</td><td>❌ 未达标</td></tr>
+    <tr><td>B 版（AgentCore Runtime）</td><td>66%</td><td>86%</td><td>48%</td><td>❌ 未达标</td></tr>
+  </table>
+  <p>大模型每次运行的结果会有几个百分点的波动，你的数字和上表略有不同是正常的。“话术=不适用”表示这条 Agent 没有判“拒绝”，话术评估器不打分。</p></div>
 </div>
 
 <div class="step" id="s-7-3">
@@ -82,7 +95,15 @@
     <li><span class="ui">Evaluations</span> 页签：在线评估的结果。session 空闲 2 分钟后才开始打分，所以 7.1 跑完后约 <b>5–10 分钟</b>才会陆续出现；可以看到每个评估器的平均分、分布和每个 session / trace 的得分与解释。</li>
     <li>（可选）CloudWatch → <span class="ui">Metrics</span> → 命名空间 <code>Bedrock-AgentCore/Evaluations</code>，可以给评估分数配告警。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>Evaluations 页签里 label_important / label_urgent / label_decision 的平均分与 7.2 的三项准确率基本一致（在线评估不传黄金集参考输入，评估器用自带的黄金集按需求编号对答案）。<!-- VERIFY: 控制台菜单名与一致性 --></div>
+  <div class="expect"><span class="label">预期结果：</span>Evaluations 页签里每个评估器都有平均分和分布；在线评估不传黄金集参考输入，评估器用自带的黄金集按需求编号对答案，所以 label_important / label_urgent / label_decision 的平均分与 7.2 基本一致。控制台菜单名称可能随版本略有不同。
+  <p>同样的分数也是 CloudWatch 指标（命名空间 <code>Bedrock-AgentCore/Evaluations</code>，维度 <code>service.name</code> + <code>onlineEvaluationConfigId</code>），A 版（不在 Runtime 上的 Agent）和 B 版都已实测能看到。实测示例（V0 + V1 两次黄金集共 60 个 session 的平均）：</p>
+<pre class="out">s12lab_zhang3_label_accuracy    service=s12lab_zhang3_agent.DEFAULT   avg=0.81 n=60
+s12lab_zhang3_label_decision    service=s12lab_zhang3_agent.DEFAULT   avg=0.73 n=60
+s12lab_zhang3_label_important   service=s12lab_zhang3_agent.DEFAULT   avg=0.78 n=60
+s12lab_zhang3_label_urgent      service=s12lab_zhang3_agent.DEFAULT   avg=0.90 n=60
+s12lab_zhang3_reject_quality    service=s12lab_zhang3_agent.DEFAULT   avg=0.60 n=18
+Builtin.Helpfulness             service=s12lab_zhang3_agent.DEFAULT   avg=0.85 n=60</pre>
+  <p>想在控制台分别看 V0 和 V1：把时间范围分别设成两次运行的时间段（第 9.3 步）。</p></div>
 </div>
 
 <div class="step" id="s-7-5">
@@ -98,11 +119,13 @@ for s in d['sessions']:
     if sc.get('label') != 'Pass':
         print(s['feedback_id'], sc.get('label'), (sc.get('explanation') or s.get('error') or '')[:160])
 EOF</code></pre>
-  <div class="expect"><span class="label">预期输出（示意）：</span>
-<pre class="out">评估结果文件： results/eval-B-v0-20261107T070000Z.json
-FB-2610-002 Fail important: 期望 否 实际 否 ✓; urgent: 期望 否 实际 否 ✓; decision: 期望 拒绝 实际 迭代 ✗
-FB-2610-003 CriticalFail ...
-...</pre><!-- VERIFY: explanation 格式以评估器为准 --></div>
+  <div class="expect"><span class="label">预期输出（A 版 V0 实测，节选）：</span>
+<pre class="out">评估结果文件： results/eval-A-v0-20261105T142551Z.json
+FB-2610-002 Fail 需求 FB-2610-002（G02）：1/3 项正确。是否重要 错（期望 否，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 错（期望 拒绝，实际 待评估）。[来源 attribute，版本 v0]
+FB-2610-003 Fail 需求 FB-2610-003（G03）：2/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 错（期望 迭代，实际 待评估）。[来源 attribute，版本 v0]
+FB-2610-005 Fail 需求 FB-2610-005（G04）：1/3 项正确。是否重要 错（期望 否，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 错（期望 拒绝，实际 待评估）。[来源 attribute，版本 v0]
+…</pre>
+  <p>实测 V0 最常见的两类错误：① 超出平台定位或已有能力的需求被判“待评估”而不是“拒绝”（认知：工具看不到能力状态）；② 战略客户的普通需求被判“重要”（质量：口径不对）。</p></div>
   <p>对照黄金集里每条的 <code>dimensions</code>（五维标签）和 <code>rationale</code>（标注理由），把错误归类：</p>
   <table>
     <tr><th>维度</th><th>典型失败现象</th><th>多半是哪里的问题</th></tr>

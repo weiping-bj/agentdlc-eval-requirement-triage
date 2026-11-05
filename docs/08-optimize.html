@@ -75,12 +75,16 @@
   重新部署（更新同一个 Runtime，生成新版本号；依赖包会复用，比第一次快）：
 <pre><code>./20-B-deploy-runtime.sh</code></pre>
 <pre class="out">▶ 部署 s12lab_zhang3_agent · Agent 版本 v1 · 模型 us.anthropic.claude-sonnet-5-5 · 区域 us-west-2
-  ♻️  复用已下载的依赖 build/runtime/deps-xxxxxxxxxxxx
-  📦 打包完成：...
-  🔁 更新已有 Runtime s12lab_zhang3_agent-AbCdEf1234
+  ♻️  复用已下载的依赖 build/runtime/deps-e6d59a768c1a
+  📦 打包完成：build/runtime/agent-20261105T144112Z.zip（5552 个文件，39.6 MB）
+  ⬆️  已上传 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/runtime/agent-20261105T144112Z.zip
+  🔐 执行角色 s12lab-zhang3-runtime-role
+  🔁 更新已有 Runtime s12lab_zhang3_agent-DdcMnlBX1R
   ⏳ Runtime 状态 UPDATING
   ⏳ Runtime 状态 READY
-✅ Runtime 就绪：s12lab_zhang3_agent-AbCdEf1234（版本 2，Agent v1）</pre><!-- VERIFY -->
+✅ Runtime 就绪：s12lab_zhang3_agent-DdcMnlBX1R（版本 2，Agent v1）
+   下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）</pre>
+  实测约 1 分钟。
   再调用一次确认：<code>./20-B-deploy-runtime.sh invoke</code></div>
 </div>
 

@@ -26,30 +26,44 @@
 <pre><code>./21-B-run-golden.sh</code></pre></div>
   <p>等 2–3 分钟后评估（自动评估最近一次运行，也就是 V1）：</p>
 <pre><code>./31-run-eval.sh</code></pre>
-  <div class="expect"><span class="label">预期输出（结尾，数字为示意）：</span>
-<pre class="out">═══ 结果（150s）· 目标：三项各 ≥ 70% ═══
-  是否重要：87% ✅
-  是否紧急：83% ✅
-  处理建议：80% ✅
-  label_accuracy: 平均 0.83（30 条）
-  reject_quality: 平均 0.82（13 条）
-  ✅ 达标 · 详细结果：results/eval-B-v1-20261107T080000Z.json</pre><!-- VERIFY: 以实测 V1 分数替换 --></div>
+  <div class="expect"><span class="label">预期输出（B 版 V1 实测，结尾）：</span>
+<pre class="out">═══ 结果（149s）· 目标：三项各 ≥ 70% ═══
+  是否重要：90% ✅
+  是否紧急：93% ✅
+  处理建议：100% ✅
+  label_accuracy: 平均 0.94（30 条）
+  reject_quality: 平均 0.60（14 条）
+  reject_quality_llm: 平均 0.84（11 条）
+  Builtin.Correctness: 平均 0.53（30 条）
+  Builtin.Helpfulness: 平均 0.85（30 条）
+  ✅ 达标 · 详细结果：results/eval-B-v1-20261105T144133Z.json</pre>
+  <table>
+    <tr><th>实测（30 条黄金集）</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>结论</th></tr>
+    <tr><td>A 版 V0 → V1</td><td>67% → <b>93%</b></td><td>83% → <b>93%</b></td><td>43% → <b>100%</b></td><td>✅ 达标</td></tr>
+    <tr><td>B 版 V0 → V1</td><td>66% → <b>90%</b></td><td>86% → <b>93%</b></td><td>48% → <b>100%</b></td><td>✅ 达标</td></tr>
+  </table>
+  <p>大模型每次运行会有几个百分点的波动，你的数字略有不同是正常的；关键是三项都越过 70%。注意 V1 拒绝的条目变多了（4 → 14），所以话术质量 reject_quality 平均分只有 0.6 左右——这是第 8 章可以继续优化的方向。</p></div>
 </div>
 
 <div class="step" id="s-9-2">
   <div class="step-head"><span class="num">9.2</span><h3>生成前后对比页面</h3><span class="time">2 分钟</span></div>
   <p class="why">脚本把 V0 和 V1 的分数生成一个静态 HTML 对比页，并放到你的私有 S3 桶，方便在笔记本浏览器里打开。</p>
 <pre><code>./32-compare.sh</code></pre>
-  <p class="where">脚本：<a data-repo="32-compare.sh">32-compare.sh</a> → <a data-repo="labkit/compare.py">labkit/compare.py</a>（默认对比最早的 V0 评估和最新的其它版本评估；也可指定 <code>--before results/eval-…json --after results/eval-…json</code>）→ <a data-repo="labkit/publish.py">labkit/publish.py</a></p>
+  <p class="where">脚本：<a data-repo="32-compare.sh">32-compare.sh</a> → <a data-repo="labkit/compare.py">labkit/compare.py</a>（默认：“优化后”= 最新一次非 V0 评估，“优化前”= 同一路线在它之前最近一次 V0 评估；也可指定 <code>--before results/eval-…json --after results/eval-…json</code>）→ <a data-repo="labkit/publish.py">labkit/publish.py</a></p>
   <div class="expect"><span class="label">预期输出（结尾）：</span>
-<pre class="out">☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/compare-B-v0-...-vs-B-v1-....html
+<pre class="out">▶ 对比 V0 B-v0-20261105T142708Z → V1 B-v1-20261105T144133Z（目标各 ≥70%）
+✅ 对比页已生成（本地文件，可直接用浏览器打开）：
+results/compare-B-v0-20261105T142708Z-vs-B-v1-20261105T144133Z.html
+☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/compare-B-v0-20261105T142708Z-vs-B-v1-20261105T144133Z.html
 👉 在笔记本浏览器打开（需已登录控制台），点右上角「打开」查看：
-   https://us-west-2.console.aws.amazon.com/s3/object/s12lab-zhang3-...?region=us-west-2&amp;prefix=reports/compare-...html</pre><!-- VERIFY --></div>
+   https://us-west-2.console.aws.amazon.com/s3/object/s12lab-zhang3-&lt;account&gt;-us-west-2?region=us-west-2&amp;prefix=reports/compare-B-v0-…-vs-B-v1-….html</pre></div>
   <ol class="clicks">
     <li>在笔记本浏览器（已登录 AWS 控制台）打开脚本打印的链接。</li>
     <li>在 S3 对象页面点右上角 <span class="ui">打开</span>（Open），对比页会在新标签页显示。</li>
   </ol>
-  <img class="shot" src="img/compare-sample.png" alt="对比页示例：顶部是三项准确率 V0→V1 的变化和 70% 达标标记，中间是分组柱状图，下方是逐条用例的前后标签对比">
+  <img class="shot" src="img/compare-sample.png" alt="实测对比页顶部：三项准确率 V0→V1 的变化和 70% 达标标记">
+  <img class="shot" src="img/compare-matrix.png" alt="实测对比页下半部分：各评估器平均分对比，以及逐条用例的修复 / 退步 / 仍错误筛选和前后标签">
+  <p class="where">上面两张是 B 版实测对比页的截图（上：三项准确率与达标；下：评估器平均分与逐条对比）。</p>
   <p>先看看对比页长什么样：<a href="compare/sample-compare.html" target="_blank" rel="noopener">示例对比页（合成数据）</a>。页面内容：三项准确率前后变化与达标标记、柱状图（含 70% 目标线）、所有评估器的平均分对比、逐条用例的“修复 / 退步 / 仍错误”筛选。</p>
   <div class="note">桶默认禁止公开访问，对比页只能用你自己的控制台登录打开，不会暴露给其他人。</div>
 </div>
@@ -63,7 +77,7 @@
     <li>B 版还可以在 <span class="ui">Sessions</span> 里按 session 名区分：V0 的 session 名含 <code>-v0-</code>，V1 的含 <code>-v1-</code>。</li>
     <li>（可选）CloudWatch → <span class="ui">Metrics</span> → <code>Bedrock-AgentCore/Evaluations</code>，把各评估器的分数画成随时间变化的折线，V0 → V1 的跳升一目了然。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>V1 时间段的三项平均分明显高于 V0 时间段，与对比页一致。<!-- VERIFY --></div>
+  <div class="expect"><span class="label">预期结果：</span>V1 时间段的三项平均分明显高于 V0 时间段，与对比页一致。时间范围选“两次运行都包含”时看到的是混合平均（例如实测 V0 + V1 共 60 个 session：处理建议 0.73、是否重要 0.78），所以一定要按时间段分开看。控制台菜单名称可能随版本略有不同。</div>
 </div>
 
 <div class="step" id="s-9-4">
@@ -74,8 +88,23 @@
   <div class="pathbox" data-path="b"><div class="ph">B 版</div>
 <pre><code>./34-triage-report.sh b</code></pre></div>
   <p class="where">脚本：<a data-repo="34-triage-report.sh">34-triage-report.sh</a> → <a data-repo="labkit/report.py">labkit/report.py</a>。用当前版本（V1）处理 <a data-repo="data/feedback_last_month.jsonl">data/feedback_last_month.jsonl</a> 的 60 条，生成报告并上传到私有桶。</p>
-  <div class="expect"><span class="label">预期结果：</span>脚本先打印 60 条的处理进度，最后给出 S3 控制台链接。报告里有：迭代 / 拒绝 / 待评估数量、重要 × 紧急 2×2 矩阵、按模块分布、自动拒绝清单（内部理由 + 客户话术全文）、待评估清单。<!-- VERIFY --></div>
-  <div class="tip">这 60 条里大部分不在黄金集中，在线评估仍会给“话术质量”和 Helpfulness 打分（标签准确率对非黄金集条目会 Skipped），可以顺便展示“上线后的持续评估”。</div>
+  <div class="expect"><span class="label">预期输出（B 版 V1 实测，约 2.5 分钟）：</span>
+<pre class="out">▶ 运行 60 条需求 · 路线 B · 版本 v1 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 6
+  [ 1/60] FB-2610-001       11.2s  重要=是 紧急=否 建议=迭代
+  [ 2/60] FB-2610-002       15.0s  重要=否 紧急=否 建议=拒绝
+  [ 3/60] FB-2610-003       11.5s  重要=是 紧急=是 建议=迭代
+  …
+✅ 完成：60 条，用时 142s，失败 0 条 → results/run-B-v1-20261105T145251Z.jsonl
+   run_id = B-v1-20261105T145251Z
+▶ 分诊报告：B-v1-20261105T145251Z · 60 条
+✅ 分诊报告已生成（本地文件，可直接用浏览器打开）：
+results/triage-report-B-v1-20261105T145251Z.html
+☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/triage-report-B-v1-20261105T145251Z.html
+👉 在笔记本浏览器打开（需已登录控制台），点右上角「打开」查看：
+   https://us-west-2.console.aws.amazon.com/s3/object/…</pre>
+  报告第一行就是结论，实测为：<b>本次共分诊 60 条需求反馈：建议迭代 15 条、自动拒绝 27 条（已附客户沟通话术）、待人工评估 18 条。</b>下面还有重要 × 紧急 2×2 矩阵、按模块分布、自动拒绝清单（内部理由 + 客户话术全文）和待评估清单。</div>
+  <img class="shot" src="img/triage-report.png" alt="实测分诊报告：60 条需求中迭代 15、拒绝 27、待评估 18，处理失败 0">
+  <div class="tip">这 60 条里大部分不在黄金集中，在线评估仍会给“话术质量”和 Helpfulness 打分（标签准确率评估器对不在黄金集里的条目返回 Skipped、不计分），可以顺便展示“上线后的持续评估”。</div>
 </div>
 
 <div class="step" id="s-9-5">

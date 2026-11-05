@@ -45,7 +45,16 @@
     <li><b>EC2 上</b>：区域自动跟随 EC2 所在区域（安装时写入的 <code>AWS_REGION</code> 环境变量优先于 <code>lab.env</code>），一般不用改。</li>
     <li><b>笔记本上</b>：在 <code>config/local.env</code> 里加一行 <code>AWS_REGION=us-east-1</code>，或者直接修改 <a data-repo="config/lab.env">config/lab.env</a>。</li>
   </ul>
-  <p>两个区域都已确认可用：AgentCore Runtime、Observability、Evaluations（含全部内置评估器），以及推理配置文件 <code>us.anthropic.claude-sonnet-5-5</code>、<code>us.anthropic.claude-haiku-5-5</code>、<code>us.amazon.nova-2-lite-v1:0</code>。切换区域后，第 1.8 步（Transaction Search）要在新区域再做一次，资源也要在新区域重新创建。</p>
+  <p>us-west-2 已完整跑通全部步骤；us-east-1 已确认模型可调用（<code>us.anthropic.claude-sonnet-5-5</code>、<code>us.amazon.nova-2-lite-v1:0</code>）、AgentCore 控制面可用（内置评估器、Runtime 列表），但没有在 us-east-1 端到端部署过（见 <a href="#s-x-6">X.6</a>）。切换区域后，第 1.8 步（Transaction Search）要在新区域再做一次，资源也要在新区域重新创建。</p>
+  <p>用 us-east-1 做一次快速检查（只读 + 一次模型调用，不创建资源）：</p>
+<pre><code>AWS_REGION=us-east-1 ./01-check-env.sh</code></pre>
+<pre class="out">② 配置与身份
+  ✅ 区域 us-east-1 · 个人后缀 zhang3 · 资源名前缀 s12lab-zhang3
+  …
+③ Bedrock 模型
+  ✅ Agent 模型 us.anthropic.claude-sonnet-5-5 可用（回复：收到）
+④ CloudWatch Transaction Search
+  ⚠️  未开启（当前 XRay/ACTIVE）→ 运行 ./02-enable-observability.sh</pre>
 </div>
 
 <div class="step" id="s-x-3">
@@ -59,6 +68,10 @@
 AGENT_MODEL_ID=us.amazon.nova-2-lite-v1:0
 JUDGE_MODEL_ID=us.amazon.nova-2-lite-v1:0
    B 版需重新部署 Runtime 才生效：./20-B-deploy-runtime.sh；评审模型需重跑 ./30-create-evaluators.sh</pre></div>
+  <p>实测：切到 Nova 后 <code>./01-check-env.sh</code> 显示 <code>✅ Agent 模型 us.amazon.nova-2-lite-v1:0 可用（回复：收到）</code>，Agent（含工具调用）正常工作且更快：</p>
+<pre class="out">▶ 运行 1 条需求 · 路线 A · 版本 v1 · 模型 us.amazon.nova-2-lite-v1:0 · 并发 1
+  [ 1/1] FB-2610-001        4.6s  重要=是 紧急=否 建议=迭代
+✅ 完成：1 条，用时 5s，失败 0 条 → results/run-A-smoke-230448.jsonl</pre>
   <p class="where">脚本：<a data-repo="tools/use-model.sh">tools/use-model.sh</a>。切换后先跑 <code>./01-check-env.sh</code> 确认模型可用。换模型也是一种“优化”：用同一份黄金集评估，就能比较不同模型的准确率、耗时和成本。</p>
 </div>
 
@@ -72,7 +85,11 @@ JUDGE_MODEL_ID=us.amazon.nova-2-lite-v1:0
     <tr><td><code>no spans found in CloudWatch for this session</code></td><td>trace 还没写进 CloudWatch（1–3 分钟延迟），或 Transaction Search 没开</td><td>等 2–3 分钟重跑 <code>./31-run-eval.sh</code>；<code>./01-check-env.sh</code> 第 ④ 项不是“已开启”就运行 <code>./02-enable-observability.sh</code></td></tr>
     <tr><td>Runtime <code>CREATE_FAILED</code> / <code>UPDATE_FAILED</code></td><td>常见是依赖包不是 linux/arm64 版本</td><td><code>rm -rf build/runtime</code> 后重跑 <code>./20-B-deploy-runtime.sh</code>；看 Runtime 日志组 <code>/aws/bedrock-agentcore/runtimes/&lt;ID&gt;-DEFAULT</code></td></tr>
     <tr><td>调用 Runtime 超时 / 第一次很慢</td><td>冷启动</td><td>再调用一次</td></tr>
-    <tr><td><code>被在线评估配置锁定，未更新</code></td><td>启用中的在线评估会锁定它用到的评估器</td><td><code>./33-online-eval.sh disable --path b</code>（或 <code>a</code>）→ 重跑 <code>./30-create-evaluators.sh</code> → <code>./33-online-eval.sh enable --path b</code></td></tr>
+    <tr><td><code>已被在线评估锁定，删除后重建</code> / <code>Cannot update locked evaluator</code></td><td>评估器挂到在线评估配置后会被永久锁定（停用或删除配置都不会解锁，但可以删除）</td><td>不用手动处理：<code>./30-create-evaluators.sh</code> 会临时删除你的在线评估配置、删除并重建有变化的评估器、再重建在线评估配置。只更新黄金集时只改 Lambda 代码，不涉及锁定</td></tr>
+    <tr><td>批量调用时个别条目 <code>RuntimeClientError</code></td><td>Runtime 偶发的瞬时错误</td><td>脚本已自动对同一条重试 2 次；仍失败的条目评估时跳过，失败多就重跑 <code>./21-B-run-golden.sh</code></td></tr>
+    <tr><td><code>tee: /dev/stderr: Permission denied</code>（旧版脚本）</td><td>旧版 <code>32-compare.sh</code> / <code>34-triage-report.sh</code> 在没有终端的环境里会报这个错</td><td>已修复；<code>git pull</code> 拿最新脚本即可</td></tr>
+    <tr><td>OpenTelemetry 打印 <code>WARNING … Skipping installation of LoggingHandler</code> / <code>Attempting to instrument while already instrumented</code></td><td>OpenTelemetry 自己的提示</td><td>正常现象，忽略即可</td></tr>
+    <tr><td>Transaction Search 一直 <code>PENDING</code></td><td>新账号首次开启需要 5–10 分钟</td><td>继续做第 2 章，稍后重跑 <code>./02-enable-observability.sh</code>（已开启会直接提示）</td></tr>
     <tr><td><code>uv</code> / <code>pip</code> 卡住不动或非常慢</td><td>网络慢，或另一个 uv 进程占用了缓存锁</td><td>等一等；确认没有其它安装在跑（<code>ps aux | grep uv</code>）；必要时 <code>export UV_CACHE_DIR=/tmp/uvcache</code> 后重跑</td></tr>
     <tr><td>Session Manager 连不上 / 实例“未上线”</td><td>实例刚启动，或实例角色没有 SSM 权限</td><td>再等 2–3 分钟；手动创建的 EC2 检查 IAM 实例配置文件（<a href="01-setup.html#s-1-3">1.3</a>）</td></tr>
     <tr><td>控制台看不到自己的资源</td><td>区域不对</td><td>右上角切到实验区域</td></tr>
@@ -109,6 +126,21 @@ JUDGE_MODEL_ID=us.amazon.nova-2-lite-v1:0
     <tr><td><a data-repo="data/">data/</a></td><td>mock 需求反馈、能力目录、黄金集、模板、coding agent 提示词、数据工具</td><td>2</td></tr>
     <tr><td><a data-repo="evaluators/">evaluators/</a></td><td>自定义评估器（标签准确率、话术质量、LLM 评审配置）及单元测试</td><td>6</td></tr>
     <tr><td><a data-repo="docs/">docs/</a></td><td>本手册（GitHub Pages）</td><td>—</td></tr>
+  </table>
+</div>
+
+<div class="step" id="s-x-6">
+  <div class="step-head"><span class="num">X.6</span><h3>已实测验证的范围（2026-11-05）</h3><span class="time"></span></div>
+  <p class="why">讲师彩排前先看这里：哪些已经在真实账号里跑通，哪些还没有。</p>
+  <table>
+    <tr><th style="width:28%">内容</th><th style="width:14%">状态</th><th>说明</th></tr>
+    <tr><td>us-west-2 · B 版全流程</td><td><span class="pill g">已跑通</span></td><td>在实验 EC2（CloudShell 一键创建、Session Manager 登录、安装脚本）上：部署 Runtime → 注册评估器 → 在线评估 → 黄金集 V0 → 评估 → 切 V1 重新部署 → 再评估 → 对比页 → 60 条分诊报告</td></tr>
+    <tr><td>us-west-2 · A 版全流程</td><td><span class="pill g">已跑通</span></td><td>在讲师笔记本上扮演“客户自有 Agent”：ADOT 埋点 → CloudWatch → 评估 V0/V1 → 对比页；已有日志 → 转换 → 遥测检查 → 评估</td></tr>
+    <tr><td>在线评估分数写入 CloudWatch</td><td><span class="pill g">已确认</span></td><td>A 版（不在 Runtime 上的 Agent）和 B 版都能在 <code>Bedrock-AgentCore/Evaluations</code> 指标里看到每个评估器的分数</td></tr>
+    <tr><td>Claude Code 走 Bedrock（实例角色）</td><td><span class="pill g">已确认</span></td><td><code>claude -p</code> 在 EC2 上正常回复</td></tr>
+    <tr><td>Amazon Nova 备选模型</td><td><span class="pill g">已确认</span></td><td>一行命令切换，Agent 与工具调用正常（X.3）</td></tr>
+    <tr><td>us-east-1</td><td><span class="pill o">部分确认</span></td><td>模型可调用、AgentCore API 可用；<b>没有</b>端到端部署过</td></tr>
+    <tr><td>控制台界面截图</td><td><span class="pill o">未截图</span></td><td>控制台步骤按菜单路径编写，数据已通过 API 确认存在；菜单名称以实际界面为准</td></tr>
   </table>
 </div>
 

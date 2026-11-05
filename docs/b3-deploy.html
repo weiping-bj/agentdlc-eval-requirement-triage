@@ -30,8 +30,7 @@
   </table>
   <p><b>V0 故意留下的缺陷</b>（第 7 章的评估会把它们暴露出来）：</p>
   <ul>
-    <li>判断口径含糊：只说“判断是否重要 / 紧急”，没有标准；</li>
-    <li>容易被客户的措辞带偏：客户写“很急”就可能判紧急；</li>
+    <li>判断口径是“简单流程”的经验法则：<b>战略 / KA 客户提的就算重要</b>，<b>客户说着急就算紧急</b>，并且要求“以客户为中心、尽量不拒绝”；</li>
     <li>工具只返回<b>能力名称</b>，看不到“已支持 / 部分支持 / 明确不做”，分不清“已有能力”和“真实缺口”；</li>
     <li>没有“相似需求统计”，判断不了是不是通用需求；</li>
     <li>没有“不可自动拒绝”的规则（数据丢失、安全、合规、合同承诺），也没要求话术给替代方案。</li>
@@ -44,9 +43,9 @@
 <pre><code>./10-A-run-local.sh smoke</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">▶ 运行 1 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 1
-  [ 1/1] FB-2610-001      12.3s  重要=是 紧急=否 建议=迭代
-✅ 完成：1 条，用时 13s，失败 0 条 → results/run-A-smoke-213000.jsonl
-   run_id = A-smoke-213000</pre><!-- VERIFY --></div>
+  [ 1/1] FB-2610-001       11.9s  重要=是 紧急=否 建议=迭代
+✅ 完成：1 条，用时 12s，失败 0 条 → results/run-A-smoke-215617.jsonl
+   run_id = A-smoke-215617</pre></div>
   <div class="note">这里显示“路线 A”是因为它在本机运行（与 A 版共用同一个脚本），不影响 B 版。</div>
 </div>
 
@@ -60,20 +59,21 @@
     <li>用 <code>uv</code> 下载 <b>linux/arm64</b> 版依赖（Runtime 运行在 ARM 上），和 <code>agent/</code> 代码、能力目录一起打成 zip；</li>
     <li>上传到你的私有桶 <code>s3://s12lab-zhang3-&lt;账号&gt;-&lt;区域&gt;/runtime/</code>；</li>
     <li>创建执行角色 <code>s12lab-zhang3-runtime-role</code>（调用 Bedrock 模型、写 CloudWatch）；</li>
-    <li>创建 Runtime <code>s12lab_zhang3_agent</code>，入口 <code>opentelemetry-instrument main.py</code>（自动埋点），等待状态变为 READY（约 2–4 分钟）。</li>
+    <li>创建 Runtime <code>s12lab_zhang3_agent</code>，入口 <code>opentelemetry-instrument main.py</code>（自动埋点），等待状态变为 READY。实测：首次下载依赖约 1–2 分钟，创建 Runtime 约 1 分钟；以后重新部署会复用依赖，整体约 1 分钟。</li>
   </ol>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">▶ 部署 s12lab_zhang3_agent · Agent 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 区域 us-west-2
   🪣 已创建 S3 桶 s12lab-zhang3-&lt;account&gt;-us-west-2
   ⬇️  下载 linux/arm64 依赖（Python 3.12，首次约 1-2 分钟）…
-  📦 打包完成：build/runtime/agent-20261107T063500Z.zip（3xxx 个文件，4x.x MB）
-  ⬆️  已上传 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/runtime/agent-20261107T063500Z.zip
+  📦 打包完成：build/runtime/agent-20261105T142531Z.zip（5552 个文件，39.6 MB）
+  ⬆️  已上传 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/runtime/agent-20261105T142531Z.zip
   🔐 执行角色 s12lab-zhang3-runtime-role
-  🆕 创建 Runtime s12lab_zhang3_agent-AbCdEf1234
+  🆕 创建 Runtime s12lab_zhang3_agent-DdcMnlBX1R
   ⏳ Runtime 状态 CREATING
   ⏳ Runtime 状态 READY
-✅ Runtime 就绪：s12lab_zhang3_agent-AbCdEf1234（版本 1，Agent v0）
-   下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）</pre><!-- VERIFY --></div>
+✅ Runtime 就绪：s12lab_zhang3_agent-DdcMnlBX1R（版本 1，Agent v0）
+   下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）</pre>
+  <p>Runtime ID（<code>-DdcMnlBX1R</code> 这一段）每个人不同；桶已存在时不会出现“已创建 S3 桶”这一行。</p></div>
   <div class="warn">如果显示 <code>❌ Runtime 状态 CREATE_FAILED</code>：看后面的原因。提到 “binary files that are incompatible with Linux ARM64” 时，删除 <code>build/runtime/</code> 后重跑；其它原因见 <a href="appendix.html#s-x-4">附录 排错</a>。</div>
 </div>
 
@@ -88,13 +88,14 @@
   "feedback_id": "FB-2610-001",
   "important": "是",
   "urgent": "否",
-  "decision": "迭代",
+  "decision": "待评估",
   "level": null,
-  "reasoning": "……",
+  "reasoning": "客户是战略客户,销售运营每周要改几百条,影响较大,所以判为重要。……平台已有“列表页批量编辑”和“自定义对象与字段”两个功能,但查询只返回功能名称,看不出批量编辑是否覆盖自定义字段。……需求本身合理,不应拒绝。",
   "reject_reason": "",
   "customer_reply": ""
 }
-✅ Runtime 调用成功，用时 14.2s，session = s12lab-zhang3-smoke-3f2a…</pre><!-- VERIFY --></div>
+✅ Runtime 调用成功，用时 13.2s，session = s12lab-zhang3-smoke-faa4fa17…</pre>
+  <p>注意 V0 的理由里那句“<b>查询只返回功能名称</b>”：这正是 V0 工具的缺陷——看不到能力的支持状态，只好判“待评估”（黄金集期望是“迭代”）。第 7 章的评估会把这类错误统计出来。</p></div>
   <div class="tip">第一次调用会慢一些（Runtime 冷启动）。超时就再执行一次。</div>
 </div>
 

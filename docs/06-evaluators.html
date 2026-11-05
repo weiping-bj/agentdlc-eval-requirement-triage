@@ -23,11 +23,11 @@
   <p class="why">标签准确率直接对应“三项指标 70%”目标；话术质量用 LLM 评审。</p>
   <table>
     <tr><th>注册名（前缀 s12lab_zhang3_）</th><th>类型 · 级别</th><th>打什么分</th><th>代码</th></tr>
-    <tr><td><code>label_accuracy</code></td><td>代码型（Lambda）· TRACE</td><td>三项标签（是否重要 / 是否紧急 / 处理建议）与黄金集一致的比例 0–1；<code>Pass</code> = 三项全对；误拒了“不可自动拒绝”的需求记 <code>CriticalFail</code></td><td rowspan="4"><a data-repo="evaluators/s12_label_accuracy/">evaluators/s12_label_accuracy/</a></td></tr>
+    <tr><td><code>label_accuracy</code></td><td>代码型（Lambda）· TRACE</td><td>三项标签（是否重要 / 是否紧急 / 处理建议）与黄金集一致的比例 0–1；<code>Pass</code> = 三项全对；误拒了“不可自动拒绝”的需求记 <code>CriticalFail</code></td><td rowspan="4"><a data-repo="evaluators/s12_label_accuracy/">evaluators/s12_label_accuracy/</a><br><small>同一份代码部署成 4 个 Lambda，每个只打一个分项</small></td></tr>
     <tr><td><code>label_important</code></td><td>代码型 · TRACE</td><td>只看“是否重要”，对 = 1、错 = 0；控制台里的平均分 = 该项准确率</td></tr>
     <tr><td><code>label_urgent</code></td><td>代码型 · TRACE</td><td>只看“是否紧急”</td></tr>
     <tr><td><code>label_decision</code></td><td>代码型 · TRACE</td><td>只看“处理建议”（模糊样例允许多个可接受答案）</td></tr>
-    <tr><td><code>reject_quality</code></td><td>代码型（Lambda 内调用评审模型）· TRACE</td><td>拒绝理由与客户话术质量 0–1（理由专业性 / 理解与礼貌 / 原因说明 / 替代方案 / 风险控制），≥ 0.7 为 Pass；<b>不是拒绝的需求返回 Skipped</b></td><td><a data-repo="evaluators/s12_reject_quality/">evaluators/s12_reject_quality/</a></td></tr>
+    <tr><td><code>reject_quality</code></td><td>代码型（Lambda 内调用评审模型）· TRACE</td><td>拒绝理由与客户话术质量 0–1（理由专业性 / 理解与礼貌 / 原因说明 / 替代方案 / 风险控制），≥ 0.7 为 Pass；<b>不是拒绝的需求返回“不适用”</b>（不计入平均分）</td><td><a data-repo="evaluators/s12_reject_quality/">evaluators/s12_reject_quality/</a></td></tr>
     <tr><td><code>reject_quality_llm</code></td><td>原生 LLM-as-a-judge · TRACE</td><td>同一套评审标准，用 AgentCore 自带的 LLM 评审实现（5 档；非拒绝给“不适用”档）</td><td><a data-repo="evaluators/llm_judge_config/s12_reject_quality.json">llm_judge_config/</a></td></tr>
     <tr><td><code>Builtin.Correctness</code></td><td>内置 · TRACE</td><td>对照黄金集的期望答案判断回答是否正确</td><td rowspan="2">AgentCore 内置</td></tr>
     <tr><td><code>Builtin.Helpfulness</code></td><td>内置 · TRACE</td><td>回答对用户是否有帮助</td></tr>
@@ -41,8 +41,9 @@
   <p class="why">确认评估器代码在你的环境里工作正常。</p>
 <pre><code>python -m pytest evaluators -q</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
-<pre class="out">........................                                                 [100%]
-NN passed in 0.xs</pre><!-- VERIFY: 测试数量以实际为准 --></div>
+<pre class="out">....................................................................     [100%]
+68 passed in 20.4s</pre>
+  <p>测试数量会随版本略有变化，<b>全部 passed、没有 failed</b> 即可。其中个别测试会真实调用一次评审模型（Bedrock），没有模型权限时会显示 skipped，不影响后续步骤。</p></div>
 </div>
 
 <div class="step" id="s-6-3">
@@ -53,18 +54,28 @@ NN passed in 0.xs</pre><!-- VERIFY: 测试数量以实际为准 --></div>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">▶ 部署评估器 Lambda 并注册到 AgentCore Evaluations（区域 us-west-2）
   🆕 已创建 Lambda s12lab-zhang3-eval-label
+  🆕 已创建 Lambda s12lab-zhang3-eval-label-important
+  🆕 已创建 Lambda s12lab-zhang3-eval-label-urgent
+  🆕 已创建 Lambda s12lab-zhang3-eval-label-decision
   🆕 已创建 Lambda s12lab-zhang3-eval-reject
-  🆕 已注册评估器 s12lab_zhang3_label_accuracy → s12lab_zhang3_label_accuracy-AbCdEf1234
-  🆕 已注册评估器 s12lab_zhang3_label_important → s12lab_zhang3_label_important-...
-  🆕 已注册评估器 s12lab_zhang3_label_urgent → ...
-  🆕 已注册评估器 s12lab_zhang3_label_decision → ...
-  🆕 已注册评估器 s12lab_zhang3_reject_quality → ...
-  🆕 已注册评估器 s12lab_zhang3_reject_quality_llm → ...
+  🆕 已注册评估器 s12lab_zhang3_label_accuracy → s12lab_zhang3_label_accuracy-OTw0VCDAnG
+  🆕 已注册评估器 s12lab_zhang3_label_important → s12lab_zhang3_label_important-Ar5fv2C9Fs
+  🆕 已注册评估器 s12lab_zhang3_label_urgent → s12lab_zhang3_label_urgent-Ti6LhgDD40
+  🆕 已注册评估器 s12lab_zhang3_label_decision → s12lab_zhang3_label_decision-uU26Rk3Sk6
+  🆕 已注册评估器 s12lab_zhang3_reject_quality → s12lab_zhang3_reject_quality-OYbKmtBi81
+  🆕 已注册评估器 s12lab_zhang3_reject_quality_llm → s12lab_zhang3_reject_quality_llm-UI3Igx568q
 ✅ 评估器就绪：
-   s12lab_zhang3_label_accuracy             s12lab_zhang3_label_accuracy-AbCdEf1234
-   ...
-   下一步：./33-online-eval.sh   （开启在线评估，让分数显示在 CloudWatch 控制台）</pre><!-- VERIFY --></div>
-  <div class="tip">提示“被在线评估配置锁定，未更新”：开启了在线评估的评估器不能修改。先 <code>./33-online-eval.sh disable --path b</code>（A 版用 <code>--path a</code>），再重跑本步，最后重新 enable。</div>
+   s12lab_zhang3_label_accuracy             s12lab_zhang3_label_accuracy-OTw0VCDAnG
+   …
+   下一步：./33-online-eval.sh   （开启在线评估，让分数显示在 CloudWatch 控制台）</pre>
+  <p>评估器 ID 末尾的 10 位随机字符每个人不同。实测全程约 1 分钟。</p></div>
+  <div class="note"><b>关于“锁定”：</b>评估器一旦挂到在线评估配置上，就会被<b>永久锁定、不能再修改</b>（即使停用或删除在线评估配置也不会解锁，但可以删除）。<code>./30-create-evaluators.sh</code> 会自动处理：没有变化的评估器保持不动；有变化且被锁定的，脚本会先临时删除你的在线评估配置，再删除并重建这些评估器，最后重新创建在线评估配置。重跑时看到下面这类输出属于正常：
+<pre class="out">  ✔ 评估器无变化 s12lab_zhang3_label_accuracy
+  ⏸  临时删除在线评估配置 s12lab_zhang3_online_b（更新被锁定的评估器需要）
+  ♻️  s12lab_zhang3_label_urgent 已被在线评估锁定，删除后重建
+  🆕 已注册评估器 s12lab_zhang3_label_urgent → s12lab_zhang3_label_urgent-…
+  ▶️  重新创建在线评估配置（路线 B）</pre>
+  只是黄金集改了（第 2 章）再运行本步时，只会更新 Lambda 里的代码和黄金集（<code>🔁 已更新 Lambda …</code>），评估器配置没变，不涉及锁定。</div>
 </div>
 
 <div class="step" id="s-6-4">
@@ -72,14 +83,15 @@ NN passed in 0.xs</pre><!-- VERIFY: 测试数量以实际为准 --></div>
   <p class="why">列出评估器，看到你的自定义评估器。</p>
 <pre><code>./30-create-evaluators.sh --list</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
-<pre class="out">s12lab_zhang3_label_accuracy                 s12lab_zhang3_label_accuracy-AbCdEf1234  TRACE  ACTIVE
-s12lab_zhang3_label_decision                 ...
-s12lab_zhang3_label_important                ...
-s12lab_zhang3_label_urgent                   ...
-s12lab_zhang3_reject_quality                 ...
-s12lab_zhang3_reject_quality_llm             ...
-共 6 个自定义评估器（另有 Builtin.* 内置评估器）</pre><!-- VERIFY --></div>
-  <p>控制台查看：Amazon Bedrock AgentCore 控制台 → 左侧 <span class="ui">Evaluations</span>（评估）→ <span class="ui">Evaluators</span> 列表里能看到这几个评估器，点开可以看到 Lambda ARN 或 LLM 评审的提示词与打分档位。<!-- VERIFY: 控制台菜单名 --></p>
+<pre class="out">s12lab_zhang3_label_accuracy                 s12lab_zhang3_label_accuracy-OTw0VCDAnG  TRACE  ACTIVE
+s12lab_zhang3_label_decision                 s12lab_zhang3_label_decision-uU26Rk3Sk6  TRACE  ACTIVE
+s12lab_zhang3_label_important                s12lab_zhang3_label_important-Ar5fv2C9Fs  TRACE  ACTIVE
+s12lab_zhang3_label_urgent                   s12lab_zhang3_label_urgent-Ti6LhgDD40  TRACE  ACTIVE
+s12lab_zhang3_reject_quality                 s12lab_zhang3_reject_quality-OYbKmtBi81  TRACE  ACTIVE
+s12lab_zhang3_reject_quality_llm             s12lab_zhang3_reject_quality_llm-UI3Igx568q  TRACE  ACTIVE
+共 6 个自定义评估器（另有 Builtin.* 内置评估器）</pre>
+  <p>每行依次是：评估器名、评估器 ID（末尾 10 位随机）、级别、状态。关键是看到 6 个 <code>ACTIVE</code> 的自定义评估器。</p></div>
+  <p>控制台查看：Amazon Bedrock AgentCore 控制台 → 左侧 <span class="ui">Evaluations</span>（评估）→ <span class="ui">Evaluators</span> 列表里能看到这几个评估器，点开可以看到 Lambda ARN 或 LLM 评审的提示词与打分档位（控制台菜单名称可能随版本略有不同）。</p>
 </div>
 
 <div class="step" id="s-6-5">
@@ -93,9 +105,10 @@ s12lab_zhang3_reject_quality_llm             ...
   数据源：<code>aws/spans</code> + Runtime 日志组，服务名 <code>s12lab_zhang3_agent.DEFAULT</code>。</div>
   <p class="where">脚本：<a data-repo="33-online-eval.sh">33-online-eval.sh</a> → <a data-repo="labkit/online.py">labkit/online.py</a>（采样 100%，session 空闲 2 分钟后开始打分；挂载 label_accuracy / label_important / label_urgent / label_decision / reject_quality + Builtin.Helpfulness）</p>
   <div class="expect"><span class="label">预期输出：</span>
-<pre class="out">✅ 已创建在线评估配置 s12lab_zhang3_online_b（s12lab_zhang3_online_b-XyZ...），采样 100%，session 空闲 2 分钟后打分
+<pre class="out">✅ 已创建在线评估配置 s12lab_zhang3_online_b（s12lab_zhang3_online_b-MQdFjH3qon），采样 100%，session 空闲 2 分钟后打分
    之后每个新 session 都会自动评分，结果写入 CloudWatch：
-   CloudWatch 控制台 → GenAI Observability → Bedrock AgentCore → 你的 Agent → Evaluations</pre><!-- VERIFY --></div>
+   CloudWatch 控制台 → GenAI Observability → Bedrock AgentCore → 你的 Agent → Evaluations</pre>
+  <p>A 版显示的名字是 <code>s12lab_zhang3_online_a</code>。刚建好角色时可能先出现一两行 <code>⏳ 等待 IAM 权限生效后重试（1/7）</code>，脚本会自动重试。<b>一定要在第 7 章跑黄金集之前完成这一步</b>：开启之前产生的 session 不会被在线评估打分。</p></div>
   <div class="note">查看状态：<code>./33-online-eval.sh status</code>。在线评估和第 7 章的“按需评估”用的是同一组评估器：按需评估马上出结果（用于对比页），在线评估把分数留在控制台（用于展示和持续监控）。</div>
 </div>
 

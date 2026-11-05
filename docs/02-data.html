@@ -68,14 +68,21 @@ CAP-008 已支持 自定义函数</pre></div>
   <div class="step-head"><span class="num">2.3</span><h3>（客户自带数据时）校验并标准化客户数据</h3><span class="time">10 分钟</span></div>
   <p class="why">检查客户给的数据字段够不够做判断，并转换成实验统一格式。</p>
   <ol class="clicks">
-    <li>把客户导出的需求反馈（CSV 或 JSONL）上传到 EC2：最简单的方式是让客户把文件放进你的 S3 桶，或直接把几十行内容粘贴进 coding agent 让它写成文件。</li>
-    <li>运行校验：它会逐字段检查（编号、标题、描述是必填；客户、客户等级、模块、反馈类型、提交日期越全越好），并给出“足够 / 勉强 / 不足”的结论。</li>
+    <li>把客户导出的需求反馈（<code>.csv</code> / <code>.xlsx</code> / <code>.json</code> / <code>.jsonl</code>）放到 EC2 的 <code>data/customer/</code> 目录（该目录不会提交到 git；例如让客户把文件放进你的 S3 桶，再 <code>aws s3 cp</code> 下来）。</li>
+    <li>运行校验 + 标准化（列名自动识别中英文常见叫法；手机号 / 邮箱 / 身份证号默认打码）：</li>
   </ol>
-<pre><code>python3 data/tools/validate_input.py customer_feedback.csv
-python3 data/tools/normalize_input.py customer_feedback.csv --out data/customer/feedback.jsonl</code></pre><!-- VERIFY: 校验/标准化脚本名以 data/HANDOFF.md 为准 -->
-  <div class="expect"><span class="label">预期输出：</span>每个字段的覆盖率、缺失示例，以及结论。<!-- VERIFY --></div>
-  <div class="warn">如果结论是“不足”（例如只有一句话标题、没有客户信息、没有反馈类型），黄金集的“重要 / 紧急”很难标准，建议<b>继续使用我们的 mock 数据</b>，只把客户提供的几条典型需求作为新样例加进来（见 2.4）。</div>
-  <p>也可以把这件事交给 coding agent：提示词见 <a data-repo="data/prompts/">data/prompts/</a>（读模板 → 跑脚本 → 校验）。</p>
+<pre><code>python3 data/tools/ingest_customer_data.py --in data/customer/客户需求导出.xlsx</code></pre>
+  <p class="where">脚本：<a data-repo="data/tools/ingest_customer_data.py">data/tools/ingest_customer_data.py</a>。列名识别不了时，参考 <a data-repo="data/templates/column-mapping.example.json">column-mapping.example.json</a> 写一个 <code>data/customer/mapping.json</code>，加 <code>--mapping data/customer/mapping.json</code> 重跑；Excel 有多个工作表时加 <code>--sheet 工作表名</code>。</p>
+  <div class="expect"><span class="label">预期结果：</span><code>data/customer/</code> 下生成 3 个文件：<code>feedback.normalized.jsonl</code>（统一格式）、<code>report.md</code>（数据充分性报告：字段覆盖、文本质量、个人信息、能否支撑三项判断，结论为“充足 / 基本可用 / 不足”）、以及客户数据带有历史判断时的 <code>golden_candidates.jsonl</code>（黄金集候选）。<!-- VERIFY --></div>
+<pre><code>cat data/customer/report.md</code></pre>
+  <table>
+    <tr><th>结论</th><th>下一步</th></tr>
+    <tr><td><span class="pill g">充足</span></td><td>加 <code>--use-as-input</code> 重跑，把客户数据作为 Agent 输入（原 mock 文件自动备份）</td></tr>
+    <tr><td><span class="pill o">基本可用</span></td><td>请客户补充报告里列出的字段；或把客户条目追加到 mock 数据里一起用</td></tr>
+    <tr><td><span class="pill r">不足</span></td><td><b>继续使用我们的 mock 数据</b>。报告里有一句可以直接用来说服客户的原因（例如“缺少客户等级和反馈类型，Agent 无法判断重要和紧急，评估结果没有可比性”）</td></tr>
+  </table>
+  <p>也可以整件事交给 coding agent：提示词 <a data-repo="data/prompts/01-assess-customer-data.md">data/prompts/01-assess-customer-data.md</a>（先把里面的 <code>&lt;客户文件路径&gt;</code> 换成实际路径）。提示词使用说明：<a data-repo="data/prompts/README.md">data/prompts/README.md</a>。</p>
+  <div class="warn">本仓库会公开发布：客户的真实数据只能放在 <code>data/customer/</code>，不要复制到其它目录，也不要提交。</div>
 </div>
 
 <div class="step" id="s-2-4">
@@ -83,7 +90,7 @@ python3 data/tools/normalize_input.py customer_feedback.csv --out data/customer/
   <p class="why">把现场确认的参数填进模板，再让 coding agent 按模板重新生成 mock 数据。</p>
   <ol class="clicks">
     <li>打开参数模板 <a data-repo="data/templates/mock-data-params.yaml">data/templates/mock-data-params.yaml</a>，按讨论结论修改（月份、条数、需求类别配比、客户行业、来源渠道）。不改任何参数 = 原样复现仓库里的 60 条数据。</li>
-    <li>如果需要“种子库里没有”的新类型需求，让 coding agent 按提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">data/prompts/02-regenerate-mock-data.md</a> 把新条目写进 <a data-repo="data/templates/extra-feedback.jsonl">data/templates/extra-feedback.jsonl</a>：</li>
+    <li>如果需要“种子库里没有”的新类型需求，让 coding agent 按提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">data/prompts/02-regenerate-mock-data.md</a> 把新条目写进 <code>data/templates/extra-feedback.jsonl</code>（格式见 <a data-repo="data/templates/extra-feedback.example.jsonl">extra-feedback.example.jsonl</a>）：</li>
   </ol>
 <pre><code>claude "$(cat data/prompts/02-regenerate-mock-data.md)"</code></pre>
   <p>（或者先运行 <code>claude</code>，再把提示词文件内容粘贴进去。）只改参数、不加新条目时，直接运行生成脚本：</p>
@@ -104,7 +111,8 @@ python3 data/tools/normalize_input.py customer_feedback.csv --out data/customer/
   <ol class="clicks" start="3">
     <li>把两份模板交给 coding agent，它会读模板、调用脚本更新黄金集并校验：</li>
   </ol>
-<pre><code>claude "$(cat data/prompts/03-update-golden-set.md)"</code></pre><!-- VERIFY: 提示词文件由数据组提供 -->
+<pre><code>claude "$(cat data/prompts/03-update-golden-set.md)"</code></pre>
+  <p class="where">提示词：<a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>（最常用）。相关的还有：补充 / 纠正能力目录 <a data-repo="data/prompts/04-update-capability-catalog.md">04-update-capability-catalog.md</a>（读模板第 3 节）；从“是/否”切换到 P0/P1/P2 <a data-repo="data/prompts/05-switch-label-scheme.md">05-switch-label-scheme.md</a>（读模板第 1.1 节）。</p>
   <p>如果只是按 CSV 改标签（不需要 coding agent 写新样例），也可以直接运行：</p>
 <pre><code>python3 data/tools/golden_tool.py apply-feedback --feedback data/templates/golden-set-feedback.csv --version v2</code></pre>
   <p>选了分级（P0/P1/P2）但还有条目没填优先级时，可以先按“重要 / 紧急”自动推导一版再人工确认：<code>python3 data/tools/golden_tool.py fill-levels</code></p>

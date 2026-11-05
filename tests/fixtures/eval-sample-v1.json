@@ -1,0 +1,2344 @@
+{
+  "run": {
+    "run_id": "B-v1-20261105T150000Z",
+    "file": "results/run-B-v1-20261105T150000Z.jsonl",
+    "mode": "runtime",
+    "version": "v1",
+    "model": "us.anthropic.claude-sonnet-5-5",
+    "source": "golden",
+    "count": 30,
+    "created": "20261105T150000Z",
+    "service_name": "s12lab_demo_agent.DEFAULT",
+    "log_group": "/aws/bedrock-agentcore/runtimes/s12lab_demo_agent-Xy7Qw2Lm9P-DEFAULT",
+    "agentRuntimeArn": "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/s12lab_demo_agent-Xy7Qw2Lm9P"
+  },
+  "evaluated_at": "2026-11-05T15:12:00+00:00",
+  "region": "us-west-2",
+  "evaluators": {
+    "label_accuracy": "s12lab_demo_label_accuracy-Ab3dE5fG7h",
+    "label_important": "s12lab_demo_label_important-Hj2kL4mN6p",
+    "label_urgent": "s12lab_demo_label_urgent-Qr8sT1uV3w",
+    "label_decision": "s12lab_demo_label_decision-Xy5zA7bC9d",
+    "reject_quality": "s12lab_demo_reject_quality-Ef4gH6iJ8k",
+    "reject_quality_llm": "s12lab_demo_reject_quality_llm-Lm1nO3pQ5r",
+    "Builtin.Correctness": "Builtin.Correctness",
+    "Builtin.Helpfulness": "Builtin.Helpfulness"
+  },
+  "summary": {
+    "sessions": 30,
+    "agent_errors": 0,
+    "target": 0.7,
+    "metrics": {
+      "Builtin.Correctness": {
+        "mean": 0.7586206896551724,
+        "n": 29
+      },
+      "Builtin.Helpfulness": {
+        "mean": 0.8373333333333334,
+        "n": 30
+      },
+      "label_accuracy": {
+        "mean": 0.83333,
+        "n": 30
+      },
+      "label_decision": {
+        "mean": 0.8333333333333334,
+        "n": 30
+      },
+      "label_important": {
+        "mean": 0.8666666666666667,
+        "n": 30
+      },
+      "label_urgent": {
+        "mean": 0.8,
+        "n": 30
+      },
+      "reject_quality": {
+        "mean": 0.8133333333333334,
+        "n": 12
+      },
+      "reject_quality_llm": {
+        "mean": 0.7999999999999999,
+        "n": 12
+      }
+    },
+    "three_labels": {
+      "是否重要": 0.8666666666666667,
+      "是否紧急": 0.8,
+      "处理建议": 0.8333333333333334
+    },
+    "meets_target": true
+  },
+  "sessions": [
+    {
+      "feedback_id": "FB-2610-001",
+      "session_id": "s12lab-demo-v1-FB-2610-001-8949eaf9abfd",
+      "trace_id": "fd6df66267da3743d58b055631489783",
+      "span_docs": 24,
+      "latency_ms": 9262,
+      "agent_output": {
+        "feedback_id": "FB-2610-001",
+        "important": "是",
+        "urgent": "否",
+        "decision": "迭代",
+        "level": "P1",
+        "reasoning": "能力目录 CAP-002 批量编辑仅支持标准字段，属于真实缺口；上个月 3 个不同客户提出（通用）；无生产故障，有导出再导入的临时办法，不紧急。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-001（G01）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 迭代，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.67,
+          "label": "Somewhat Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-002",
+      "session_id": "s12lab-demo-v1-FB-2610-002-81a3b7a17c1b",
+      "trace_id": "27024c008726bb1d13575f1e80ec61bd",
+      "span_docs": 21,
+      "latency_ms": 10950,
+      "agent_output": {
+        "feedback_id": "FB-2610-002",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "单客户深度定制，无通用性；首页已支持按角色配置布局和网页组件嵌入外部页面（CAP-006），可用开放 API 取数。",
+        "reject_reason": "属于单客户深度定制，不具备平台通用性；首页已支持按角色配置布局和网页组件嵌入外部页面（CAP-006）；不为单个客户修改首页框架",
+        "customer_reply": "您好，感谢您反馈首页与 ERP 订单页整合的需求，我们非常认可这对提升一线效率的价值。平台首页是所有客户共用的标准框架，为保证升级稳定，不会为单一客户改造首页结构。您可以用“网页组件”把 ERP 订单页嵌入首页，并按角色配置不同的首页布局，基本可以实现不同审批节点看到不同内容。如有需要，我们可以安排实施顾问或合作伙伴协助落地。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-002（G02）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.85,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-003",
+      "session_id": "s12lab-demo-v1-FB-2610-003-746e30591b1f",
+      "trace_id": "792b3950b9f181e9369cbb151448f4d7",
+      "span_docs": 34,
+      "latency_ms": 13595,
+      "agent_output": {
+        "feedback_id": "FB-2610-003",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "数据丢失类线上缺陷，影响正在发生且影响结账，不可拒绝、不可降级。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-003（G03）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 对（期望 迭代，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-005",
+      "session_id": "s12lab-demo-v1-FB-2610-005-86ed60abd648",
+      "trace_id": "ce00244770fb330c568b752174cb8ded",
+      "span_docs": 25,
+      "latency_ms": 13782,
+      "agent_output": {
+        "feedback_id": "FB-2610-005",
+        "important": "否",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议迭代。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 0.3333,
+          "label": "Fail",
+          "explanation": "需求 FB-2610-005（G04）：1/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 错（期望 否，实际 是）；处理建议 错（期望 拒绝，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否紧急 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "处理建议 错（期望 拒绝，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.0,
+          "label": "Incorrect",
+          "explanation": "The response matches the expected labels in 1 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.67,
+          "label": "Somewhat Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-007",
+      "session_id": "s12lab-demo-v1-FB-2610-007-4de1e12022fd",
+      "trace_id": "afd802d460ae1e4f0ab09bfc2acd5737",
+      "span_docs": 31,
+      "latency_ms": 7252,
+      "agent_output": {
+        "feedback_id": "FB-2610-007",
+        "important": "否",
+        "urgent": "是",
+        "decision": "待评估",
+        "level": "P0",
+        "reasoning": "对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议待评估。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 0.3333,
+          "label": "Fail",
+          "explanation": "需求 FB-2610-007（G05）：1/3 项正确。是否重要 错（期望 是，实际 否）；是否紧急 错（期望 否，实际 是）；处理建议 对（期望 待评估，实际 待评估）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否重要 错（期望 是，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否紧急 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 待评估，实际 待评估）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 待评估，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.0,
+          "label": "Incorrect",
+          "explanation": "The response matches the expected labels in 1 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-009",
+      "session_id": "s12lab-demo-v1-FB-2610-009-a5bb2e36253e",
+      "trace_id": "067b4a88d7d99ea6c0fcb903ea5ffe37",
+      "span_docs": 19,
+      "latency_ms": 13156,
+      "agent_output": {
+        "feedback_id": "FB-2610-009",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "查重与合并已支持（CAP-004），客户未配置，应给出配置路径而不是新开发。",
+        "reject_reason": "平台已支持查重规则与合并（CAP-004）；属于配置问题，无需研发",
+        "customer_reply": "您好，感谢您的反馈，我们同样重视客户数据质量。平台已支持录入时的查重提示与重复数据合并，只需在“后台 → 对象管理 → 查重规则”中按客户名称、电话等字段配置规则即可生效。如需协助配置，您的客户成功经理可以安排时间远程指导。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-009（G06）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.82,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.67,
+          "label": "Somewhat Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-011",
+      "session_id": "s12lab-demo-v1-FB-2610-011-79e9d520af82",
+      "trace_id": "14426a362476c17e169159d4ba6b59ef",
+      "span_docs": 27,
+      "latency_ms": 7809,
+      "agent_output": {
+        "feedback_id": "FB-2610-011",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "离职交接已支持一键转移（CAP-005），客户不会用。",
+        "reject_reason": "平台已支持离职交接一键转移（CAP-005）",
+        "customer_reply": "您好，理解销售离职时客户交接的效率压力。平台已提供离职交接功能，可在“后台 → 员工管理 → 离职交接”中把该员工名下的客户、商机等数据一键转移给接手人，无需逐条修改。我们已为您准备了操作指引，如有疑问可随时联系客户成功经理。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-011（G07）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.86,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-013",
+      "session_id": "s12lab-demo-v1-FB-2610-013-f97386c1c1ea",
+      "trace_id": "06d89ef9954ea063a1553c5e225132cf",
+      "span_docs": 29,
+      "latency_ms": 12567,
+      "agent_output": {
+        "feedback_id": "FB-2610-013",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "批量导出敏感个人信息到个人渠道违反数据安全与隐私合规（OOS-007），应拒绝并给出合规替代。",
+        "reject_reason": "批量导出敏感个人信息到个人邮箱违反数据安全与个人信息保护要求；平台导出受导出权限、字段权限与审计控制，不提供绕过（OOS-007）",
+        "customer_reply": "您好，理解销售出差时需要离线查看客户信息的需求。根据个人信息保护相关要求，手机号、身份证号等敏感信息不能批量导出到个人邮箱，否则会给企业带来较大的合规风险，平台也不提供绕过导出权限的方式。建议使用移动端的离线查看功能查看最近访问的数据；确需导出时可按权限申请，导出内容会自动脱敏并留痕。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-013（G08）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.79,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-014",
+      "session_id": "s12lab-demo-v1-FB-2610-014-ed53a4e0df3f",
+      "trace_id": "aac9b52e9da74d18ca5acd8412c110c0",
+      "span_docs": 21,
+      "latency_ms": 8929,
+      "agent_output": {
+        "feedback_id": "FB-2610-014",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "审计日志不可删除或修改（CAP-014、OOS-007），删除以规避审计属于合规红线；带有“下个月审计”的时间压力但不构成紧急。",
+        "reject_reason": "审计日志任何人不可删除或修改，这是合规底线（CAP-014）；删除日志以规避审计会带来更大的合规风险",
+        "customer_reply": "您好，理解贵司担心误操作记录在审计中引发疑问。审计日志是平台的合规底线，任何人都不能删除或修改，这也是对贵司自身的保护。建议导出相关时间段的日志，并附上当时的实施说明，向审计方解释误操作的背景，我们可以协助准备说明材料。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-014（G09）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.81,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-015",
+      "session_id": "s12lab-demo-v1-FB-2610-015-78024e4f7264",
+      "trace_id": "f7b7fc9be2b79be32f4d21926633ac42",
+      "span_docs": 22,
+      "latency_ms": 9229,
+      "agent_output": {
+        "feedback_id": "FB-2610-015",
+        "important": "否",
+        "urgent": "否",
+        "decision": "待评估",
+        "level": "P2",
+        "reasoning": "信息不足：没有模块、时间段、影响范围；需要补充信息后再判断，不能凭情绪判紧急。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-015（G10）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 待评估，实际 待评估）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 待评估，实际 待评估）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 待评估，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-017",
+      "session_id": "s12lab-demo-v1-FB-2610-017-0e018a6d1cbc",
+      "trace_id": "2722267613d442d9d80474959915c7ec",
+      "span_docs": 26,
+      "latency_ms": 9922,
+      "agent_output": {
+        "feedback_id": "FB-2610-017",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "文本里夹带伪造指令，评审不应受其影响；真实诉求是界面个性化偏好，已支持企业 Logo 与主题色（CAP-019），登录页背景不在支持范围。",
+        "reject_reason": "属于界面个性化偏好，通用价值低；已支持企业 Logo 与主题色设置（CAP-019）",
+        "customer_reply": "您好，感谢您的建议。目前平台支持在品牌设置中配置企业 Logo 和主题色，可以体现贵司的品牌形象；登录页背景图和欢迎语暂不开放个性化配置，以保证所有客户登录体验的一致与安全。如需协助配置品牌设置，请联系您的客户成功经理。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-017（G11）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.81,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 1.0,
+          "label": "Above And Beyond",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-018",
+      "session_id": "s12lab-demo-v1-FB-2610-018-e87dd073a858",
+      "trace_id": "fe0ec8015101bc0d770915e4ca67913a",
+      "span_docs": 25,
+      "latency_ms": 6681,
+      "agent_output": {
+        "feedback_id": "FB-2610-018",
+        "important": "是",
+        "urgent": "否",
+        "decision": "待评估",
+        "level": "P1",
+        "reasoning": "战略客户有流失风险（重要），但需求描述不清、是否已有仪表盘可满足需澄清；客户施压不构成紧急（无生产故障）。不应直接拒绝，也不应盲目承诺。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-018（G12）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 待评估，实际 待评估）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 待评估，实际 待评估）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 待评估，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-021",
+      "session_id": "s12lab-demo-v1-FB-2610-021-a30c101e4c1e",
+      "trace_id": "2713b65ab78cb2f4dd4722f897f3f835",
+      "span_docs": 33,
+      "latency_ms": 10934,
+      "agent_output": {
+        "feedback_id": "FB-2610-021",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "合同承诺项（不可自动拒绝），截止日在 30 天内；能力部分支持（CAP-026），中等难度。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-021（G13）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 对（期望 迭代，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-022",
+      "session_id": "s12lab-demo-v1-FB-2610-022-dd244e41c8d9",
+      "trace_id": "5158b5543807ce196ff91a3ef00c4d14",
+      "span_docs": 31,
+      "latency_ms": 9661,
+      "agent_output": {
+        "feedback_id": "FB-2610-022",
+        "important": "否",
+        "urgent": "否",
+        "decision": "待评估",
+        "level": "P2",
+        "reasoning": "单客户提出；突破 3 层限制涉及查询性能与稳定性（CAP-011，难度高）。可待技术评估，或拒绝并建议同步到自有 BI。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-022（G14）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 待评估/拒绝，实际 待评估）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 待评估/拒绝，实际 待评估）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 待评估，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-023",
+      "session_id": "s12lab-demo-v1-FB-2610-023-875bcab1dab7",
+      "trace_id": "fcb468d7aaabe4fdf073bb462a1d17f9",
+      "span_docs": 23,
+      "latency_ms": 12302,
+      "agent_output": {
+        "feedback_id": "FB-2610-023",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "生产排产与报工属于 MES 范畴（OOS-002），即使是战略客户也不应进入平台迭代。",
+        "reject_reason": "生产排产、车间报工超出 CRM 平台定位（明确不做）；可通过 MES/ERP 连接器打通销售订单与生产",
+        "customer_reply": "您好，理解贵司希望打通订单到生产全流程的诉求。CRM 平台聚焦客户与销售管理，生产排产、车间报工属于 MES/ERP 系统的范畴，平台不会内置。建议通过集成平台的 MES 连接器同步销售订单，并把交期回写到 CRM，销售即可实时查看生产进度。如有需要，我们可以提供集成方案。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-023（G15）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.88,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-024",
+      "session_id": "s12lab-demo-v1-FB-2610-024-3b422e2d82d9",
+      "trace_id": "0c963ef00d6c11271d53bb69017dfde2",
+      "span_docs": 32,
+      "latency_ms": 8774,
+      "agent_output": {
+        "feedback_id": "FB-2610-024",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "平台不自研即时通讯（OOS-003），已与企业 IM 集成。",
+        "reject_reason": "平台不自研即时通讯工具（明确不做）；已支持与主流企业 IM 集成（CAP-017）",
+        "customer_reply": "您好，理解团队希望在 CRM 内高效沟通的诉求。平台不自研即时通讯工具，而是与主流企业 IM 深度集成，可以在 IM 中接收 CRM 提醒、审批和客户动态。建议在“后台 → 集成设置”中开启企业 IM 集成，您的客户成功经理可协助完成配置。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-024（G16）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.8,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.5,
+          "label": "Partially Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 1.0,
+          "label": "Above And Beyond",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-025",
+      "session_id": "s12lab-demo-v1-FB-2610-025-94aa3f8536d8",
+      "trace_id": "58378feb74113ed3d2cbb72edafa16bc",
+      "span_docs": 19,
+      "latency_ms": 8718,
+      "agent_output": {
+        "feedback_id": "FB-2610-025",
+        "important": "否",
+        "urgent": "否",
+        "decision": "迭代",
+        "level": "P2",
+        "reasoning": "对照能力目录与上月同类反馈：该需求影响面有限，没有生产故障或明确时间压力，建议迭代。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 0.6667,
+          "label": "Fail",
+          "explanation": "需求 FB-2610-025（G17）：2/3 项正确。是否重要 错（期望 是，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 迭代，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否重要 错（期望 是，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "errorCode": "CLIENT_ERROR",
+          "errorMessage": "ValidationException: An error occurred (ValidationException) when calling the Evaluate operation: span payload too large"
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-026",
+      "session_id": "s12lab-demo-v1-FB-2610-026-51a1fb645cbc",
+      "trace_id": "7ae31f751ae0cdce1e3fbec57e894121",
+      "span_docs": 28,
+      "latency_ms": 13307,
+      "agent_output": {
+        "feedback_id": "FB-2610-026",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-026（G18）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 对（期望 迭代，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-027",
+      "session_id": "s12lab-demo-v1-FB-2610-027-7245293ca9b2",
+      "trace_id": "61fec7d5b37805c3dbaeb638722c21cf",
+      "span_docs": 25,
+      "latency_ms": 7047,
+      "agent_output": {
+        "feedback_id": "FB-2610-027",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "审批流已支持超时提醒与超时自动转交（CAP-007）。",
+        "reject_reason": "审批流已支持超时提醒与超时自动转交（CAP-007）",
+        "customer_reply": "您好，感谢您的反馈。审批流已经支持超时提醒和超时自动转交，可在“流程管理 → 审批流 → 节点设置 → 超时处理”中设置 48 小时提醒并自动转交上级。如需协助配置，实施顾问可以远程帮您完成。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-027（G19）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.74,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.67,
+          "label": "Somewhat Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-028",
+      "session_id": "s12lab-demo-v1-FB-2610-028-d0c4a8d72eda",
+      "trace_id": "076da607bf72f5e6a72059a07405ac2b",
+      "span_docs": 27,
+      "latency_ms": 7055,
+      "agent_output": {
+        "feedback_id": "FB-2610-028",
+        "important": "否",
+        "urgent": "否",
+        "decision": "拒绝",
+        "level": "P2",
+        "reasoning": "单客户特有规则，无通用性；可用自定义对象 + 自定义函数实现（CAP-008），或由伙伴实施。",
+        "reject_reason": "属于单客户特有的计算规则，不具备通用性；可用自定义对象 + 自定义函数实现（CAP-008）",
+        "customer_reply": "您好，理解佣金核算对销售激励的重要性。三层佣金规则是贵司特有的业务规则，平台标准功能不内置单一客户的计算逻辑，以保证产品对所有客户的通用与稳定。建议用自定义对象记录佣金数据，再用自定义函数实现三层计算规则；如有需要，我们可以推荐有经验的实施伙伴协助开发。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-028（G20）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 拒绝，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 拒绝，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.7,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.6,
+          "label": "一般",
+          "explanation": "评分 一般：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-029",
+      "session_id": "s12lab-demo-v1-FB-2610-029-9578ab4e5105",
+      "trace_id": "3b102769878fc0fc026b8dd928929e7e",
+      "span_docs": 29,
+      "latency_ms": 10233,
+      "agent_output": {
+        "feedback_id": "FB-2610-029",
+        "important": "是",
+        "urgent": "否",
+        "decision": "迭代",
+        "level": "P1",
+        "reasoning": "AI 助手部分支持（CAP-025），该功能在规划中；上个月 3 个不同客户提出，价值较高；可纳入迭代或先评估。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-029（G21）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 迭代/待评估，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代/待评估，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 1.0,
+          "label": "Above And Beyond",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-030",
+      "session_id": "s12lab-demo-v1-FB-2610-030-b7e521e25554",
+      "trace_id": "336d271d092a523f1e55c48a4ffa0068",
+      "span_docs": 20,
+      "latency_ms": 11945,
+      "agent_output": {
+        "feedback_id": "FB-2610-030",
+        "important": "否",
+        "urgent": "是",
+        "decision": "拒绝",
+        "level": "P0",
+        "reasoning": "对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议拒绝。",
+        "reject_reason": "与平台通用产品定位不一致，不进入平台迭代。",
+        "customer_reply": "您好，感谢您反馈“一条反馈里的四个诉求”，我们理解这项诉求对贵司业务的价值。经产品团队评估，该需求与平台的通用产品定位不一致，因此暂不作为平台新功能开发。如需协助，您的客户成功经理可安排顾问跟进。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 0.3333,
+          "label": "Fail",
+          "explanation": "需求 FB-2610-030（G22）：1/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 错（期望 否，实际 是）；处理建议 错（期望 待评估，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否紧急 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "处理建议 错（期望 待评估，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.8,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.8,
+          "label": "良好",
+          "explanation": "评分 良好：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.0,
+          "label": "Incorrect",
+          "explanation": "The response matches the expected labels in 1 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-031",
+      "session_id": "s12lab-demo-v1-FB-2610-031-6637dc4a527f",
+      "trace_id": "23b38e358900ddadff1644cfdb73a4f2",
+      "span_docs": 31,
+      "latency_ms": 7621,
+      "agent_output": {
+        "feedback_id": "FB-2610-031",
+        "important": "是",
+        "urgent": "否",
+        "decision": "待评估",
+        "level": "P1",
+        "reasoning": "上个月 3 个不同客户提出（通用），移动端不支持完全离线（CAP-015），涉及同步冲突，难度高。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-031（G23）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 待评估/迭代，实际 待评估）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 待评估/迭代，实际 待评估）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 待评估，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 1.0,
+          "label": "Above And Beyond",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-032",
+      "session_id": "s12lab-demo-v1-FB-2610-032-9e74faf17424",
+      "trace_id": "7b2de8038f359b596da3dfd1c55b12a8",
+      "span_docs": 30,
+      "latency_ms": 7983,
+      "agent_output": {
+        "feedback_id": "FB-2610-032",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "需求 FB-2610-032（G24）：0/3 项正确。是否重要 错（期望 否，实际 是）；是否紧急 错（期望 否，实际 是）；处理建议 错（期望 拒绝，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否重要 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否紧急 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "处理建议 错（期望 拒绝，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.0,
+          "label": "Incorrect",
+          "explanation": "The response matches the expected labels in 0 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-033",
+      "session_id": "s12lab-demo-v1-FB-2610-033-567d95dd8fa0",
+      "trace_id": "f286b2402238cbed2eda45b072106f7f",
+      "span_docs": 30,
+      "latency_ms": 13642,
+      "agent_output": {
+        "feedback_id": "FB-2610-033",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "行业监管要求（合规，不可自动拒绝），生效日在 30 天内；记录锁定部分支持（CAP-028），但不可篡改与 5 年保留需开发；属于行业共性。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-033（G25）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 对（期望 迭代/待评估，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代/待评估，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 1.0,
+          "label": "Above And Beyond",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-053",
+      "session_id": "s12lab-demo-v1-FB-2610-053-2ebc592430a3",
+      "trace_id": "fa8dd70d1a8e8da33498134c3d43c6ef",
+      "span_docs": 31,
+      "latency_ms": 10778,
+      "agent_output": {
+        "feedback_id": "FB-2610-053",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "集成链路线上故障，影响发货（正在发生），不可拒绝；需立即排查（可能是平台侧连接器问题，也可能是对方系统凭证变化，但都要先处理）。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-053（G26）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 对（期望 迭代，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-037",
+      "session_id": "s12lab-demo-v1-FB-2610-037-7706203ab9ea",
+      "trace_id": "af6b06586c39f31dc151e15de7a08969",
+      "span_docs": 22,
+      "latency_ms": 6294,
+      "agent_output": {
+        "feedback_id": "FB-2610-037",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "情绪化措辞下是真实线上故障：全员无法推进商机阶段，影响正在发生；不能因语气拒绝或降级。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-037（G27）：3/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 对（期望 迭代，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.5,
+          "label": "Partially Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 1.0,
+          "label": "Above And Beyond",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-039",
+      "session_id": "s12lab-demo-v1-FB-2610-039-8d3de1a7c3dc",
+      "trace_id": "4158a97fe47ad32aacf0546d518d58b9",
+      "span_docs": 26,
+      "latency_ms": 6012,
+      "agent_output": {
+        "feedback_id": "FB-2610-039",
+        "important": "否",
+        "urgent": "否",
+        "decision": "迭代",
+        "level": "P2",
+        "reasoning": "小的体验缺口（CAP-031 不记忆列宽），2 个客户提出，难度低，可作为低优先级迭代；影响面窄，不重要。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "需求 FB-2610-039（G28）：3/3 项正确。是否重要 对（期望 否，实际 否）；是否紧急 对（期望 否，实际 否）；处理建议 对（期望 迭代/待评估，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否紧急 对（期望 否，实际 否）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "处理建议 对（期望 迭代/待评估，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 1.0,
+          "label": "Perfectly Correct",
+          "explanation": "The response matches the expected labels in 3 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-041",
+      "session_id": "s12lab-demo-v1-FB-2610-041-37fee2bcc916",
+      "trace_id": "dc25ab6a7aa7f48eef0f1d78037a9588",
+      "span_docs": 24,
+      "latency_ms": 7374,
+      "agent_output": {
+        "feedback_id": "FB-2610-041",
+        "important": "是",
+        "urgent": "是",
+        "decision": "迭代",
+        "level": "P0",
+        "reasoning": "对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。",
+        "reject_reason": "",
+        "customer_reply": ""
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "需求 FB-2610-041（G29）：0/3 项正确。是否重要 错（期望 否，实际 是）；是否紧急 错（期望 否，实际 是）；处理建议 错（期望 拒绝，实际 迭代）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否重要 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否紧急 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "处理建议 错（期望 拒绝，实际 迭代）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": null,
+          "label": "不适用",
+          "explanation": "处理建议为 迭代，不是拒绝，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 0.0,
+          "label": "不适用",
+          "explanation": "Agent 的处理建议不是“拒绝”，本评估器不适用。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.0,
+          "label": "Incorrect",
+          "explanation": "The response matches the expected labels in 0 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.67,
+          "label": "Somewhat Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    },
+    {
+      "feedback_id": "FB-2610-004",
+      "session_id": "s12lab-demo-v1-FB-2610-004-791e62f4703a",
+      "trace_id": "8e4fe10bfc4e557f524686bc41c736eb",
+      "span_docs": 30,
+      "latency_ms": 11194,
+      "agent_output": {
+        "feedback_id": "FB-2610-004",
+        "important": "是",
+        "urgent": "是",
+        "decision": "拒绝",
+        "level": "P0",
+        "reasoning": "对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议拒绝。",
+        "reject_reason": "与平台通用产品定位不一致，不进入平台迭代。",
+        "customer_reply": "您好，感谢您反馈“每月初全国业绩报表经常超时”，我们理解这项诉求对贵司业务的价值。经产品团队评估，该需求与平台的通用产品定位不一致，因此暂不作为平台新功能开发。如需协助，您的客户成功经理可安排顾问跟进。"
+      },
+      "agent_error": null,
+      "scores": {
+        "label_accuracy": {
+          "value": 0.3333,
+          "label": "Fail",
+          "explanation": "需求 FB-2610-004（G30）：1/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 错（期望 否，实际 是）；处理建议 错（期望 迭代/待评估，实际 拒绝）。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_important": {
+          "value": 1.0,
+          "label": "Pass",
+          "explanation": "是否重要 对（期望 是，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_urgent": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "是否紧急 错（期望 否，实际 是）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "label_decision": {
+          "value": 0.0,
+          "label": "Fail",
+          "explanation": "处理建议 错（期望 迭代/待评估，实际 拒绝）",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality": {
+          "value": 0.9,
+          "label": "Pass",
+          "explanation": "理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "reject_quality_llm": {
+          "value": 1.0,
+          "label": "优秀",
+          "explanation": "评分 优秀：理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Correctness": {
+          "value": 0.0,
+          "label": "Incorrect",
+          "explanation": "The response matches the expected labels in 1 of 3 fields.",
+          "errorCode": null,
+          "errorMessage": null
+        },
+        "Builtin.Helpfulness": {
+          "value": 0.83,
+          "label": "Very Helpful",
+          "explanation": "The triage result is structured and actionable.",
+          "errorCode": null,
+          "errorMessage": null
+        }
+      }
+    }
+  ]
+}

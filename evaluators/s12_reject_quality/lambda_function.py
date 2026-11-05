@@ -90,6 +90,10 @@ def evaluate(event: dict, client=None) -> dict:
     target = event.get("evaluationTarget") or {}
     tids = target.get("traceIds") or []
     ex = sa.extract_records(spans, tids[0] if (tids and level != "SESSION") else None)
+    print(json.dumps({"s12": "reject_eval", "keys": sorted(event.keys()), "evaluatorName": event.get("evaluatorName"),
+                      "evaluatorId": event.get("evaluatorId"), "level": level, "n_spans": len(spans),
+                      "n_records": len(ex["records"]), "source": ex["records"][0]["source"] if ex["records"] else None},
+                     ensure_ascii=False))
     if not ex["records"]:
         if ex["has_assistant_text"]:
             return {"label": "FormatError", "value": 0.0, "explanation": "trace 中有 Agent 回复，但解析不出约定的 JSON。"}

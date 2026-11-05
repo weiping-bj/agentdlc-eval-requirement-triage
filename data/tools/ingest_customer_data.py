@@ -10,8 +10,9 @@
   feedback.normalized.jsonl   统一格式的需求反馈（字段同 data/feedback_last_month.jsonl）
   golden_candidates.jsonl     如果客户数据里带有历史判断（是否重要/是否紧急/处理建议），可作为黄金集候选
   report.md                   数据充分性报告（中文）：字段覆盖、文本质量、个人信息、能否支撑三项判断
---use-as-input 会把标准化结果复制为 data/feedback_last_month.jsonl（原文件先备份）。
-默认对手机号/邮箱/身份证号打码（--no-mask 关闭）。
+--use-as-input 会在 data/customer/agent_data/ 下生成 Agent 可直接读取的数据目录
+（feedback_last_month.jsonl + capability_catalog.json），再用 S12_DATA_DIR 指向它；不会改动仓库里被跟踪的 mock 文件。
+默认对所有文本字段（含历史拒绝理由/回复）中的手机号、座机、邮箱、身份证号打码（--no-mask 关闭）。
 """
 from __future__ import annotations
 
@@ -43,7 +44,7 @@ SYNONYMS = {
     # optional historic labels -> golden candidates
     "label_important": ["是否重要", "重要", "important", "is_important", "重要性"],
     "label_urgent": ["是否紧急", "紧急", "urgent", "is_urgent", "紧急程度", "紧急度"],
-    "label_decision": ["处理建议", "处理结果", "处理结论", "决策", "decision", "action", "状态", "需求状态"],
+    "label_decision": ["处理建议", "处理结果", "处理结论", "决策", "decision", "action"],  # generic 状态 columns need --mapping
     "label_level": ["优先级", "priority", "等级", "level"],
     "label_reject_reason": ["拒绝理由", "驳回原因", "拒绝原因", "reject_reason"],
     "label_reply": ["回复话术", "客户回复", "回复客户", "话术", "customer_reply"],
@@ -53,10 +54,12 @@ TIER_MAP = {"战略": "战略", "s": "战略", "strategic": "战略", "ka": "KA"
 TYPE_RULES = [("功能缺陷", ("缺陷", "bug", "故障", "报错", "问题单", "异常")), ("体验优化", ("优化", "体验", "易用")),
               ("咨询", ("咨询", "疑问", "如何", "question")), ("新需求", ("需求", "新功能", "feature", "功能"))]
 PII = {
-    "手机号": re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)"),
     "邮箱": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
-    "身份证号": re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)"),
+    "身份证号": re.compile(r"(?<!\d)(?:\d{17}[\dXx]|\d{15})(?![\dXx])"),
+    "手机号": re.compile(r"(?<![\d+])(?:\+?86[-\s]?)?1[3-9]\d(?:[-\s]?\d{4}){2}(?!\d)"),
+    "座机": re.compile(r"(?<!\d)(?:\(?0\d{2,3}\)?[-\s]?)\d{7,8}(?!\d)"),
 }
+NO_MASK_FIELDS = ("id", "submitted_at")
 INCIDENT_WORDS = ("故障", "报错", "丢失", "无法", "失败", "宕机", "打不开", "泄露", "漏洞", "错误", "异常")
 
 
@@ -126,7 +129,7 @@ def normalize(rows, mapping, do_mask=True):
             if v is None:
                 continue
             v = str(v).strip()
-            if do_mask and f in ("title", "content"):
+            if do_mask and f not in NO_MASK_FIELDS:
                 v = mask(v, pii)
             item[f] = v
         if not item.get("id"):
@@ -154,8 +157,8 @@ def normalize(rows, mapping, do_mask=True):
         if any(lab[k] for k in ("important", "urgent", "decision")):
             cands.append({"feedback_id": item["id"], "input": {k: v for k, v in item.items() if k != "extra"},
                           "expected": lab, "acceptable_decisions": [lab["decision"]] if lab["decision"] else [],
-                          "reject_points": C.split_list(r.get("label_reject_reason")),
-                          "reply_points": C.split_list(r.get("label_reply")),
+                          "reject_points": [mask(x, pii) if do_mask else x for x in C.split_list(r.get("label_reject_reason"))],
+                          "reply_points": [mask(x, pii) if do_mask else x for x in C.split_list(r.get("label_reply"))],
                           "complete": all(lab[k] for k in ("important", "urgent", "decision")), "source": "customer"})
     return out, cands, pii
 
@@ -206,7 +209,8 @@ def report(a, src) -> str:
         lvl = "必需" if f in C.REQUIRED_FIELDS else ("推荐" if f in C.RECOMMENDED_FIELDS else "可选")
         L.append(f"| {f} | {a['coverage'][f] * 100:.0f}% | {lvl} |")
     L += ["", "## 文本质量", f"- 需求描述长度中位数：{a['content_len_median']} 字；过短（<15 字）：{a['short']} 条；标题+描述完全重复：{a['dup_text']} 条",
-          f"- 个人信息命中（已打码）：{a['pii'] or '无'}", "", "## 能否直接做黄金集"]
+          f"- 个人信息命中：{a['pii'] or '无'}" + ("（已在所有文本字段与历史拒绝理由/回复中打码；客户名、模块等短字段也已检查）" if a.get("masked") else "（未打码：使用了 --no-mask）"),
+          "- 打码只覆盖常见格式（手机号、座机、邮箱、身份证号），人名、地址不会识别：请勿把输出提交到公开仓库", "", "## 能否直接做黄金集"]
     if a["label_candidates"]:
         L.append(f"- 客户数据带有历史判断 {a['label_candidates']} 条，其中三项齐全 {a['label_complete']} 条 → "
                  + ("**可以**作为黄金集候选（见 golden_candidates.jsonl），仍需按 data/golden/LABELING_GUIDE.md 复核并补五维/拒绝要点"
@@ -234,7 +238,7 @@ def main(argv=None) -> int:
         return 2
     explicit = {}
     if a.mapping:
-        with open(a.mapping, encoding="utf-8") as f:
+        with open(a.mapping, encoding="utf-8-sig") as f:
             explicit = {k: v for k, v in json.load(f).items() if not k.startswith("_")}
     cols = list({k: None for r in rows for k in r})
     mapping = auto_map(cols, explicit)
@@ -243,6 +247,7 @@ def main(argv=None) -> int:
         return 2
     items, cands, pii = normalize(rows, mapping, not a.no_mask)
     res = assess(items, mapping, cands, pii, len(rows))
+    res["masked"] = not a.no_mask
     os.makedirs(a.out_dir, exist_ok=True)
     C.write_jsonl(os.path.join(a.out_dir, "feedback.normalized.jsonl"), items)
     C.write_csv(os.path.join(a.out_dir, "feedback.normalized.csv"), items, C.INPUT_FIELDS)
@@ -254,10 +259,12 @@ def main(argv=None) -> int:
     print(md)
     print(f"输出目录：{a.out_dir}")
     if a.use_as_input:
-        if os.path.exists(C.FEEDBACK_PATH):
-            shutil.copyfile(C.FEEDBACK_PATH, C.FEEDBACK_PATH + ".bak")
-        C.write_jsonl(C.FEEDBACK_PATH, [{k: v for k, v in it.items() if k != "extra"} for it in items])
-        print(f"已替换 Agent 输入：{os.path.relpath(C.FEEDBACK_PATH, C.REPO)}（原文件备份为 .bak）")
+        agent_dir = os.path.join(a.out_dir, "agent_data")
+        os.makedirs(agent_dir, exist_ok=True)
+        C.write_jsonl(os.path.join(agent_dir, "feedback_last_month.jsonl"), [{k: v for k, v in it.items() if k != "extra"} for it in items])
+        shutil.copyfile(C.CATALOG_PATH, os.path.join(agent_dir, "capability_catalog.json"))
+        print(f"已生成 Agent 数据目录：{agent_dir}（客户数据，不进 git）")
+        print(f"让 Agent 读取它：export S12_DATA_DIR={os.path.abspath(agent_dir)}（仓库里的 mock 文件保持不变）")
     return 1 if (a.strict and not res["verdict"].startswith("充足")) else 0
 
 

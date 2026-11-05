@@ -57,7 +57,7 @@ main.wrap { max-width: 1280px; margin: 0 auto; padding: 20px 28px 40px; }
 .small { font-size: 12px; }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pill.n { color: var(--muted); background: #f3f5f8; border-color: #d5dbe3; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 4px 0 0; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 12px; margin: 4px 0 0; }
 .kpi { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; text-align: left; font: inherit; color: inherit; }
 .kpi .k { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .kpi .v { font-size: 26px; font-weight: 700; line-height: 1.35; margin-top: 2px; }
@@ -334,11 +334,11 @@ def topbar(title: str, subtitle: str, meta: list) -> str:
             f'<div class="spacer"></div><div class="meta">{m}</div></div>')
 
 
-def page(title: str, bar: str, body: str, footer: str) -> str:
+def page(title: str, bar: str, body: str, footer: str, extra_css: str = "") -> str:
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return ("<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-            f"<title>{esc(title)}</title>\n<style>\n{load_css()}\n{EXTRA_CSS}</style>\n</head>\n"
+            f"<title>{esc(title)}</title>\n<style>\n{load_css()}\n{EXTRA_CSS}{extra_css}</style>\n</head>\n"
             f"<body>\n{bar}\n<main class=\"wrap\">\n{body}\n</main>\n"
             f"<footer>{esc(footer)} · 生成时间 {esc(generated)}</footer>\n"
             f"<script>\n{FILTER_JS}\n</script>\n</body>\n</html>\n")
@@ -366,6 +366,15 @@ def write_page(out: Path, content: str) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(content, encoding="utf-8")
     return out.resolve()
+
+
+def shown_path(p: Path) -> str:
+    """Repo-relative when inside the repo (the 3x wrapper scripts grep `results/...html`), else absolute."""
+    p = Path(p).resolve()
+    try:
+        return str(p.relative_to(root().resolve()))
+    except ValueError:
+        return str(p)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -711,6 +720,7 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict) -> tuple:
     order = list(cases_b) + [k for k in cases_a if k not in cases_b]
     counts = {k: 0 for k in STATUS_VIEW}
     rows = []
+    n_crit = 0
     for fid in order:
         cb, ca = cases_b.get(fid), cases_a.get(fid)
         st = status_of(cb, ca)
@@ -735,6 +745,7 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict) -> tuple:
                 crit += "<br>" + pill(f"{tag} 格式错误", "r", "FormatError：有回答但解析不出分诊 JSON")
             if c and c["eval_error"]:
                 crit += "<br>" + pill(f"{tag} 评估出错", "n", clip(c["eval_error"], 200))
+        n_crit += int("critical" in tags)
         label, cls = STATUS_VIEW[st]
         if st == "wrong" and cb and ca and (ca["n"] or 0) > (cb["n"] or 0):
             label = "↗ 仍错误（部分改善）"
@@ -743,12 +754,13 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict) -> tuple:
                     f'<td>{pill(label, cls)}</td></tr>')
     total = len(order)
     btn = []
-    for f, name in (("all", f"全部（{total}）"), ("fixed", f"修复（{counts['fixed']}）"),
-                    ("regressed", f"退步（{counts['regressed']}）"), ("wrong", f"仍错误（{counts['wrong']}）")):
+    for f, lab, n in (("all", "全部", total), ("fixed", "修复", counts["fixed"]), ("regressed", "退步", counts["regressed"]),
+                      ("wrong", "仍错误", counts["wrong"]), ("critical", "含误拒", n_crit)):
+        if f == "critical" and not n:
+            continue
         active = " active" if f == "all" else ""
-        lab = {"all": "全部", "fixed": "修复", "regressed": "退步", "wrong": "仍错误"}[f]
         btn.append(f'<button type="button" class="fbtn{active}" data-target="#cases" data-f="{f}" '
-                   f'data-label="{esc(lab)}">{esc(name)}</button>')
+                   f'data-label="{esc(lab)}">{esc(f"{lab}（{n}）")}</button>')
     summary = (f"修复 {counts['fixed']} 条 · 退步 {counts['regressed']} 条 · 仍错误 {counts['wrong']} 条 · "
                f"保持正确 {counts['kept']} 条")
     if counts["unknown"]:
@@ -759,12 +771,13 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict) -> tuple:
         '<div class="card"><h2>逐条对比（按需求编号对齐）</h2>'
         f'<p class="small muted">每格显示 {esc(b.vlabel)} → {esc(a.vlabel)} 的 Agent 输出：'
         '<span class="pill g">✓ 绿色</span>= 该项单项评估器判对，<span class="pill r">✗ 红色</span>= 判错，'
-        '<span class="pill n">灰色</span>= 无评估结果。鼠标悬停查看理由；“拒绝”条目悬停可看客户话术。'
-        '“修复”= 优化后三项全对而优化前没有；“退步”= 优化后答对的项数减少；“仍错误”= 优化后仍未三项全对。</p>'
+        '<span class="pill n">灰色</span>= 无评估结果 / 不适用。鼠标悬停查看理由；“拒绝”条目悬停可看客户话术。'
+        '“修复”= 优化后三项全对而优化前没有；“退步”= 优化后答对的项数减少；“仍错误”= 优化后仍未三项全对；'
+        '<span class="pill r">⚠ 误拒</span>= CriticalFail（拒绝了不可自动拒绝的需求）。</p>'
         f'<p><b>{esc(summary)}</b></p>'
         f'<div class="filters">{"".join(btn)}<span class="small muted" data-status-for="#cases">全部：{total} 条</span></div>'
         '<table id="cases" class="cases"><thead><tr><th>需求</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th>'
-        '<th>三项命中</th><th>变化</th></tr></thead><tbody>' + "".join(rows) + "</tbody></table></div>"
+        '<th>三项命中</th><th>拒绝话术</th><th>变化</th></tr></thead><tbody>' + "".join(rows) + "</tbody></table></div>"
     )
     return html_, counts
 
@@ -798,11 +811,14 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
     rq_b, rq_a = metric(b, "reject_quality"), metric(a, "reject_quality")
     kpis = "".join(_kpi_label(cn, mb, ma, target) for cn, mb, ma in groups)
     kpis += _kpi_plain("三项全对率", pct(ac_b["rate"]), pct(ac_a["rate"]), delta_html(ac_b["rate"], ac_a["rate"], "pct"),
-                       f"{ac_b['ok']}/{ac_b['n']} → {ac_a['ok']}/{ac_a['n']} 条 · 误拒 {ac_b['critical']} → {ac_a['critical']} · "
+                       f"{ac_b['ok']}/{ac_b['n']} → {ac_a['ok']}/{ac_a['n']} 条全对 · "
                        f"label_accuracy 均值 {score_fmt(la_b['mean'])} → {score_fmt(la_a['mean'])}")
+    kpis += _kpi_plain("⚠ 误拒（CriticalFail）", f"{ac_b['critical']} 条", f"{ac_a['critical']} 条",
+                       delta_html(ac_b["critical"], ac_a["critical"], "count", higher_is_better=False),
+                       "拒绝了不可自动拒绝的需求，越少越好")
     kpis += _kpi_plain("拒绝话术质量", score_fmt(rq_b["mean"]), score_fmt(rq_a["mean"]),
                        delta_html(rq_b["mean"], rq_a["mean"], "score"),
-                       f"reject_quality 均值（0~1），仅统计被判“拒绝”的条目：{rq_b['n']} → {rq_a['n']} 条")
+                       f"reject_quality 均值，只计“拒绝”条目：{rq_b['n']} → {rq_a['n']} 条")
 
     chart = ('<div class="card"><h2>三项标签准确率：优化前 vs 优化后</h2>'
              f'<div class="legend"><span><span class="sw" style="background:{BEFORE_COLOR}"></span>{esc(vb)} · 优化前</span>'
@@ -879,8 +895,8 @@ def main(argv=None) -> int:
     print(f"▶ 对比 {b.vlabel} {b.run_id} → {af.vlabel} {af.run_id}（目标各 ≥{pct_short(target)}）", file=sys.stderr)
     out = Path(a.out) if a.out else root() / "results" / f"compare-{safe_name(b.run_id)}-vs-{safe_name(af.run_id)}.html"
     path = write_page(out, build_compare(b, af, target))
-    print("✅ 对比页已生成", file=sys.stderr)
-    print(path)
+    print("✅ 对比页已生成（本地文件，可直接用浏览器打开）：", file=sys.stderr)
+    print(shown_path(path))
     return 0
 
 

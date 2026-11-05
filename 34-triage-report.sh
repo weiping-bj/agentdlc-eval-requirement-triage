@@ -8,7 +8,7 @@ source ./00-config.sh
 P="${1:-b}"
 if [ "$P" = "a" ]; then
   "${_S12_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
-  source telemetry/otel_env.sh
+  source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"
   "$(dirname "${_S12_PY}")/opentelemetry-instrument" "${_S12_PY}" -m labkit.batch --mode local --source feedback --workers 6
 else
   "${_S12_PY}" -m labkit.batch --mode runtime --source feedback --workers 6

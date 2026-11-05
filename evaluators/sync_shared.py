@@ -46,7 +46,7 @@ def _judge_config() -> str:
         "ratingScale": rubric.rating_scale(),
         "modelConfig": {"bedrockEvaluatorModelConfig": {
             "modelId": "__JUDGE_MODEL_ID__",
-            "inferenceConfig": {"maxTokens": 1024, "temperature": 0.0}}}}}
+            "inferenceConfig": {"maxTokens": 1024}}}}}
     return json.dumps(cfg, ensure_ascii=False, indent=2) + "\n"
 
 

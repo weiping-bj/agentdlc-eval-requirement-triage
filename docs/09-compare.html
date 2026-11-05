@@ -13,31 +13,85 @@
 <main>
 <section class="card chapter-head">
 <h1><span class="num">9</span>再评估与前后对比 <span class="applies common">A/B 通用</span></h1>
-<p class="lead">对 V1 再跑一次同样的评估，用对比页面和控制台说明优化效果，准备 17:00 的 Demo。</p>
+<p class="lead">对 V1 再跑一次同样的评估，用对比页面和控制台说明优化效果，再用 60 条上月需求生成分诊报告，准备 17:00 的 Demo。</p>
 </section>
 <section class="card">
+
 <div class="step" id="s-9-1">
   <div class="step-head"><span class="num">9.1</span><h3>对 V1 运行黄金集和评估</h3><span class="time">10 分钟</span></div>
   <p class="why">用同一份黄金集、同一组评估器给 V1 打分，保证可比。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <div class="pathbox" data-path="a"><div class="ph">A 版</div>
+<pre><code>./10-A-run-local.sh golden</code></pre></div>
+  <div class="pathbox" data-path="b"><div class="ph">B 版（先确认 8.4 已重新部署）</div>
+<pre><code>./21-B-run-golden.sh</code></pre></div>
+  <p>等 2–3 分钟后评估（自动评估最近一次运行，也就是 V1）：</p>
+<pre><code>./31-run-eval.sh</code></pre>
+  <div class="expect"><span class="label">预期输出（结尾，数字为示意）：</span>
+<pre class="out">═══ 结果（150s）· 目标：三项各 ≥ 70% ═══
+  是否重要：87% ✅
+  是否紧急：83% ✅
+  处理建议：80% ✅
+  label_accuracy: 平均 0.83（30 条）
+  reject_quality: 平均 0.82（13 条）
+  ✅ 达标 · 详细结果：results/eval-B-v1-20261107T080000Z.json</pre><!-- VERIFY: 以实测 V1 分数替换 --></div>
 </div>
+
 <div class="step" id="s-9-2">
   <div class="step-head"><span class="num">9.2</span><h3>生成前后对比页面</h3><span class="time">2 分钟</span></div>
-  <p class="why">脚本把 V0 和 V1 的分数生成一个静态 HTML 对比页。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p class="why">脚本把 V0 和 V1 的分数生成一个静态 HTML 对比页，并放到你的私有 S3 桶，方便在笔记本浏览器里打开。</p>
+<pre><code>./32-compare.sh</code></pre>
+  <p class="where">脚本：<a data-repo="32-compare.sh">32-compare.sh</a> → <a data-repo="labkit/compare.py">labkit/compare.py</a>（默认对比最早的 V0 评估和最新的其它版本评估；也可指定 <code>--before results/eval-…json --after results/eval-…json</code>）→ <a data-repo="labkit/publish.py">labkit/publish.py</a></p>
+  <div class="expect"><span class="label">预期输出（结尾）：</span>
+<pre class="out">☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/compare-B-v0-...-vs-B-v1-....html
+👉 在笔记本浏览器打开（需已登录控制台），点右上角「打开」查看：
+   https://us-west-2.console.aws.amazon.com/s3/object/s12lab-zhang3-...?region=us-west-2&amp;prefix=reports/compare-...html</pre><!-- VERIFY --></div>
+  <ol class="clicks">
+    <li>在笔记本浏览器（已登录 AWS 控制台）打开脚本打印的链接。</li>
+    <li>在 S3 对象页面点右上角 <span class="ui">打开</span>（Open），对比页会在新标签页显示。</li>
+  </ol>
+  <img class="shot" src="img/compare-sample.png" alt="对比页示例：顶部是三项准确率 V0→V1 的变化和 70% 达标标记，中间是分组柱状图，下方是逐条用例的前后标签对比">
+  <p>先看看对比页长什么样：<a href="compare/sample-compare.html" target="_blank" rel="noopener">示例对比页（合成数据）</a>。页面内容：三项准确率前后变化与达标标记、柱状图（含 70% 目标线）、所有评估器的平均分对比、逐条用例的“修复 / 退步 / 仍错误”筛选。</p>
+  <div class="note">桶默认禁止公开访问，对比页只能用你自己的控制台登录打开，不会暴露给其他人。</div>
 </div>
+
 <div class="step" id="s-9-3">
   <div class="step-head"><span class="num">9.3</span><h3>在 CloudWatch / Evaluations 控制台对比</h3><span class="time">5 分钟</span></div>
   <p class="why">用现成的控制台界面展示两次评估的差异。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>CloudWatch → <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → 你的 Agent → <span class="ui">Evaluations</span> 页签。</li>
+    <li>右上角时间范围先选 V0 那次运行的时间段（例如 7.1 前后 30 分钟），记下 label_important / label_urgent / label_decision 的平均分；再选 V1 那次运行的时间段对比。</li>
+    <li>B 版还可以在 <span class="ui">Sessions</span> 里按 session 名区分：V0 的 session 名含 <code>-v0-</code>，V1 的含 <code>-v1-</code>。</li>
+    <li>（可选）CloudWatch → <span class="ui">Metrics</span> → <code>Bedrock-AgentCore/Evaluations</code>，把各评估器的分数画成随时间变化的折线，V0 → V1 的跳升一目了然。</li>
+  </ol>
+  <div class="expect"><span class="label">预期结果：</span>V1 时间段的三项平均分明显高于 V0 时间段，与对比页一致。<!-- VERIFY --></div>
 </div>
-<div class="step" id="s-9-4">
-  <div class="step-head"><span class="num">9.4</span><h3>准备 17:00 Demo</h3><span class="time">10 分钟</span></div>
-  <p class="why">按模板准备 3 分钟演示：问题 → 黄金集 → 评估 → 优化 → 结果。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
-</div>
-</section>
 
+<div class="step" id="s-9-4">
+  <div class="step-head"><span class="num">9.4</span><h3>用 60 条上月需求生成分诊报告（场景最终输出）</h3><span class="time">8 分钟</span></div>
+  <p class="why">这就是场景要的结果：自动拒绝的需求（附理由和话术）+ 其它需求的重要 / 紧急分布。</p>
+  <div class="pathbox" data-path="a"><div class="ph">A 版</div>
+<pre><code>./34-triage-report.sh a</code></pre></div>
+  <div class="pathbox" data-path="b"><div class="ph">B 版</div>
+<pre><code>./34-triage-report.sh b</code></pre></div>
+  <p class="where">脚本：<a data-repo="34-triage-report.sh">34-triage-report.sh</a> → <a data-repo="labkit/report.py">labkit/report.py</a>。用当前版本（V1）处理 <a data-repo="data/feedback_last_month.jsonl">data/feedback_last_month.jsonl</a> 的 60 条，生成报告并上传到私有桶。</p>
+  <div class="expect"><span class="label">预期结果：</span>脚本先打印 60 条的处理进度，最后给出 S3 控制台链接。报告里有：迭代 / 拒绝 / 待评估数量、重要 × 紧急 2×2 矩阵、按模块分布、自动拒绝清单（内部理由 + 客户话术全文）、待评估清单。<!-- VERIFY --></div>
+  <div class="tip">这 60 条里大部分不在黄金集中，在线评估仍会给“话术质量”和 Helpfulness 打分（标签准确率对非黄金集条目会 Skipped），可以顺便展示“上线后的持续评估”。</div>
+</div>
+
+<div class="step" id="s-9-5">
+  <div class="step-head"><span class="num">9.5</span><h3>准备 17:00 Demo（3 分钟）</h3><span class="time">10 分钟</span></div>
+  <p class="why">按模板准备 3 分钟演示：问题 → 黄金集 → 评估 → 优化 → 结果。</p>
+  <table>
+    <tr><th style="width:12%">时间</th><th>讲什么</th><th>展示什么</th></tr>
+    <tr><td>0:00–0:30</td><td>问题：每月大量需求反馈，人工判断重要 / 紧急 / 是否迭代，拒绝时话术难统一</td><td>一条典型需求原文</td></tr>
+    <tr><td>0:30–1:00</td><td>标准：我们讨论定下的口径和黄金集（30 条，五维覆盖，含不可拒绝红线）</td><td><a data-repo="data/golden/golden_set.csv">黄金集</a> / <a href="discussion.html">讨论结论</a></td></tr>
+    <tr><td>1:00–1:45</td><td>评估：V0 三项准确率多少，主要错在哪一维</td><td>CloudWatch Evaluations 页签 + 7.5 的失败归因</td></tr>
+    <tr><td>1:45–2:30</td><td>优化：改了什么（口径 / 工具 / 红线 / 话术），V1 分数</td><td>9.2 对比页（三项 V0 → V1）</td></tr>
+    <tr><td>2:30–3:00</td><td>结果：上个月 60 条需求的分诊报告；下一步（接入真实数据、在线评估持续监控）</td><td>9.4 分诊报告</td></tr>
+  </table>
+</div>
+
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

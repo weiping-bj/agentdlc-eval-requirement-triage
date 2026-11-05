@@ -13,26 +13,76 @@
 <main>
 <section class="card chapter-head">
 <h1><span class="num">10</span>清理资源 <span class="applies common">A/B 通用</span></h1>
-<p class="lead">实验结束后删除你创建的所有资源，避免产生费用。</p>
+<p class="lead">实验结束后删除你创建的所有资源，避免产生费用。脚本只删除带你个人前缀 <code>s12lab-zhang3-</code> / <code>s12lab_zhang3_</code> 的资源，不会影响同组其他人。</p>
+<div class="warn">想保留 Demo 素材？先截好对比页、分诊报告和控制台的图，或把 <code>results/</code> 下的文件下载下来，再清理。</div>
 </section>
 <section class="card">
+
 <div class="step" id="s-10-1">
   <div class="step-head"><span class="num">10.1</span><h3>运行清理脚本</h3><span class="time">5 分钟</span></div>
-  <p class="why">删除 Runtime、评估器、Lambda、IAM 角色、S3 桶、日志组等本实验资源。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p class="why">删除在线评估、评估器、Lambda、Runtime、S3 桶、日志组和 IAM 角色等本实验资源。</p>
+  <p>先预览会删什么（不会真正删除）：</p>
+<pre><code>./99-cleanup.sh --dry-run</code></pre>
+  <p>确认无误后执行：</p>
+<pre><code>./99-cleanup.sh</code></pre>
+  <p class="where">脚本：<a data-repo="99-cleanup.sh">99-cleanup.sh</a> → <a data-repo="labkit/cleanup.py">labkit/cleanup.py</a>（按依赖顺序删除：在线评估 → 评估器 → Lambda → Runtime → S3 → 日志组 → IAM 角色；可重复运行）</p>
+  <div class="expect"><span class="label">预期输出（节选）：</span>
+<pre class="out">▶ 清理范围：我的资源 s12lab-zhang3-* · 区域 us-west-2
+  🗑  停用在线评估 s12lab_zhang3_online_b
+  🗑  删除在线评估 s12lab_zhang3_online_b
+  🗑  删除评估器 s12lab_zhang3_label_accuracy
+  ...
+  🗑  删除 Lambda s12lab-zhang3-eval-label
+  🗑  删除 Lambda s12lab-zhang3-eval-reject
+  🗑  删除 Runtime s12lab_zhang3_agent (s12lab_zhang3_agent-AbCdEf1234)
+  🗑  清空并删除 S3 桶 s12lab-zhang3-&lt;account&gt;-us-west-2
+  🗑  删除日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent
+  🗑  删除日志组 /aws/lambda/s12lab-zhang3-eval-label
+  ...
+  🗑  删除 IAM 角色 s12lab-zhang3-runtime-role
+  🗑  删除 IAM 角色 s12lab-zhang3-eval-lambda-role
+  🗑  删除 IAM 角色 s12lab-zhang3-online-eval-role</pre><!-- VERIFY --></div>
 </div>
+
 <div class="step" id="s-10-2">
   <div class="step-head"><span class="num">10.2</span><h3>确认没有残留资源</h3><span class="time">2 分钟</span></div>
   <p class="why">脚本逐项列出，确认带实验前缀的资源都已删除。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>清理脚本最后会自动检查一遍；之后想再查一次：</p>
+<pre><code>./99-cleanup.sh --verify-only</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">▶ 残留检查（us-west-2，前缀 s12lab_zhang3_* / s12lab-zhang3-*）
+  ✅ 在线评估配置: 0
+  ✅ 自定义评估器: 0
+  ✅ AgentCore Runtime: 0
+  ✅ Lambda 函数: 0
+  ✅ S3 桶: 0
+  ✅ IAM 角色: 0
+  ✅ 日志组: 0
+  ❌ EC2 堆栈: 1 ['s12lab-ec2-zhang3']
+❌ 仍有 1 个资源（删除中的 Runtime/堆栈可稍后重查）</pre><!-- VERIFY --></div>
+  <div class="note">此时只剩 <b>EC2 堆栈 1 个</b>是正常的：你正在用这台 EC2，下一步才删除它。Runtime 删除需要 1–2 分钟，偶尔第一次检查还能看到它，稍后再查即可。</div>
 </div>
+
 <div class="step" id="s-10-3">
   <div class="step-head"><span class="num">10.3</span><h3>删除 EC2 堆栈</h3><span class="time">3 分钟</span></div>
-  <p class="why">最后删除 CloudFormation 堆栈（EC2 本身）。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p class="why">最后删除 CloudFormation 堆栈（EC2 本身）。删除后 EC2 上的所有文件都会消失。</p>
+  <p><b>方式一：控制台</b></p>
+  <ol class="clicks">
+    <li>CloudFormation 控制台（区域与实验一致）→ <span class="ui">堆栈</span> → 选中 <code>s12lab-ec2-zhang3</code>。</li>
+    <li>点 <span class="ui">删除</span> → 确认 <span class="ui">删除</span>，等待状态变为 <code>DELETE_COMPLETE</code>（约 2–3 分钟）。</li>
+  </ol>
+  <p><b>方式二：CloudShell</b>（把 zhang3 换成你的后缀）：</p>
+<pre><code>aws cloudformation delete-stack --stack-name s12lab-ec2-zhang3
+aws cloudformation wait stack-delete-complete --stack-name s12lab-ec2-zhang3 &amp;&amp; echo "✅ 已删除"</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">✅ 已删除</pre></div>
+  <div class="danger"><b>讲师专用（全组结束后）</b>：在讲师自己的电脑上（仓库已 clone、<code>config/local.env</code> 里设置了 <code>AWS_PROFILE</code>；不要在某台实验 EC2 上运行，它会把自己也删掉），删除本账号本区域<b>所有人</b>的 s12lab 资源（含所有 EC2 堆栈），并恢复账号级设置（关闭 Transaction Search、删除 <code>aws/spans</code> 日志组）：
+<pre><code>./99-cleanup.sh --all --dry-run
+./99-cleanup.sh --all --account-level</code></pre>
+  <code>--account-level</code> 会影响整个账号的 trace 设置，只在确认所有人都结束后执行。</div>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

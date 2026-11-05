@@ -24,13 +24,16 @@ def system_prompt(version: str) -> str:
 def build_agent(version: str | None = None, model_id: str | None = None, region: str | None = None,
                 session_id: str | None = None, extra_attrs: dict | None = None) -> Agent:
     version = (version or os.environ.get("AGENT_VERSION") or "v0").lower()
-    if version not in TOOLSETS:
-        raise ValueError(f"unknown AGENT_VERSION {version!r} (expected v0 or v1)")
+    if not (PROMPTS / f"{version}.md").exists():
+        raise ValueError(f"unknown AGENT_VERSION {version!r}: no prompts/{version}.md")
+    mid = model_id or os.environ.get("AGENT_MODEL_ID", "us.anthropic.claude-sonnet-5-5")
+    kw = {"max_tokens": 2048}
+    if "anthropic.claude" not in mid:
+        kw["temperature"] = 0.0  # Claude 5.x models reject `temperature`; others (e.g. Nova) accept it
     model = BedrockModel(
-        model_id=model_id or os.environ.get("AGENT_MODEL_ID", "us.anthropic.claude-sonnet-5-5"),
+        model_id=mid,
         region_name=region or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-west-2",
-        temperature=0.0,
-        max_tokens=2048,
+        **kw,
     )
     attrs = {"s12lab.agent_version": version}
     if session_id:
@@ -40,7 +43,7 @@ def build_agent(version: str | None = None, model_id: str | None = None, region:
         name=f"s12lab_triage_{version}",
         model=model,
         system_prompt=system_prompt(version),
-        tools=TOOLSETS[version],
+        tools=TOOLSETS.get(version, TOOLSETS["v1"]),  # new versions (v2...) reuse the V1 tools
         callback_handler=None,
         trace_attributes=attrs,
     )

@@ -13,31 +13,78 @@
 <main>
 <section class="card chapter-head">
 <h1><span class="num">8</span>基于评估优化（V0 → V1） <span class="applies common">A/B 通用</span></h1>
-<p class="lead">根据失败用例改进 Agent：提示词、工具、数据或模型。我们准备了参考答案 V1，你也可以让 coding agent 自己改。</p>
+<p class="lead">根据失败用例改进 Agent：提示词、工具、数据或模型。我们准备了参考答案 V1，你也可以让 coding agent 自己改出一个 V2。</p>
 </section>
 <section class="card">
+
 <div class="step" id="s-8-1">
   <div class="step-head"><span class="num">8.1</span><h3>常见优化方法一览</h3><span class="time">3 分钟</span></div>
   <p class="why">知道问题出在哪类，该改哪里：提示词、工具、能力目录还是模型。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <table>
+    <tr><th>失败现象（来自 7.5）</th><th>五维</th><th>改哪里</th><th>V1 里的做法</th></tr>
+    <tr><td>分不清“已支持 / 真实缺口 / 明确不做”</td><td><span class="pill b">认知</span></td><td><b>工具输出</b>：<a data-repo="agent/s12agent/tools.py">tools.py</a></td><td><code>search_capabilities</code> 返回状态、限制、替代方案</td></tr>
+    <tr><td>单客户定制当成通用需求</td><td><span class="pill b">认知</span></td><td><b>新增工具</b></td><td><code>find_similar_requests</code> 统计上个月有几个不同客户提过</td></tr>
+    <tr><td>“重要 / 紧急”标准不一致，被客户措辞带偏</td><td><span class="pill g">质量</span> <span class="pill r">责任</span></td><td><b>提示词口径</b>：<a data-repo="agent/s12agent/prompts/v1.md">prompts/v1.md</a></td><td>写明判断条款：≥3 个客户才算通用；“紧急”必须有影响正在发生或 30 天内硬性节点的事实</td></tr>
+    <tr><td>数据丢失 / 安全 / 合规 / 合同承诺类被拒绝</td><td><span class="pill r">责任</span></td><td><b>提示词红线</b></td><td>“不能自动拒绝”清单，遇到必须判迭代或待评估</td></tr>
+    <tr><td>话术空泛、没有替代方案</td><td><span class="pill g">质量</span></td><td><b>提示词输出要求</b></td><td>话术三段式：理解诉求 → 说明原因 → 替代方案 / 后续路径；不承诺上线时间</td></tr>
+    <tr><td>能力目录本身缺条目、写错状态</td><td><span class="pill b">认知</span></td><td><b>数据</b>：<a data-repo="data/capability_catalog.json">capability_catalog.json</a></td><td>（V1 未改数据；现场发现目录不准时改这里，B 版需重新部署）</td></tr>
+    <tr><td>太慢、太贵、偶发超时</td><td><span class="pill o">成本</span> <span class="pill p">性能</span></td><td><b>模型</b>：<a data-repo="config/lab.env">config/lab.env</a> 的 <code>AGENT_MODEL_ID</code></td><td>可用 <code>./tools/use-model.sh &lt;模型ID&gt;</code> 试更快的模型，再用同一黄金集评估比较</td></tr>
+  </table>
+  <div class="warn">优化 Agent 时<b>不要改黄金集和评估器</b>——否则前后分数不可比。黄金集只在第 2 章按业务口径修改。</div>
 </div>
+
 <div class="step" id="s-8-2">
   <div class="step-head"><span class="num">8.2</span><h3>用 coding agent 分析失败用例并提出修改</h3><span class="time">10 分钟</span></div>
-  <p class="why">把评估报告交给 coding agent，让它给出具体修改建议。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p class="why">把评估报告交给 coding agent，让它给出具体修改建议并写出新版本提示词（V2）。</p>
+  <p>在 EC2 上运行 <code>claude</code>（或你习惯的 coding agent），把下面整段提示词粘贴进去：</p>
+<pre><code>你在仓库 ~/scenario12-lab 中工作。目标：根据最新一次评估结果，改进“需求价值评审 Agent”的系统提示词，让“是否重要 / 是否紧急 / 处理建议”三项准确率都达到 70% 以上，并提高拒绝话术质量。
+
+请按顺序完成：
+1. 读取 results/ 下最新的 eval-*.json，列出 label_accuracy 不是 Pass 的用例（feedback_id、期望 vs 实际、explanation），以及 reject_quality 低于 0.7 的用例。
+2. 对每个失败用例，到 data/golden/golden_set.jsonl 里找同一 feedback_id 的 rationale（标注理由）和 dimensions（五维），归纳出 3-5 条主要失败原因。
+3. 阅读 agent/s12agent/prompts/v0.md、agent/s12agent/prompts/v1.md、agent/s12agent/tools.py 和 data/golden/LABELING_GUIDE.md（标注口径以它为准）。
+4. 在 agent/s12agent/prompts/v1.md 的基础上写出 agent/s12agent/prompts/v2.md，针对第 2 步的原因修改判断口径、红线和话术要求；保持输出 JSON 格式完全不变（字段：feedback_id, important, urgent, decision, level, reasoning, reject_reason, customer_reply）。
+5. 在 agent/s12agent/tools.py 的 TOOLSETS 里增加 "v2"，使用和 "v1" 相同的工具列表。
+6. 不要修改 data/golden/、evaluators/、labkit/ 下的任何文件，也不要修改 v0.md / v1.md。
+7. 最后用中文总结：改了什么、对应哪个失败原因、预计影响哪一项指标。</code></pre>
+  <div class="expect"><span class="label">预期结果：</span>coding agent 列出失败原因，生成 <code>agent/s12agent/prompts/v2.md</code>，并在 <code>tools.py</code> 里加上 <code>"v2"</code>。之后用 <code>./40-switch-version.sh v2</code> 切换，按 8.4 / 第 9 章评估它。</div>
+  <div class="tip">时间紧时直接用我们准备好的 V1（8.3）。有余力的组可以 V1、V2 都评估，看看谁的分数更高。</div>
 </div>
+
 <div class="step" id="s-8-3">
   <div class="step-head"><span class="num">8.3</span><h3>切换到 V1（参考优化版本）</h3><span class="time">1 分钟</span></div>
   <p class="why">一条命令把 Agent 切换到我们准备好的优化版本。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>先看看 V1 比 V0 改了什么：</p>
+<pre><code>git diff --no-index agent/s12agent/prompts/v0.md agent/s12agent/prompts/v1.md | head -60</code></pre>
+  <p>文件：<a data-repo="agent/s12agent/prompts/v0.md">prompts/v0.md</a> · <a data-repo="agent/s12agent/prompts/v1.md">prompts/v1.md</a> · 工具差异见 <a data-repo="agent/s12agent/tools.py">tools.py</a> 的 <code>TOOLSETS</code>。然后切换：</p>
+<pre><code>./40-switch-version.sh v1</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">✅ Agent 版本已切换为 v1
+   A 版：./10-A-run-local.sh golden      B 版：./20-B-deploy-runtime.sh 然后 ./21-B-run-golden.sh</pre></div>
+  <p class="where">脚本：<a data-repo="40-switch-version.sh">40-switch-version.sh</a>（写入 <code>config/local.env</code> 的 <code>AGENT_VERSION</code>）</p>
 </div>
+
 <div class="step" id="s-8-4">
   <div class="step-head"><span class="num">8.4</span><h3>让 V1 生效：A 版重新本地运行 / B 版重新部署 Runtime</h3><span class="time">5 分钟</span></div>
   <p class="why">A 版在本地跑 V1，B 版把 V1 更新到 Runtime。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <div class="pathbox" data-path="a"><div class="ph">A 版</div>
+  不需要部署：下一次 <code>./10-A-run-local.sh golden</code> 会自动使用 V1（第 9 章）。确认当前版本：
+<pre><code>./00-config.sh | grep AGENT_VERSION</code></pre>
+<pre class="out">AGENT_VERSION               v1</pre></div>
+  <div class="pathbox" data-path="b"><div class="ph">B 版</div>
+  重新部署（更新同一个 Runtime，生成新版本号；依赖包会复用，比第一次快）：
+<pre><code>./20-B-deploy-runtime.sh</code></pre>
+<pre class="out">▶ 部署 s12lab_zhang3_agent · Agent 版本 v1 · 模型 us.anthropic.claude-sonnet-5-5 · 区域 us-west-2
+  ♻️  复用已下载的依赖 build/runtime/deps-xxxxxxxxxxxx
+  📦 打包完成：...
+  🔁 更新已有 Runtime s12lab_zhang3_agent-AbCdEf1234
+  ⏳ Runtime 状态 UPDATING
+  ⏳ Runtime 状态 READY
+✅ Runtime 就绪：s12lab_zhang3_agent-AbCdEf1234（版本 2，Agent v1）</pre><!-- VERIFY -->
+  再调用一次确认：<code>./20-B-deploy-runtime.sh invoke</code></div>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

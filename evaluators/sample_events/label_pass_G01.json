@@ -1,0 +1,66 @@
+{
+ "schemaVersion": "1.0",
+ "evaluatorId": "sample-0000000000",
+ "evaluatorName": "s12lab_sample_label_accuracy",
+ "evaluationLevel": "TRACE",
+ "evaluationInput": {
+  "sessionSpans": [
+   {
+    "traceId": "11111111111111111111111111111111",
+    "spanId": "0000000000000001",
+    "name": "s12lab.triage",
+    "scope": {
+     "name": "s12lab.triage"
+    },
+    "startTimeUnixNano": 1730000000000000000,
+    "attributes": {
+     "session.id": "s12lab-sample",
+     "s12lab.feedback_id": "FB-2610-001",
+     "s12lab.agent_version": "v1",
+     "s12lab.triage_output": "{\"feedback_id\": \"FB-2610-001\", \"important\": \"是\", \"urgent\": \"否\", \"decision\": \"迭代\", \"level\": null, \"reasoning\": \"（示例）依据能力目录与相似需求统计\", \"reject_reason\": \"\", \"customer_reply\": \"\"}"
+    }
+   },
+   {
+    "traceId": "11111111111111111111111111111111",
+    "spanId": "0000000000000002",
+    "scope": {
+     "name": "strands.telemetry.tracer"
+    },
+    "timeUnixNano": 1730000000500000000,
+    "attributes": {
+     "event.name": "strands.telemetry.tracer",
+     "session.id": "s12lab-sample"
+    },
+    "body": {
+     "input": {
+      "messages": [
+       {
+        "role": "user",
+        "content": {
+         "content": "需求编号: FB-2610-001\n标题: 列表页批量修改自定义字段\n需求描述: 我们在客户列表页想批量修改自定义字段（例如“客户分级”“所属大区”），现在批量编辑只能改负责人等标准字段，自定义字段只能一条条点进去改。销售运营每周要改几百条，非常耗时，希望列表页批量编辑支持自定义字段。"
+        }
+       }
+      ]
+     },
+     "output": {
+      "messages": [
+       {
+        "role": "assistant",
+        "content": {
+         "message": "{\"feedback_id\": \"FB-2610-001\", \"important\": \"是\", \"urgent\": \"否\", \"decision\": \"迭代\", \"level\": null, \"reasoning\": \"（示例）依据能力目录与相似需求统计\", \"reject_reason\": \"\", \"customer_reply\": \"\"}",
+         "finish_reason": "end_turn"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ]
+ },
+ "evaluationReferenceInputs": [],
+ "evaluationTarget": {
+  "traceIds": [
+   "11111111111111111111111111111111"
+  ]
+ }
+}

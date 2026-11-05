@@ -16,33 +16,103 @@
 <p class="lead">遇到问题或需要改配置时查这里。</p>
 </section>
 <section class="card">
+
 <div class="step" id="s-x-1">
   <div class="step-head"><span class="num">X.1</span><h3>配置项说明</h3><span class="time"></span></div>
   <p class="why">所有区域、模型、资源名都在一个配置文件里。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p>共享配置：<a data-repo="config/lab.env">config/lab.env</a>；个人覆盖：<code>config/local.env</code>（不提交，由 <code>tools/set-suffix.sh</code>、<code>tools/use-model.sh</code>、<code>40-switch-version.sh</code> 写入）。读取顺序：<code>lab.env</code> → <code>local.env</code> → 当前 shell 的环境变量（后者优先）。查看最终生效的值：<code>./00-config.sh</code>。</p>
+  <table>
+    <tr><th>配置项</th><th>默认值</th><th>含义</th></tr>
+    <tr><td><code>AWS_REGION</code></td><td><code>us-west-2</code></td><td>实验区域（us-west-2 或 us-east-1）</td></tr>
+    <tr><td><code>LAB_PREFIX</code></td><td><code>s12lab</code></td><td>所有实验资源名的前缀，清理脚本按它查找</td></tr>
+    <tr><td><code>LAB_SUFFIX</code></td><td>（无，必填）</td><td>个人后缀，写在 <code>config/local.env</code>：<code>./tools/set-suffix.sh zhang3</code></td></tr>
+    <tr><td><code>AGENT_MODEL_ID</code></td><td><code>us.anthropic.claude-sonnet-5-5</code></td><td>Agent 本体模型（Bedrock 推理配置文件 ID）</td></tr>
+    <tr><td><code>JUDGE_MODEL_ID</code></td><td><code>us.anthropic.claude-sonnet-5-5</code></td><td>LLM 评审评估器使用的模型</td></tr>
+    <tr><td><code>FALLBACK_MODEL_ID</code></td><td><code>us.amazon.nova-2-lite-v1:0</code></td><td>一行切换的备选模型（Amazon Nova 2 Lite）</td></tr>
+    <tr><td><code>CODING_AGENT_MODEL_ID</code> / <code>CODING_AGENT_FAST_MODEL_ID</code></td><td>Sonnet 5.5 / Haiku 5.5</td><td>EC2 上 Claude Code 使用的模型（安装脚本读取）</td></tr>
+    <tr><td><code>AGENT_VERSION</code></td><td><code>v0</code></td><td>Agent 版本（v0 基线 / v1 优化版 / 你自己写的 v2）</td></tr>
+    <tr><td><code>TARGET_ACCURACY</code></td><td><code>0.70</code></td><td>三项标签准确率目标</td></tr>
+    <tr><td><code>RUNTIME_PYTHON</code></td><td><code>PYTHON_3_12</code></td><td>AgentCore Runtime 直接代码部署使用的 Python 版本</td></tr>
+    <tr><td><code>AWS_PROFILE</code></td><td>（空）</td><td>仅在笔记本上运行时使用的 AWS CLI profile；EC2 上留空（用实例角色）</td></tr>
+  </table>
+  <p class="where">资源名如何从前缀和后缀推导出来：<a data-repo="labkit/config.py">labkit/config.py</a> 的 <code>derive()</code>。</p>
 </div>
+
 <div class="step" id="s-x-2">
   <div class="step-head"><span class="num">X.2</span><h3>切换区域（us-west-2 / us-east-1）</h3><span class="time"></span></div>
   <p class="why">改一行配置即可切换。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ul>
+    <li><b>EC2 上</b>：区域自动跟随 EC2 所在区域（安装时写入的 <code>AWS_REGION</code> 环境变量优先于 <code>lab.env</code>），一般不用改。</li>
+    <li><b>笔记本上</b>：在 <code>config/local.env</code> 里加一行 <code>AWS_REGION=us-east-1</code>，或者直接修改 <a data-repo="config/lab.env">config/lab.env</a>。</li>
+  </ul>
+  <p>两个区域都已确认可用：AgentCore Runtime、Observability、Evaluations（含全部内置评估器），以及推理配置文件 <code>us.anthropic.claude-sonnet-5-5</code>、<code>us.anthropic.claude-haiku-5-5</code>、<code>us.amazon.nova-2-lite-v1:0</code>。切换区域后，第 1.8 步（Transaction Search）要在新区域再做一次，资源也要在新区域重新创建。</p>
 </div>
+
 <div class="step" id="s-x-3">
   <div class="step-head"><span class="num">X.3</span><h3>切换模型（Claude Sonnet 5.5 → Amazon Nova）</h3><span class="time"></span></div>
   <p class="why">Claude 不可用时，一行命令换成 Nova。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./tools/use-model.sh nova      # Agent 和评审模型都切到 FALLBACK_MODEL_ID
+./tools/use-model.sh claude    # 切回 config/lab.env 的默认模型
+./tools/use-model.sh us.anthropic.claude-haiku-5-5   # 指定任意模型 ID</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">✅ 当前模型设置：
+AGENT_MODEL_ID=us.amazon.nova-2-lite-v1:0
+JUDGE_MODEL_ID=us.amazon.nova-2-lite-v1:0
+   B 版需重新部署 Runtime 才生效：./20-B-deploy-runtime.sh；评审模型需重跑 ./30-create-evaluators.sh</pre></div>
+  <p class="where">脚本：<a data-repo="tools/use-model.sh">tools/use-model.sh</a>。切换后先跑 <code>./01-check-env.sh</code> 确认模型可用。换模型也是一种“优化”：用同一份黄金集评估，就能比较不同模型的准确率、耗时和成本。</p>
 </div>
+
 <div class="step" id="s-x-4">
   <div class="step-head"><span class="num">X.4</span><h3>常见问题排查</h3><span class="time"></span></div>
   <p class="why">按报错关键词查找解决办法。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <table>
+    <tr><th style="width:30%">现象 / 报错关键词</th><th>原因</th><th>怎么办</th></tr>
+    <tr><td><code>AccessDeniedException</code>（调用模型时）</td><td>账号没有开通该模型，或模型 ID 在当前区域不可用</td><td><code>./tools/use-model.sh nova</code> 后重跑 <code>./01-check-env.sh</code>；或请讲师在 Bedrock 控制台开通模型</td></tr>
+    <tr><td><code>LAB_SUFFIX 未设置或格式不对</code></td><td>没设置个人后缀</td><td><code>./tools/set-suffix.sh zhang3</code></td></tr>
+    <tr><td><code>no spans found in CloudWatch for this session</code></td><td>trace 还没写进 CloudWatch（1–3 分钟延迟），或 Transaction Search 没开</td><td>等 2–3 分钟重跑 <code>./31-run-eval.sh</code>；<code>./01-check-env.sh</code> 第 ④ 项不是“已开启”就运行 <code>./02-enable-observability.sh</code></td></tr>
+    <tr><td>Runtime <code>CREATE_FAILED</code> / <code>UPDATE_FAILED</code></td><td>常见是依赖包不是 linux/arm64 版本</td><td><code>rm -rf build/runtime</code> 后重跑 <code>./20-B-deploy-runtime.sh</code>；看 Runtime 日志组 <code>/aws/bedrock-agentcore/runtimes/&lt;ID&gt;-DEFAULT</code></td></tr>
+    <tr><td>调用 Runtime 超时 / 第一次很慢</td><td>冷启动</td><td>再调用一次</td></tr>
+    <tr><td><code>被在线评估配置锁定，未更新</code></td><td>启用中的在线评估会锁定它用到的评估器</td><td><code>./33-online-eval.sh disable --path b</code>（或 <code>a</code>）→ 重跑 <code>./30-create-evaluators.sh</code> → <code>./33-online-eval.sh enable --path b</code></td></tr>
+    <tr><td><code>uv</code> / <code>pip</code> 卡住不动或非常慢</td><td>网络慢，或另一个 uv 进程占用了缓存锁</td><td>等一等；确认没有其它安装在跑（<code>ps aux | grep uv</code>）；必要时 <code>export UV_CACHE_DIR=/tmp/uvcache</code> 后重跑</td></tr>
+    <tr><td>Session Manager 连不上 / 实例“未上线”</td><td>实例刚启动，或实例角色没有 SSM 权限</td><td>再等 2–3 分钟；手动创建的 EC2 检查 IAM 实例配置文件（<a href="01-setup.html#s-1-3">1.3</a>）</td></tr>
+    <tr><td>控制台看不到自己的资源</td><td>区域不对</td><td>右上角切到实验区域</td></tr>
+    <tr><td>Evaluations 页签没有分数</td><td>在线评估在 session 空闲 2 分钟后才打分；或在线评估是在跑黄金集之后才开启的</td><td>等 5–10 分钟；确认 <code>./33-online-eval.sh status</code> 为启用，再跑一次黄金集</td></tr>
+    <tr><td>重新登录后命令找不到 / Python 报缺包</td><td>没有切到 ec2-user 或没进虚拟环境</td><td><code>sudo su - ec2-user</code> → <code>cd ~/scenario12-lab &amp;&amp; source .venv/bin/activate</code></td></tr>
+  </table>
 </div>
+
 <div class="step" id="s-x-5">
   <div class="step-head"><span class="num">X.5</span><h3>仓库文件索引</h3><span class="time"></span></div>
   <p class="why">每个文件是做什么的。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <table>
+    <tr><th>文件 / 目录</th><th>用途</th><th>章节</th></tr>
+    <tr><td><a data-repo="00-config.sh">00-config.sh</a></td><td>加载配置、派生资源名（被其它脚本引用；直接运行可打印配置）</td><td>1.6</td></tr>
+    <tr><td><a data-repo="01-check-env.sh">01-check-env.sh</a></td><td>检查工具、身份、模型、Transaction Search</td><td>1.7</td></tr>
+    <tr><td><a data-repo="02-enable-observability.sh">02-enable-observability.sh</a></td><td>开启 CloudWatch Transaction Search</td><td>1.8</td></tr>
+    <tr><td><a data-repo="10-A-run-local.sh">10-A-run-local.sh</a></td><td>本机运行 Agent（smoke / trace / golden），带 ADOT 遥测</td><td>A3、7、9</td></tr>
+    <tr><td><a data-repo="11-A-convert-logs.sh">11-A-convert-logs.sh</a></td><td>已有日志 → OTel trace → CloudWatch</td><td>A4</td></tr>
+    <tr><td><a data-repo="12-A-check-telemetry.sh">12-A-check-telemetry.sh</a></td><td>检查遥测是否满足 Evaluations 要求</td><td>A5</td></tr>
+    <tr><td><a data-repo="20-B-deploy-runtime.sh">20-B-deploy-runtime.sh</a></td><td>打包并部署到 AgentCore Runtime；invoke / status</td><td>B3、8.4</td></tr>
+    <tr><td><a data-repo="21-B-run-golden.sh">21-B-run-golden.sh</a></td><td>用黄金集批量调用 Runtime</td><td>7、9</td></tr>
+    <tr><td><a data-repo="30-create-evaluators.sh">30-create-evaluators.sh</a></td><td>部署评估器 Lambda 并注册评估器</td><td>6</td></tr>
+    <tr><td><a data-repo="31-run-eval.sh">31-run-eval.sh</a></td><td>按需评估一次运行</td><td>7、9</td></tr>
+    <tr><td><a data-repo="32-compare.sh">32-compare.sh</a></td><td>生成 V0 vs V1 对比页并上传到私有桶</td><td>9.2</td></tr>
+    <tr><td><a data-repo="33-online-eval.sh">33-online-eval.sh</a></td><td>开启 / 停用在线评估</td><td>6.5</td></tr>
+    <tr><td><a data-repo="34-triage-report.sh">34-triage-report.sh</a></td><td>60 条上月需求的分诊报告</td><td>9.4</td></tr>
+    <tr><td><a data-repo="40-switch-version.sh">40-switch-version.sh</a></td><td>切换 Agent 版本</td><td>8.3</td></tr>
+    <tr><td><a data-repo="99-cleanup.sh">99-cleanup.sh</a></td><td>清理资源并检查残留</td><td>10</td></tr>
+    <tr><td><a data-repo="config/">config/</a></td><td>全局配置 <code>lab.env</code>（个人覆盖 <code>local.env</code> 不提交）</td><td>附录</td></tr>
+    <tr><td><a data-repo="ec2/">ec2/</a></td><td>EC2 CloudFormation 模板、CloudShell 启动脚本、EC2 安装脚本、手动创建说明</td><td>1</td></tr>
+    <tr><td><a data-repo="agent/">agent/</a></td><td>mock agent：Runtime 入口 <code>main.py</code>、<code>s12agent/</code>（核心、工具、V0/V1 提示词）</td><td>B3、8</td></tr>
+    <tr><td><a data-repo="labkit/">labkit/</a></td><td>脚本背后的 Python 模块（配置、批量运行、部署、评估、对比、清理）</td><td>—</td></tr>
+    <tr><td><a data-repo="telemetry/">telemetry/</a></td><td>A 版：OTel 环境变量、日志格式说明、样例日志、转换器与检查器</td><td>A3–A5</td></tr>
+    <tr><td><a data-repo="data/">data/</a></td><td>mock 需求反馈、能力目录、黄金集、模板、coding agent 提示词、数据工具</td><td>2</td></tr>
+    <tr><td><a data-repo="evaluators/">evaluators/</a></td><td>自定义评估器（标签准确率、话术质量、LLM 评审配置）及单元测试</td><td>6</td></tr>
+    <tr><td><a data-repo="docs/">docs/</a></td><td>本手册（GitHub Pages）</td><td>—</td></tr>
+  </table>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

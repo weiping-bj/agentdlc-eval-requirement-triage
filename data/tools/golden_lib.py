@@ -78,7 +78,9 @@ def validate(rows: List[Dict[str, Any]], scheme: str = "binary", catalog_ids: Op
             errors.append(f"{tag}: expected.level 必须是 P0/P1/P2 或空，当前 {lv!r}")
         if scheme == "level" and lv not in C.LEVELS:
             errors.append(f"{tag}: 分级模式下每条都必须有 expected.level（可用 golden_tool.py fill-levels 自动补）")
-        if not r.get("can_auto_reject", True) and "拒绝" in (acc or [dec]):
+        if not isinstance(r.get("can_auto_reject", True), bool):
+            errors.append(f"{tag}: can_auto_reject（可自动拒绝）必须是 是/否，当前 {r.get('can_auto_reject')!r}")
+        elif not r.get("can_auto_reject", True) and "拒绝" in (acc or [dec]):
             errors.append(f"{tag}: 标为“不可自动拒绝”，但期望/可接受建议里有“拒绝”")
         if dec == "拒绝":
             if not r.get("reject_points"):
@@ -231,9 +233,9 @@ def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> None:
         e["urgent"] = C.norm_yes_no(row["是否紧急"]) or row["是否紧急"]
     if row.get("处理建议"):
         e["decision"] = C.norm_decision(row["处理建议"]) or row["处理建议"]
-    if "优先级" in row and row.get("优先级") is not None:
-        lv = row.get("优先级", "").strip()
-        e["level"] = C.norm_level(lv) if lv else e.get("level")
+    lv = (row.get("优先级") or "").strip()
+    if lv:
+        e["level"] = C.norm_level(lv) or lv  # keep invalid raw value so validate() reports it
     acc = [C.norm_decision(a) or a for a in C.split_list(row.get("可接受建议"), C.TAG_SEPS)]
     dec = e.get("decision")
     current = g.get("acceptable_decisions") or []
@@ -243,15 +245,18 @@ def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> None:
         # stale / missing 可接受建议 (e.g. pre-filled list from the old decision) -> only the new decision
         g["acceptable_decisions"] = [dec]
     if row.get("可自动拒绝"):
-        g["can_auto_reject"] = C.norm_yes_no(row["可自动拒绝"]) != "否"
+        yn = C.norm_yes_no(row["可自动拒绝"])
+        # unknown text is kept as-is so validate() fails loudly instead of silently allowing rejection
+        g["can_auto_reject"] = {"是": True, "否": False}.get(yn, row["可自动拒绝"].strip())
     if row.get("五维"):
         g["dimensions"] = C.split_list(row["五维"], C.TAG_SEPS)
     if row.get("样例类型"):
         g["case_type"] = row["样例类型"].strip()
-    if row.get("拒绝要点"):
-        g["reject_points"] = C.split_list(row["拒绝要点"])
-    if row.get("话术要点"):
-        g["reply_points"] = C.split_list(row["话术要点"])
+    for col, key in (("拒绝要点", "reject_points"), ("话术要点", "reply_points")):
+        if row.get(col):
+            cur = g.get(key) or []
+            if row[col].strip() != "；".join(cur):  # only re-split edited cells (points may contain "；")
+                g[key] = C.split_list(row[col])
     if row.get("标注理由"):
         g["rationale"] = row["标注理由"].strip()
     inp = g.setdefault("input", {})
@@ -280,6 +285,13 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
         fid = (row.get("feedback_id") or "").strip()
         target = idx.get(gid) or (idx.get(by_fid[fid]["golden_id"]) if fid in by_fid else None)
         if op == "keep":
+            if target:
+                cur = {k: ("" if v is None else str(v)) for k, v in to_feedback_rows([target])[0].items()}
+                changed = [c for c in FEEDBACK_CSV_FIELDS if c not in ("操作", "备注")
+                           and (row.get(c) or "").strip() != cur.get(c, "").strip() and (row.get(c) or "").strip()]
+                if changed:
+                    log.append(f"警告：CSV 第 {n} 行（{target['golden_id']}）的 {'、'.join(changed)} 有改动，但“操作”是“保留”，"
+                               f"改动未生效；如需生效请把“操作”改为“修改”")
             continue
         if op == "delete":
             if not target:
@@ -296,7 +308,14 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
             target["version"] = version
             log.append(f"修改 {target['golden_id']}")
             continue
-        # add
+        # add (skip exact duplicates so re-running the same CSV does not add the row twice)
+        title, content = (row.get("标题") or "").strip(), (row.get("需求描述") or "").strip()
+        dup = next((r for r in new_rows if (fid and r.get("feedback_id") == fid) or
+                    (title and content and (r.get("input") or {}).get("title") == title
+                     and (r.get("input") or {}).get("content") == content)), None)
+        if dup is not None:
+            log.append(f"CSV 第 {n} 行：要新增的需求已在黄金集中（{dup['golden_id']}），跳过；如需修改请用“修改”")
+            continue
         if not gid or gid in used_g:
             k = len(used_g) + 1
             while f"G{k:02d}" in used_g:

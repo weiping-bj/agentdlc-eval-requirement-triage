@@ -13,7 +13,7 @@ case "$MODE" in
     exec "${_S12_PY}" -m labkit.batch --mode local --limit 1 --workers 1 --label "A-smoke-$(date +%H%M%S)" "$@" ;;
   trace|golden)
     "${_S12_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
-    source telemetry/otel_env.sh
+    source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"
     OTEL_BIN="$(dirname "${_S12_PY}")/opentelemetry-instrument"
     [ -x "$OTEL_BIN" ] || OTEL_BIN="opentelemetry-instrument"
     if [ "$MODE" = "trace" ]; then

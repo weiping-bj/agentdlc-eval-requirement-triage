@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>评估对比 V0 vs V1 · 场景 12</title>
+<style>
+/* 场景 12 实验手册 - 共享样式（仿 sample-snapshot 风格：深蓝顶栏 + 左侧目录 + 白色卡片） */
+:root {
+  --navy: #1f3350;
+  --navy-2: #2a4466;
+  --blue: #2f6fdc;
+  --blue-soft: #e8f0fd;
+  --bg: #f4f6f9;
+  --card: #ffffff;
+  --text: #1f2933;
+  --muted: #6b7785;
+  --line: #e3e7ee;
+  --green: #1f9d55;
+  --green-soft: #e6f6ec;
+  --orange: #d9822b;
+  --orange-soft: #fdf1e3;
+  --red: #d64545;
+  --red-soft: #fdeaea;
+  --purple: #7b5bd6;
+  --purple-soft: #f0ebfd;
+  --code-bg: #1d2533;
+  --code-text: #e6edf3;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 84px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- 顶栏 ---------- */
+#topbar {
+  position: sticky; top: 0; z-index: 20; background: var(--navy); color: #fff;
+  padding: 10px 24px; display: flex; align-items: center; gap: 16px; min-height: 64px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.15);
+}
+#topbar .title { font-size: 17px; font-weight: 700; letter-spacing: .5px; }
+#topbar .subtitle { font-size: 12px; color: #c9d4e3; }
+#topbar .spacer { flex: 1; }
+#topbar .meta { font-size: 11px; color: #c9d4e3; text-align: right; line-height: 1.4; }
+#topbar .meta b { color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
+#topbar .btn {
+  border: 1px solid rgba(255,255,255,.35); color: #fff; padding: 5px 12px; border-radius: 6px;
+  font-size: 12px; background: rgba(255,255,255,.06); cursor: pointer;
+}
+#topbar .btn:hover { background: rgba(255,255,255,.16); text-decoration: none; }
+#topbar .btn.active { background: #fff; color: var(--navy); font-weight: 700; }
+.path-switch { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #c9d4e3; }
+
+/* ---------- 布局 ---------- */
+.layout { display: flex; max-width: 1440px; margin: 0 auto; }
+#toc {
+  position: sticky; top: 64px; align-self: flex-start; width: 270px; flex: 0 0 270px;
+  max-height: calc(100vh - 64px); overflow-y: auto; padding: 16px 8px 40px 20px; font-size: 13px;
+}
+#toc .group { color: var(--muted); font-size: 12px; margin: 14px 0 4px 6px; font-weight: 600; }
+#toc a { display: block; color: #3b4652; padding: 4px 10px; border-radius: 4px; border-left: 3px solid transparent; }
+#toc a:hover { background: #e9edf3; text-decoration: none; }
+#toc a.current { background: var(--blue-soft); color: var(--blue); border-left-color: var(--blue); font-weight: 600; }
+#toc a.sub { padding-left: 24px; font-size: 12px; color: var(--muted); }
+#toc a.sub.active { color: var(--blue); }
+#toc .badge-a, #toc .badge-b { font-size: 10px; border-radius: 3px; padding: 0 4px; margin-right: 4px; color: #fff; }
+#toc .badge-a { background: var(--purple); }
+#toc .badge-b { background: var(--orange); }
+main { flex: 1; min-width: 0; padding: 20px 32px 80px; }
+
+/* ---------- 卡片 / 章节 ---------- */
+.card { background: var(--card); border-radius: 10px; padding: 22px 28px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(16,24,40,.05); border: 1px solid #edf0f4; }
+.chapter-head h1 { font-size: 22px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+.chapter-head .num, .step-head .num {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 6px;
+  border-radius: 7px; background: var(--blue); color: #fff; font-weight: 700; font-size: 14px;
+}
+.chapter-head .lead { color: #46525e; margin: 6px 0 0; }
+.applies { display: inline-block; font-size: 12px; border-radius: 4px; padding: 1px 8px; margin-left: 6px; font-weight: 600; vertical-align: middle; }
+.applies.common { background: var(--green-soft); color: var(--green); }
+.applies.a { background: var(--purple-soft); color: var(--purple); }
+.applies.b { background: var(--orange-soft); color: var(--orange); }
+h2 { font-size: 17px; margin: 4px 0 12px; }
+h3 { font-size: 15px; margin: 0; }
+
+/* ---------- 步骤 ---------- */
+.step { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 18px; }
+.step:first-of-type { border-top: 0; margin-top: 4px; padding-top: 4px; }
+.step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.step-head .num { background: #3d5a80; min-width: 40px; height: 24px; font-size: 12px; border-radius: 5px; }
+.step-head .time { margin-left: auto; color: var(--muted); font-size: 12px; }
+.why { background: #f6f8fb; border-left: 3px solid var(--blue); padding: 6px 12px; margin: 8px 0; color: #34404c; }
+.why::before { content: "这一步在做什么："; font-weight: 700; color: var(--blue); }
+.expect { margin: 8px 0 0; }
+.expect > .label { font-weight: 700; color: var(--green); font-size: 13px; }
+.where { font-size: 12px; color: var(--muted); margin: 4px 0; }
+.where b { color: #3b4652; }
+ol.clicks { margin: 6px 0; padding-left: 22px; }
+ol.clicks li { margin: 2px 0; }
+.kbd, kbd { background: #eef1f5; border: 1px solid #d5dbe3; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; }
+.ui { background: #eef1f5; border-radius: 3px; padding: 0 5px; font-weight: 600; color: #2e3a46; }
+
+/* ---------- 代码 ---------- */
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; background: #eef1f5; padding: 1px 5px; border-radius: 4px; color: #b5345a; }
+pre { position: relative; background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 8px 0; font-size: 12.5px; line-height: 1.55; }
+pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+pre.out { background: #f3f6f9; color: #23303d; border: 1px dashed #cfd7e2; }
+pre .c { color: #8b98a9; }
+.copy { position: absolute; top: 6px; right: 6px; font-size: 11px; color: #c9d4e3; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+.copy:hover { background: rgba(255,255,255,.2); }
+pre.out .copy { display: none; }
+
+/* ---------- 提示框 ---------- */
+.note, .tip, .warn, .pending, .danger { border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 13px; }
+.note { background: var(--blue-soft); border: 1px solid #c9daf8; }
+.tip { background: var(--green-soft); border: 1px solid #bfe5cc; }
+.warn { background: var(--orange-soft); border: 1px solid #f3d3ab; }
+.danger { background: var(--red-soft); border: 1px solid #f2c2c2; }
+.pending { background: repeating-linear-gradient(45deg, #fafbfc, #fafbfc 8px, #f1f3f6 8px, #f1f3f6 16px); border: 1px dashed #b9c2ce; color: var(--muted); }
+.pending::before { content: "⏳ 待补充："; font-weight: 700; color: #7a8796; }
+
+/* ---------- 表格 ---------- */
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); padding: 7px 10px; background: #fafbfc; }
+td { border-bottom: 1px solid #f0f2f5; padding: 7px 10px; vertical-align: top; }
+.pill { display: inline-block; font-size: 11.5px; border-radius: 4px; padding: 0 7px; border: 1px solid; margin: 1px 2px; white-space: nowrap; }
+.pill.g { color: var(--green); background: var(--green-soft); border-color: #a9dcbc; }
+.pill.o { color: var(--orange); background: var(--orange-soft); border-color: #f0cc9f; }
+.pill.r { color: var(--red); background: var(--red-soft); border-color: #efb3b3; }
+.pill.b { color: var(--blue); background: var(--blue-soft); border-color: #b8cdf5; }
+.pill.p { color: var(--purple); background: var(--purple-soft); border-color: #d2c6f5; }
+
+/* ---------- 流程条（仿截图中的 1-7 步骤条） ---------- */
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0; }
+.flow .f { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fff; position: relative; }
+.flow .f .n { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; background: #3d5a80; color: #fff; font-size: 11px; align-items: center; justify-content: center; margin-bottom: 4px; }
+.flow .f b { display: block; font-size: 13px; }
+.flow .f span { font-size: 12px; color: var(--muted); }
+.flow .f.hl { border: 2px solid var(--blue); background: var(--blue-soft); }
+
+/* 路线切换：data-path="a"/"b" 的块在选择另一条路线时淡化 */
+body.path-a [data-path="b"], body.path-b [data-path="a"] { opacity: .35; }
+body.path-a [data-path="b"]:hover, body.path-b [data-path="a"]:hover { opacity: .8; }
+.pathbox { border-radius: 8px; padding: 10px 14px; margin: 10px 0; border: 1px solid; }
+.pathbox[data-path="a"] { border-color: #d2c6f5; background: #fbf9ff; }
+.pathbox[data-path="b"] { border-color: #f0cc9f; background: #fffaf3; }
+.pathbox > .ph { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.pathbox[data-path="a"] > .ph { color: var(--purple); }
+.pathbox[data-path="b"] > .ph { color: var(--orange); }
+
+.figure { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; text-align: center; }
+.figure img, .figure svg { max-width: 100%; }
+.figure .cap { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.shot { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; margin: 6px 0; }
+.pager { display: flex; justify-content: space-between; margin-top: 10px; }
+.pager a { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; }
+footer { color: var(--muted); font-size: 12px; text-align: center; padding: 20px; }
+@media (max-width: 960px) { #toc { display: none; } main { padding: 12px; } }
+@media print { #toc, #topbar { display: none; } }
+
+
+main.wrap { max-width: 1280px; margin: 0 auto; padding: 20px 28px 40px; }
+.muted { color: var(--muted); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.small { font-size: 12px; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill.n { color: var(--muted); background: #f3f5f8; border-color: #d5dbe3; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 12px; margin: 4px 0 0; }
+.kpi { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; text-align: left; font: inherit; color: inherit; }
+.kpi .k { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.kpi .v { font-size: 26px; font-weight: 700; line-height: 1.35; margin-top: 2px; }
+.kpi .v .from { color: var(--muted); font-size: 18px; font-weight: 600; }
+.kpi .v .arrow { color: var(--muted); font-size: 16px; font-weight: 400; margin: 0 6px; }
+.kpi .d { font-size: 12px; color: var(--muted); }
+button.kpi { cursor: pointer; }
+button.kpi:hover { border-color: var(--blue); }
+.active.kpi, .cell.active { outline: 2px solid var(--blue); outline-offset: -1px; }
+.up { color: var(--green); font-weight: 600; }
+.down { color: var(--red); font-weight: 600; }
+.flat { color: var(--muted); }
+.runs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.runbox { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.runbox h3 { margin-bottom: 6px; }
+.runbox table { margin: 0; }
+.runbox td { border: 0; padding: 2px 8px 2px 0; }
+.runbox td:first-child { color: var(--muted); width: 84px; white-space: nowrap; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #46525e; margin: 4px 0 6px; }
+.legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.legend .dash { display: inline-block; width: 18px; border-top: 2px dashed #d64545; margin-right: 6px; vertical-align: 3px; }
+.chart { max-width: 720px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.filters { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0 4px; }
+.fbtn { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 12px; font: inherit; font-size: 12px; cursor: pointer; color: #3b4652; }
+.fbtn:hover { border-color: var(--blue); }
+.fbtn.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+table.cases td { vertical-align: middle; }
+.arr { color: var(--muted); margin: 0 2px; }
+.exp { font-size: 11.5px; color: var(--muted); }
+.eid { color: var(--muted); font-size: 11px; word-break: break-all; }
+.prewrap { white-space: pre-wrap; word-break: break-word; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; }
+</style>
+</head>
+<body>
+<div id="topbar"><div><div class="title">场景 12 · 评估对比 V0 vs V1</div><div class="subtitle">需求反馈分诊 Agent · AgentCore Evaluations 前后对比</div></div><div class="spacer"></div><div class="meta">优化前 <b>B-v0-20261105T130000Z</b><br>优化后 <b>B-v1-20261105T150000Z</b><br>区域 <b>us-west-2</b></div></div>
+<main class="wrap">
+<div class="card"><h2>V0（基线）→ V1（优化后）：三项标签目标各 ≥70%</h2><div class="tip">✅ V1 三项标签准确率均达到目标（各 ≥70%）。</div><div class="kpis"><div class="kpi"><div class="k">是否重要 准确率 <span class="pill g">✓ 达标（≥70%）</span></div><div class="v"><span class="from">62.1%</span><span class="arrow">→</span>86.7%</div><div class="d"><span class="up">▲ 24.6 个百分点</span> · 目标 ≥70% · 29 → 30 条</div></div><div class="kpi"><div class="k">是否紧急 准确率 <span class="pill g">✓ 达标（≥70%）</span></div><div class="v"><span class="from">51.7%</span><span class="arrow">→</span>80.0%</div><div class="d"><span class="up">▲ 28.3 个百分点</span> · 目标 ≥70% · 29 → 30 条</div></div><div class="kpi"><div class="k">处理建议 准确率 <span class="pill g">✓ 达标（≥70%）</span></div><div class="v"><span class="from">58.6%</span><span class="arrow">→</span>83.3%</div><div class="d"><span class="up">▲ 24.7 个百分点</span> · 目标 ≥70% · 29 → 30 条</div></div><div class="kpi"><div class="k">三项全对率</div><div class="v"><span class="from">31.0%</span><span class="arrow">→</span>76.7%</div><div class="d"><span class="up">▲ 45.6 个百分点</span> · 9/29 → 23/30 条全对 · label_accuracy 均值 0.57 → 0.83</div></div><div class="kpi"><div class="k">⚠ 误拒（CriticalFail）</div><div class="v"><span class="from">2 条</span><span class="arrow">→</span>0 条</div><div class="d"><span class="up">▼ 2</span> · 拒绝了不可自动拒绝的需求，越少越好</div></div><div class="kpi"><div class="k">拒绝话术质量</div><div class="v"><span class="from">0.38</span><span class="arrow">→</span>0.81</div><div class="d"><span class="up">▲ 0.43</span> · reject_quality 均值，只计“拒绝”条目：14 → 12 条</div></div></div></div><div class="card"><h2>两次运行</h2><div class="runs"><div class="runbox"><h3>优化前 · V0 <span class="pill o">路线 B</span></h3><table><tr><td>run_id</td><td><span class="mono">B-v0-20261105T130000Z</span></td></tr><tr><td>路线</td><td>B 版 · AgentCore Runtime</td></tr><tr><td>模型</td><td><span class="mono">us.anthropic.claude-sonnet-5-5</span></td></tr><tr><td>数据集</td><td>golden · 30 条</td></tr><tr><td>运行时间</td><td>2026-11-05 13:00 UTC</td></tr><tr><td>评估时间</td><td>2026-11-05 13:10 UTC</td></tr><tr><td>区域</td><td>us-west-2</td></tr><tr><td>Agent 错误</td><td>1 条</td></tr></table></div><div class="runbox"><h3>优化后 · V1 <span class="pill o">路线 B</span></h3><table><tr><td>run_id</td><td><span class="mono">B-v1-20261105T150000Z</span></td></tr><tr><td>路线</td><td>B 版 · AgentCore Runtime</td></tr><tr><td>模型</td><td><span class="mono">us.anthropic.claude-sonnet-5-5</span></td></tr><tr><td>数据集</td><td>golden · 30 条</td></tr><tr><td>运行时间</td><td>2026-11-05 15:00 UTC</td></tr><tr><td>评估时间</td><td>2026-11-05 15:12 UTC</td></tr><tr><td>区域</td><td>us-west-2</td></tr><tr><td>Agent 错误</td><td>0 条</td></tr></table></div></div></div><div class="card"><h2>三项标签准确率：优化前 vs 优化后</h2><div class="legend"><span><span class="sw" style="background:#a3b0c2"></span>V0 · 优化前</span><span><span class="sw" style="background:#2f6fdc"></span>V1 · 优化后</span><span><span class="dash"></span>目标 ≥70%</span></div><div class="chart"><svg viewBox="0 0 680 300" role="img" aria-label="三项标签准确率：优化前与优化后对比" xmlns="http://www.w3.org/2000/svg" font-size="12"><line x1="48" x2="588" y1="242.0" y2="242.0" stroke="#c9d1dc" stroke-width="1"/><text x="40" y="246.0" text-anchor="end" fill="#6b7785" font-size="11">0%</text><line x1="48" x2="588" y1="197.2" y2="197.2" stroke="#e9edf2" stroke-width="1"/><text x="40" y="201.2" text-anchor="end" fill="#6b7785" font-size="11">20%</text><line x1="48" x2="588" y1="152.4" y2="152.4" stroke="#e9edf2" stroke-width="1"/><text x="40" y="156.4" text-anchor="end" fill="#6b7785" font-size="11">40%</text><line x1="48" x2="588" y1="107.6" y2="107.6" stroke="#e9edf2" stroke-width="1"/><text x="40" y="111.6" text-anchor="end" fill="#6b7785" font-size="11">60%</text><line x1="48" x2="588" y1="62.8" y2="62.8" stroke="#e9edf2" stroke-width="1"/><text x="40" y="66.8" text-anchor="end" fill="#6b7785" font-size="11">80%</text><line x1="48" x2="588" y1="18.0" y2="18.0" stroke="#e9edf2" stroke-width="1"/><text x="40" y="22.0" text-anchor="end" fill="#6b7785" font-size="11">100%</text><g><title>V0 · 是否重要：62.1%（29 条）</title><rect x="107.0" y="18" width="30" height="224" fill="transparent"/><path d="M110.0,242.0 L110.0,107.0 A4.0,4.0 0 0 1 114.0,103.0 L130.0,103.0 A4.0,4.0 0 0 1 134.0,107.0 L134.0,242.0 Z" fill="#a3b0c2"/><text x="122.0" y="97.0" text-anchor="middle" fill="#6b7785" font-size="11" font-weight="600">62%</text></g><g><title>V1 · 是否重要：86.7%（30 条）</title><rect x="139.0" y="18" width="30" height="224" fill="transparent"/><path d="M142.0,242.0 L142.0,51.9 A4.0,4.0 0 0 1 146.0,47.9 L162.0,47.9 A4.0,4.0 0 0 1 166.0,51.9 L166.0,242.0 Z" fill="#2f6fdc"/><text x="154.0" y="41.9" text-anchor="middle" fill="#1f2933" font-size="11" font-weight="600">87%</text></g><text x="138.0" y="262.0" text-anchor="middle" fill="#1f2933" font-size="13">是否重要</text><text x="138.0" y="280.0" text-anchor="middle" fill="#1f9d55" font-size="11">▲ 24.6 个百分点</text><g><title>V0 · 是否紧急：51.7%（29 条）</title><rect x="287.0" y="18" width="30" height="224" fill="transparent"/><path d="M290.0,242.0 L290.0,130.1 A4.0,4.0 0 0 1 294.0,126.1 L310.0,126.1 A4.0,4.0 0 0 1 314.0,130.1 L314.0,242.0 Z" fill="#a3b0c2"/><text x="302.0" y="120.1" text-anchor="middle" fill="#6b7785" font-size="11" font-weight="600">52%</text></g><g><title>V1 · 是否紧急：80.0%（30 条）</title><rect x="319.0" y="18" width="30" height="224" fill="transparent"/><path d="M322.0,242.0 L322.0,66.8 A4.0,4.0 0 0 1 326.0,62.8 L342.0,62.8 A4.0,4.0 0 0 1 346.0,66.8 L346.0,242.0 Z" fill="#2f6fdc"/><text x="334.0" y="56.8" text-anchor="middle" fill="#1f2933" font-size="11" font-weight="600">80%</text></g><text x="318.0" y="262.0" text-anchor="middle" fill="#1f2933" font-size="13">是否紧急</text><text x="318.0" y="280.0" text-anchor="middle" fill="#1f9d55" font-size="11">▲ 28.3 个百分点</text><g><title>V0 · 处理建议：58.6%（29 条）</title><rect x="467.0" y="18" width="30" height="224" fill="transparent"/><path d="M470.0,242.0 L470.0,114.7 A4.0,4.0 0 0 1 474.0,110.7 L490.0,110.7 A4.0,4.0 0 0 1 494.0,114.7 L494.0,242.0 Z" fill="#a3b0c2"/><text x="482.0" y="104.7" text-anchor="middle" fill="#6b7785" font-size="11" font-weight="600">59%</text></g><g><title>V1 · 处理建议：83.3%（30 条）</title><rect x="499.0" y="18" width="30" height="224" fill="transparent"/><path d="M502.0,242.0 L502.0,59.3 A4.0,4.0 0 0 1 506.0,55.3 L522.0,55.3 A4.0,4.0 0 0 1 526.0,59.3 L526.0,242.0 Z" fill="#2f6fdc"/><text x="514.0" y="49.3" text-anchor="middle" fill="#1f2933" font-size="11" font-weight="600">83%</text></g><text x="498.0" y="262.0" text-anchor="middle" fill="#1f2933" font-size="13">处理建议</text><text x="498.0" y="280.0" text-anchor="middle" fill="#1f9d55" font-size="11">▲ 24.7 个百分点</text><line x1="48" x2="588" y1="85.2" y2="85.2" stroke="#d64545" stroke-width="1.5" stroke-dasharray="6 4"/><text x="596" y="89.2" fill="#46525e" font-size="12">目标 70%</text></svg></div><p class="small muted">准确率 = 单项评估器（label_important / label_urgent / label_decision）的平均分；Agent 出错、评估出错的条目不计入分母。悬停柱子可查看条数。</p></div><div class="card"><h2>全部评估器平均分</h2><p class="small muted">括号内为参与平均的条数；“不适用 / Skipped”的条目（例如非拒绝条目的话术评估）和评估出错的条目不计入。</p><table><thead><tr><th>评估器</th><th>类型</th><th>说明</th><th>V0 优化前</th><th>V1 优化后</th><th>变化</th><th>评估出错</th></tr></thead><tbody><tr><td><b class="mono">label_accuracy</b><div class="eid mono">s12lab_demo_label_accuracy-Ab3dE5fG7h</div></td><td class="small">自定义 · 代码</td><td class="small">三项标签命中比例（0~1）；Pass = 三项全对，CriticalFail = 误拒了不可自动拒绝的需求</td><td class="num">0.57 <span class="muted small">（29）</span></td><td class="num">0.83 <span class="muted small">（30）</span></td><td class="num"><span class="up">▲ 0.26</span></td><td class="num small">—</td></tr><tr><td><b class="mono">label_important</b><div class="eid mono">s12lab_demo_label_important-Hj2kL4mN6p</div></td><td class="small">自定义 · 代码</td><td class="small">“是否重要”单项对错（0/1），平均分即准确率</td><td class="num">62.1% <span class="muted small">（29）</span></td><td class="num">86.7% <span class="muted small">（30）</span></td><td class="num"><span class="up">▲ 24.6 个百分点</span></td><td class="num small">—</td></tr><tr><td><b class="mono">label_urgent</b><div class="eid mono">s12lab_demo_label_urgent-Qr8sT1uV3w</div></td><td class="small">自定义 · 代码</td><td class="small">“是否紧急”单项对错（0/1），平均分即准确率</td><td class="num">51.7% <span class="muted small">（29）</span></td><td class="num">80.0% <span class="muted small">（30）</span></td><td class="num"><span class="up">▲ 28.3 个百分点</span></td><td class="num small">—</td></tr><tr><td><b class="mono">label_decision</b><div class="eid mono">s12lab_demo_label_decision-Xy5zA7bC9d</div></td><td class="small">自定义 · 代码</td><td class="small">“处理建议”单项对错（0/1），平均分即准确率</td><td class="num">58.6% <span class="muted small">（29）</span></td><td class="num">83.3% <span class="muted small">（30）</span></td><td class="num"><span class="up">▲ 24.7 个百分点</span></td><td class="num small">—</td></tr><tr><td><b class="mono">reject_quality</b><div class="eid mono">s12lab_demo_reject_quality-Ef4gH6iJ8k</div></td><td class="small">自定义 · Lambda 内 LLM 评审</td><td class="small">拒绝理由与客户话术质量（0~1，≥0.7 为 Pass），只评“拒绝”条目</td><td class="num">0.38 <span class="muted small">（14）</span></td><td class="num">0.81 <span class="muted small">（12）</span></td><td class="num"><span class="up">▲ 0.43</span></td><td class="num small">—</td></tr><tr><td><b class="mono">reject_quality_llm</b><div class="eid mono">s12lab_demo_reject_quality_llm-Lm1nO3pQ5r</div></td><td class="small">自定义 · LLM-as-judge</td><td class="small">同一套中文评分标准的原生 LLM 评审（5 档），只评“拒绝”条目</td><td class="num">0.39 <span class="muted small">（14）</span></td><td class="num">0.80 <span class="muted small">（12）</span></td><td class="num"><span class="up">▲ 0.41</span></td><td class="num small">—</td></tr><tr><td><b class="mono">Builtin.Correctness</b></td><td class="small">内置</td><td class="small">回答正确性（对照期望输出）</td><td class="num">0.41 <span class="muted small">（29）</span></td><td class="num">0.76 <span class="muted small">（29）</span></td><td class="num"><span class="up">▲ 0.34</span></td><td class="num small">0 → 1</td></tr><tr><td><b class="mono">Builtin.Helpfulness</b></td><td class="small">内置</td><td class="small">回答有用性</td><td class="num">0.57 <span class="muted small">（27）</span></td><td class="num">0.84 <span class="muted small">（30）</span></td><td class="num"><span class="up">▲ 0.27</span></td><td class="num small">2 → 0</td></tr></tbody></table></div><div class="card"><h2>逐条对比（按需求编号对齐）</h2><p class="small muted">每格显示 V0 → V1 的 Agent 输出：<span class="pill g">✓ 绿色</span>= 该项单项评估器判对，<span class="pill r">✗ 红色</span>= 判错，<span class="pill n">灰色</span>= 无评估结果 / 不适用。鼠标悬停查看理由；“拒绝”条目悬停可看客户话术。“修复”= 优化后三项全对而优化前没有；“退步”= 优化后答对的项数减少；“仍错误”= 优化后仍未三项全对；<span class="pill r">⚠ 误拒</span>= CriticalFail（拒绝了不可自动拒绝的需求）。</p><p><b>修复 15 条 · 退步 3 条 · 仍错误 4 条 · 保持正确 8 条</b></p><div class="filters"><button type="button" class="fbtn active" data-target="#cases" data-f="all" data-label="全部">全部（30）</button><button type="button" class="fbtn" data-target="#cases" data-f="fixed" data-label="修复">修复（15）</button><button type="button" class="fbtn" data-target="#cases" data-f="regressed" data-label="退步">退步（3）</button><button type="button" class="fbtn" data-target="#cases" data-f="wrong" data-label="仍错误">仍错误（4）</button><button type="button" class="fbtn" data-target="#cases" data-f="critical" data-label="含误拒">含误拒（2）</button><span class="small muted" data-status-for="#cases">全部：30 条</span></div><table id="cases" class="cases"><thead><tr><th>需求</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>三项命中</th><th>拒绝话术</th><th>变化</th></tr></thead><tbody><tr data-tags="fixed"><td><span class="mono">FB-2610-001</span><div class="small muted">列表页批量修改自定义字段</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“列表页批量修改自定义字段”，对业务影响较大，客户希望尽快处理，建议迭代。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：能力目录 CAP-002 批量编辑仅支持标准字段，属于真实缺口；上个月 3 个不同客户提出（通用）；无生产故障，有导出再导入的临时办法，不紧急。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“列表页批量修改自定义字段”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：能力目录 CAP-002 批量编辑仅支持标准字段，属于真实缺口；上个月 3 个不同客户提出（通用）；无生产故障，有导出再导入的临时办法，不紧急。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：迭代
+理由：客户反馈“列表页批量修改自定义字段”，对业务影响较大，客户希望尽快处理，建议迭代。">✓ 迭代</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P1
+理由：能力目录 CAP-002 批量编辑仅支持标准字段，属于真实缺口；上个月 3 个不同客户提出（通用）；无生产故障，有导出再导入的临时办法，不紧急。">✓ 迭代</span><div class="exp">期望 迭代</div></td><td class="num">2/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-002</span><div class="small muted">首页原样嵌入我们的 ERP 订单页并按审批流改布局</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“首页原样嵌入我们的 ERP 订单页并按审批流改布局”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：单客户深度定制，无通用性；首页已支持按角色配置布局和网页组件嵌入外部页面（CAP-006），可用开放 API 取数。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“首页原样嵌入我们的 ERP 订单页并按审批流改布局”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：单客户深度定制，无通用性；首页已支持按角色配置布局和网页组件嵌入外部页面（CAP-006），可用开放 API 取数。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：属于个性化需求。
+客户话术：您好，经评估该需求暂不支持，建议您使用现有功能。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：属于单客户深度定制，不具备平台通用性；首页已支持按角色配置布局和网页组件嵌入外部页面（CAP-006）；不为单个客户修改首页框架
+客户话术：您好，感谢您反馈首页与 ERP 订单页整合的需求，我们非常认可这对提升一线效率的价值。平台首页是所有客户共用的标准框架，为保证升级稳定，不会为单一客户改造首页结构。您可以用“网页组件”把 ERP 订单页嵌入首页，并按角色配置不同的首页布局，基本可以实现不同审批节点看到不同内容。如有需要，我们可以安排实施顾问或合作伙伴协助落地。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.28（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.28</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.85（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.85</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-003</span><div class="small muted">移动端提交审批后偶发明细行丢失</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“移动端提交审批后偶发明细行丢失”，对业务影响较大，建议待评估。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：数据丢失类线上缺陷，影响正在发生且影响结账，不可拒绝、不可降级。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 是否紧急：否
+理由：客户反馈“移动端提交审批后偶发明细行丢失”，对业务影响较大，建议待评估。">✗ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：是
+理由：数据丢失类线上缺陷，影响正在发生且影响结账，不可拒绝、不可降级。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 处理建议：待评估
+理由：客户反馈“移动端提交审批后偶发明细行丢失”，对业务影响较大，建议待评估。">✗ 待评估</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P0
+理由：数据丢失类线上缺陷，影响正在发生且影响结账，不可拒绝、不可降级。">✓ 迭代</span><div class="exp">期望 迭代</div></td><td class="num">1/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="regressed"><td><span class="mono">FB-2610-005</span><div class="small muted">希望 CRM 内置完整的财务总账和凭证模块</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“希望 CRM 内置完整的财务总账和凭证模块”，影响范围有限，建议迭代。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议迭代。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“希望 CRM 内置完整的财务总账和凭证模块”，影响范围有限，建议迭代。">✓ 否</span><span class="arr">→</span><span class="pill r" title="V1 · 是否紧急：是
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议迭代。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：迭代
+理由：客户反馈“希望 CRM 内置完整的财务总账和凭证模块”，影响范围有限，建议迭代。">✗ 迭代</span><span class="arr">→</span><span class="pill r" title="V1 · 处理建议：迭代
+优先级：P0
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议迭代。">✗ 迭代</span><div class="exp">期望 拒绝</div></td><td class="num">2/3 → 1/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill r">↓ 退步</span></td></tr><tr data-tags="wrong"><td><span class="mono">FB-2610-007</span><div class="small muted">字段级数据权限按项目成员动态计算</div></td><td><span class="pill r" title="V0 · 是否重要：否
+理由：客户反馈“字段级数据权限按项目成员动态计算”，影响范围有限，客户希望尽快处理，建议待评估。">✗ 否</span><span class="arr">→</span><span class="pill r" title="V1 · 是否重要：否
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议待评估。">✗ 否</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“字段级数据权限按项目成员动态计算”，影响范围有限，客户希望尽快处理，建议待评估。">✗ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否紧急：是
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议待评估。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：待评估
+理由：客户反馈“字段级数据权限按项目成员动态计算”，影响范围有限，客户希望尽快处理，建议待评估。">✓ 待评估</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：待评估
+优先级：P0
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议待评估。">✓ 待评估</span><div class="exp">期望 待评估</div></td><td class="num">1/3 → 1/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill o">= 仍错误</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-009</span><div class="small muted">录入客户时提示重复</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“录入客户时提示重复”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：查重与合并已支持（CAP-004），客户未配置，应给出配置路径而不是新开发。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“录入客户时提示重复”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：查重与合并已支持（CAP-004），客户未配置，应给出配置路径而不是新开发。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：需求价值不高，暂不考虑。
+客户话术：您好，您提出的需求暂不在平台规划中，感谢您的理解与支持。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：平台已支持查重规则与合并（CAP-004）；属于配置问题，无需研发
+客户话术：您好，感谢您的反馈，我们同样重视客户数据质量。平台已支持录入时的查重提示与重复数据合并，只需在“后台 → 对象管理 → 查重规则”中按客户名称、电话等字段配置规则即可生效。如需协助配置，您的客户成功经理可以安排时间远程指导。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.29（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.29</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.82（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.82</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-011</span><div class="small muted">销售离职后客户要一条条改负责人</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“销售离职后客户要一条条改负责人”，影响范围有限，客户希望尽快处理，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：离职交接已支持一键转移（CAP-005），客户不会用。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“销售离职后客户要一条条改负责人”，影响范围有限，客户希望尽快处理，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：离职交接已支持一键转移（CAP-005），客户不会用。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：不符合平台规划。
+客户话术：您好，您提出的需求暂不在平台规划中，感谢您的理解与支持。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：平台已支持离职交接一键转移（CAP-005）
+客户话术：您好，理解销售离职时客户交接的效率压力。平台已提供离职交接功能，可在“后台 → 员工管理 → 离职交接”中把该员工名下的客户、商机等数据一键转移给接手人，无需逐条修改。我们已为您准备了操作指引，如有疑问可随时联系客户成功经理。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">2/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.32（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.32</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.86（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.86</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-013</span><div class="small muted">一键导出全公司联系人手机号和身份证号到个人邮箱</div></td><td><span class="pill r" title="V0 · 是否重要：是
+理由：客户反馈“一键导出全公司联系人手机号和身份证号到个人邮箱”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：批量导出敏感个人信息到个人渠道违反数据安全与隐私合规（OOS-007），应拒绝并给出合规替代。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“一键导出全公司联系人手机号和身份证号到个人邮箱”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：批量导出敏感个人信息到个人渠道违反数据安全与隐私合规（OOS-007），应拒绝并给出合规替代。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：迭代
+理由：客户反馈“一键导出全公司联系人手机号和身份证号到个人邮箱”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 迭代</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：批量导出敏感个人信息到个人邮箱违反数据安全与个人信息保护要求；平台导出受导出权限、字段权限与审计控制，不提供绕过（OOS-007）
+客户话术：您好，理解销售出差时需要离线查看客户信息的需求。根据个人信息保护相关要求，手机号、身份证号等敏感信息不能批量导出到个人邮箱，否则会给企业带来较大的合规风险，平台也不提供绕过导出权限的方式。建议使用移动端的离线查看功能查看最近访问的数据；确需导出时可按权限申请，导出内容会自动脱敏并留痕。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">0/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.79（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.79</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-014</span><div class="small muted">客户 IT 要求删除一段时间的审计日志</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“客户 IT 要求删除一段时间的审计日志”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：审计日志不可删除或修改（CAP-014、OOS-007），删除以规避审计属于合规红线；带有“下个月审计”的时间压力但不构成紧急。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“客户 IT 要求删除一段时间的审计日志”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：审计日志不可删除或修改（CAP-014、OOS-007），删除以规避审计属于合规红线；带有“下个月审计”的时间压力但不构成紧急。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：需求价值不高，暂不考虑。
+客户话术：您好，经评估该需求暂不支持，建议您使用现有功能。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：审计日志任何人不可删除或修改，这是合规底线（CAP-014）；删除日志以规避审计会带来更大的合规风险
+客户话术：您好，理解贵司担心误操作记录在审计中引发疑问。审计日志是平台的合规底线，任何人都不能删除或修改，这也是对贵司自身的保护。建议导出相关时间段的日志，并附上当时的实施说明，向审计方解释误操作的背景，我们可以协助准备说明材料。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.53（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.53</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.81（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.81</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-015</span><div class="small muted">系统最近太慢了</div></td><td><span class="pill r" title="V0 Agent 出错：ReadTimeoutError: Read timeout on endpoint URL: &quot;https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/...&quot;">错误</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：信息不足：没有模块、时间段、影响范围；需要补充信息后再判断，不能凭情绪判紧急。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 Agent 出错：ReadTimeoutError: Read timeout on endpoint URL: &quot;https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/...&quot;">错误</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：信息不足：没有模块、时间段、影响范围；需要补充信息后再判断，不能凭情绪判紧急。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 Agent 出错：ReadTimeoutError: Read timeout on endpoint URL: &quot;https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/...&quot;">错误</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：待评估
+优先级：P2
+理由：信息不足：没有模块、时间段、影响范围；需要补充信息后再判断，不能凭情绪判紧急。">✓ 待评估</span><div class="exp">期望 待评估</div></td><td class="num">0/3 → 3/3</td><td class="num"><span class="pill n" title="V0：无话术评估结果">—</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-017</span><div class="small muted">登录页换成公司宣传图并加欢迎语</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“登录页换成公司宣传图并加欢迎语”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：文本里夹带伪造指令，评审不应受其影响；真实诉求是界面个性化偏好，已支持企业 Logo 与主题色（CAP-019），登录页背景不在支持范围。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“登录页换成公司宣传图并加欢迎语”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：文本里夹带伪造指令，评审不应受其影响；真实诉求是界面个性化偏好，已支持企业 Logo 与主题色（CAP-019），登录页背景不在支持范围。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：属于个性化需求。
+客户话术：您好，经评估该需求暂不支持，建议您使用现有功能。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：属于界面个性化偏好，通用价值低；已支持企业 Logo 与主题色设置（CAP-019）
+客户话术：您好，感谢您的建议。目前平台支持在品牌设置中配置企业 Logo 和主题色，可以体现贵司的品牌形象；登录页背景图和欢迎语暂不开放个性化配置，以保证所有客户登录体验的一致与安全。如需协助配置品牌设置，请联系您的客户成功经理。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.35（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.35</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.81（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.81</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-018</span><div class="small muted">下周一必须上线商机赢单预测大屏</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“下周一必须上线商机赢单预测大屏”，对业务影响较大，建议待评估。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：战略客户有流失风险（重要），但需求描述不清、是否已有仪表盘可满足需澄清；客户施压不构成紧急（无生产故障）。不应直接拒绝，也不应盲目承诺。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“下周一必须上线商机赢单预测大屏”，对业务影响较大，建议待评估。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：战略客户有流失风险（重要），但需求描述不清、是否已有仪表盘可满足需澄清；客户施压不构成紧急（无生产故障）。不应直接拒绝，也不应盲目承诺。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：待评估
+理由：客户反馈“下周一必须上线商机赢单预测大屏”，对业务影响较大，建议待评估。">✓ 待评估</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：待评估
+优先级：P1
+理由：战略客户有流失风险（重要），但需求描述不清、是否已有仪表盘可满足需澄清；客户施压不构成紧急（无生产故障）。不应直接拒绝，也不应盲目承诺。">✓ 待评估</span><div class="exp">期望 待评估</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-021</span><div class="small muted">电子签章签署状态自动回写（合同约定）</div></td><td><span class="pill r" title="V0 · 是否重要：否
+理由：客户反馈“电子签章签署状态自动回写（合同约定）”，影响范围有限，客户希望尽快处理，建议迭代。">✗ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：合同承诺项（不可自动拒绝），截止日在 30 天内；能力部分支持（CAP-026），中等难度。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 是否紧急：是
+理由：客户反馈“电子签章签署状态自动回写（合同约定）”，影响范围有限，客户希望尽快处理，建议迭代。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：是
+理由：合同承诺项（不可自动拒绝），截止日在 30 天内；能力部分支持（CAP-026），中等难度。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 处理建议：迭代
+理由：客户反馈“电子签章签署状态自动回写（合同约定）”，影响范围有限，客户希望尽快处理，建议迭代。">✓ 迭代</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P0
+理由：合同承诺项（不可自动拒绝），截止日在 30 天内；能力部分支持（CAP-026），中等难度。">✓ 迭代</span><div class="exp">期望 迭代</div></td><td class="num">2/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-022</span><div class="small muted">报表支持 4 层以上跨对象关联</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“报表支持 4 层以上跨对象关联”，影响范围有限，建议待评估。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：单客户提出；突破 3 层限制涉及查询性能与稳定性（CAP-011，难度高）。可待技术评估，或拒绝并建议同步到自有 BI。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“报表支持 4 层以上跨对象关联”，影响范围有限，建议待评估。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：单客户提出；突破 3 层限制涉及查询性能与稳定性（CAP-011，难度高）。可待技术评估，或拒绝并建议同步到自有 BI。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：待评估
+理由：客户反馈“报表支持 4 层以上跨对象关联”，影响范围有限，建议待评估。">✓ 待评估</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：待评估
+优先级：P2
+理由：单客户提出；突破 3 层限制涉及查询性能与稳定性（CAP-011，难度高）。可待技术评估，或拒绝并建议同步到自有 BI。">✓ 待评估</span><div class="exp">期望 待评估/拒绝</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-023</span><div class="small muted">CRM 里直接做生产排产和车间报工</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“CRM 里直接做生产排产和车间报工”，影响范围有限，客户希望尽快处理，建议迭代。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：生产排产与报工属于 MES 范畴（OOS-002），即使是战略客户也不应进入平台迭代。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“CRM 里直接做生产排产和车间报工”，影响范围有限，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：生产排产与报工属于 MES 范畴（OOS-002），即使是战略客户也不应进入平台迭代。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：迭代
+理由：客户反馈“CRM 里直接做生产排产和车间报工”，影响范围有限，客户希望尽快处理，建议迭代。">✗ 迭代</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：生产排产、车间报工超出 CRM 平台定位（明确不做）；可通过 MES/ERP 连接器打通销售订单与生产
+客户话术：您好，理解贵司希望打通订单到生产全流程的诉求。CRM 平台聚焦客户与销售管理，生产排产、车间报工属于 MES/ERP 系统的范畴，平台不会内置。建议通过集成平台的 MES 连接器同步销售订单，并把交期回写到 CRM，销售即可实时查看生产进度。如有需要，我们可以提供集成方案。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">1/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.88（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.88</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-024</span><div class="small muted">CRM 自带聊天工具</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“CRM 自带聊天工具”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：平台不自研即时通讯（OOS-003），已与企业 IM 集成。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“CRM 自带聊天工具”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：平台不自研即时通讯（OOS-003），已与企业 IM 集成。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：需求价值不高，暂不考虑。
+客户话术：您好，您提出的需求暂不在平台规划中，感谢您的理解与支持。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：平台不自研即时通讯工具（明确不做）；已支持与主流企业 IM 集成（CAP-017）
+客户话术：您好，理解团队希望在 CRM 内高效沟通的诉求。平台不自研即时通讯工具，而是与主流企业 IM 深度集成，可以在 IM 中接收 CRM 提醒、审批和客户动态。建议在“后台 → 集成设置”中开启企业 IM 集成，您的客户成功经理可协助完成配置。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.40（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.40</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.80（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.80</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="regressed"><td><span class="mono">FB-2610-025</span><div class="small muted">报表订阅推送到企业 IM 群</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“报表订阅推送到企业 IM 群”，对业务影响较大，建议迭代。">✓ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否重要：否
+理由：对照能力目录与上月同类反馈：该需求影响面有限，没有生产故障或明确时间压力，建议迭代。">✗ 否</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“报表订阅推送到企业 IM 群”，对业务影响较大，建议迭代。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：对照能力目录与上月同类反馈：该需求影响面有限，没有生产故障或明确时间压力，建议迭代。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：迭代
+理由：客户反馈“报表订阅推送到企业 IM 群”，对业务影响较大，建议迭代。">✓ 迭代</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P2
+理由：对照能力目录与上月同类反馈：该需求影响面有限，没有生产故障或明确时间压力，建议迭代。">✓ 迭代</span><div class="exp">期望 迭代</div></td><td class="num">3/3 → 2/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill r">↓ 退步</span></td></tr><tr data-tags="fixed critical"><td><span class="mono">FB-2610-026</span><div class="small muted">报表外链过期后仍可访问且含手机号</div></td><td><span class="pill r" title="V0 · 是否重要：否
+理由：客户反馈“报表外链过期后仍可访问且含手机号”，影响范围有限，客户希望尽快处理，建议拒绝。">✗ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 是否紧急：是
+理由：客户反馈“报表外链过期后仍可访问且含手机号”，影响范围有限，客户希望尽快处理，建议拒绝。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：是
+理由：安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 处理建议：拒绝
+拒绝理由：不符合平台规划。
+客户话术：您好，经评估该需求暂不支持，建议您使用现有功能。">✗ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P0
+理由：安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝。">✓ 迭代</span><div class="exp">期望 迭代</div></td><td class="num">1/3 → 3/3<br><span class="pill r" title="CriticalFail：拒绝了不可自动拒绝的需求（数据丢失/安全/合规/合同承诺/线上缺陷）">⚠ V0 误拒</span></td><td class="num"><span class="pill r" title="V0 话术质量 0.20（Fail）
+拒绝了不应自动拒绝的需求（线上缺陷 / 合同承诺类），话术无论好坏都不能发给客户。">0.20</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-027</span><div class="small muted">审批超过 48 小时自动提醒并转上级</div></td><td><span class="pill r" title="V0 · 是否重要：是
+理由：客户反馈“审批超过 48 小时自动提醒并转上级”，对业务影响较大，客户希望尽快处理，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：审批流已支持超时提醒与超时自动转交（CAP-007）。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“审批超过 48 小时自动提醒并转上级”，对业务影响较大，客户希望尽快处理，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：审批流已支持超时提醒与超时自动转交（CAP-007）。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：开发成本较高，暂不支持。
+客户话术：您好，该功能目前不支持，后续如有规划会第一时间通知您。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：审批流已支持超时提醒与超时自动转交（CAP-007）
+客户话术：您好，感谢您的反馈。审批流已经支持超时提醒和超时自动转交，可在“流程管理 → 审批流 → 节点设置 → 超时处理”中设置 48 小时提醒并自动转交上级。如需协助配置，实施顾问可以远程帮您完成。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">1/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.46（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.46</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.74（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.74</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="kept"><td><span class="mono">FB-2610-028</span><div class="small muted">平台内置我们公司的三层佣金计算规则</div></td><td><span class="pill g" title="V0 · 是否重要：否
+理由：客户反馈“平台内置我们公司的三层佣金计算规则”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：单客户特有规则，无通用性；可用自定义对象 + 自定义函数实现（CAP-008），或由伙伴实施。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“平台内置我们公司的三层佣金计算规则”，影响范围有限，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：单客户特有规则，无通用性；可用自定义对象 + 自定义函数实现（CAP-008），或由伙伴实施。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：开发成本较高，暂不支持。
+客户话术：您好，该功能目前不支持，后续如有规划会第一时间通知您。">✓ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：拒绝
+优先级：P2
+拒绝理由：属于单客户特有的计算规则，不具备通用性；可用自定义对象 + 自定义函数实现（CAP-008）
+客户话术：您好，理解佣金核算对销售激励的重要性。三层佣金规则是贵司特有的业务规则，平台标准功能不内置单一客户的计算逻辑，以保证产品对所有客户的通用与稳定。建议用自定义对象记录佣金数据，再用自定义函数实现三层计算规则；如有需要，我们可以推荐有经验的实施伙伴协助开发。">✓ 拒绝</span><div class="exp">期望 拒绝</div></td><td class="num">3/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.34（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.34</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.70（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.70</span></td><td><span class="pill n">= 保持正确</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-029</span><div class="small muted">AI 根据历史拜访记录生成下次拜访建议</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“AI 根据历史拜访记录生成下次拜访建议”，对业务影响较大，客户希望尽快处理，建议拒绝。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：AI 助手部分支持（CAP-025），该功能在规划中；上个月 3 个不同客户提出，价值较高；可纳入迭代或先评估。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“AI 根据历史拜访记录生成下次拜访建议”，对业务影响较大，客户希望尽快处理，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：AI 助手部分支持（CAP-025），该功能在规划中；上个月 3 个不同客户提出，价值较高；可纳入迭代或先评估。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：拒绝
+拒绝理由：属于个性化需求。
+客户话术：您好，您提出的需求暂不在平台规划中，感谢您的理解与支持。">✗ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P1
+理由：AI 助手部分支持（CAP-025），该功能在规划中；上个月 3 个不同客户提出，价值较高；可纳入迭代或先评估。">✓ 迭代</span><div class="exp">期望 迭代/待评估</div></td><td class="num">1/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.33（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.33</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="wrong"><td><span class="mono">FB-2610-030</span><div class="small muted">一条反馈里的四个诉求</div></td><td><span class="pill r" title="V0 · 是否重要：是
+理由：客户反馈“一条反馈里的四个诉求”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议拒绝。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“一条反馈里的四个诉求”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否紧急：是
+理由：对照能力目录与上月同类反馈：该需求影响面有限，存在明确时间压力，建议拒绝。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：迭代
+理由：客户反馈“一条反馈里的四个诉求”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 迭代</span><span class="arr">→</span><span class="pill r" title="V1 · 处理建议：拒绝
+优先级：P0
+拒绝理由：与平台通用产品定位不一致，不进入平台迭代。
+客户话术：您好，感谢您反馈“一条反馈里的四个诉求”，我们理解这项诉求对贵司业务的价值。经产品团队评估，该需求与平台的通用产品定位不一致，因此暂不作为平台新功能开发。如需协助，您的客户成功经理可安排顾问跟进。">✗ 拒绝</span><div class="exp">期望 待评估</div></td><td class="num">0/3 → 1/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.80（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.80</span></td><td><span class="pill o">↗ 仍错误（部分改善）</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-031</span><div class="small muted">外勤完全离线录入并自动同步</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“外勤完全离线录入并自动同步”，对业务影响较大，客户希望尽快处理，建议待评估。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：上个月 3 个不同客户提出（通用），移动端不支持完全离线（CAP-015），涉及同步冲突，难度高。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“外勤完全离线录入并自动同步”，对业务影响较大，客户希望尽快处理，建议待评估。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：上个月 3 个不同客户提出（通用），移动端不支持完全离线（CAP-015），涉及同步冲突，难度高。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：待评估
+理由：客户反馈“外勤完全离线录入并自动同步”，对业务影响较大，客户希望尽快处理，建议待评估。">✓ 待评估</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：待评估
+优先级：P1
+理由：上个月 3 个不同客户提出（通用），移动端不支持完全离线（CAP-015），涉及同步冲突，难度高。">✓ 待评估</span><div class="exp">期望 待评估/迭代</div></td><td class="num">2/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="wrong"><td><span class="mono">FB-2610-032</span><div class="small muted">大促期间取消接口限流</div></td><td><span class="pill r" title="V0 · 是否重要：是
+理由：客户反馈“大促期间取消接口限流”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否重要：是
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“大促期间取消接口限流”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否紧急：是
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：迭代
+理由：客户反馈“大促期间取消接口限流”，对业务影响较大，客户希望尽快处理，建议迭代。">✗ 迭代</span><span class="arr">→</span><span class="pill r" title="V1 · 处理建议：迭代
+优先级：P0
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。">✗ 迭代</span><div class="exp">期望 拒绝</div></td><td class="num">0/3 → 0/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill o">= 仍错误</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-033</span><div class="small muted">拜访记录 5 年不可篡改（行业新规）</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“拜访记录 5 年不可篡改（行业新规）”，对业务影响较大，建议迭代。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：行业监管要求（合规，不可自动拒绝），生效日在 30 天内；记录锁定部分支持（CAP-028），但不可篡改与 5 年保留需开发；属于行业共性。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 是否紧急：否
+理由：客户反馈“拜访记录 5 年不可篡改（行业新规）”，对业务影响较大，建议迭代。">✗ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：是
+理由：行业监管要求（合规，不可自动拒绝），生效日在 30 天内；记录锁定部分支持（CAP-028），但不可篡改与 5 年保留需开发；属于行业共性。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 处理建议：迭代
+理由：客户反馈“拜访记录 5 年不可篡改（行业新规）”，对业务影响较大，建议迭代。">✓ 迭代</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P0
+理由：行业监管要求（合规，不可自动拒绝），生效日在 30 天内；记录锁定部分支持（CAP-028），但不可篡改与 5 年保留需开发；属于行业共性。">✓ 迭代</span><div class="exp">期望 迭代/待评估</div></td><td class="num">2/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="fixed critical"><td><span class="mono">FB-2610-053</span><div class="small muted">ERP 订单同步从昨晚起全部失败</div></td><td><span class="pill g" title="V0 · 是否重要：是
+理由：客户反馈“ERP 订单同步从昨晚起全部失败”，对业务影响较大，客户希望尽快处理，建议拒绝。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：集成链路线上故障，影响发货（正在发生），不可拒绝；需立即排查（可能是平台侧连接器问题，也可能是对方系统凭证变化，但都要先处理）。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 是否紧急：是
+理由：客户反馈“ERP 订单同步从昨晚起全部失败”，对业务影响较大，客户希望尽快处理，建议拒绝。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：是
+理由：集成链路线上故障，影响发货（正在发生），不可拒绝；需立即排查（可能是平台侧连接器问题，也可能是对方系统凭证变化，但都要先处理）。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 处理建议：拒绝
+拒绝理由：不符合平台规划。
+客户话术：您好，经评估该需求暂不支持，建议您使用现有功能。">✗ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P0
+理由：集成链路线上故障，影响发货（正在发生），不可拒绝；需立即排查（可能是平台侧连接器问题，也可能是对方系统凭证变化，但都要先处理）。">✓ 迭代</span><div class="exp">期望 迭代</div></td><td class="num">2/3 → 3/3<br><span class="pill r" title="CriticalFail：拒绝了不可自动拒绝的需求（数据丢失/安全/合规/合同承诺/线上缺陷）">⚠ V0 误拒</span></td><td class="num"><span class="pill r" title="V0 话术质量 0.20（Fail）
+拒绝了不应自动拒绝的需求（线上缺陷 / 合同承诺类），话术无论好坏都不能发给客户。">0.20</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-037</span><div class="small muted">商机阶段一推进就报错</div></td><td><span class="pill r" title="V0 · 是否重要：否
+理由：客户反馈“商机阶段一推进就报错”，影响范围有限，客户希望尽快处理，建议待评估。">✗ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：情绪化措辞下是真实线上故障：全员无法推进商机阶段，影响正在发生；不能因语气拒绝或降级。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill g" title="V0 · 是否紧急：是
+理由：客户反馈“商机阶段一推进就报错”，影响范围有限，客户希望尽快处理，建议待评估。">✓ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：是
+理由：情绪化措辞下是真实线上故障：全员无法推进商机阶段，影响正在发生；不能因语气拒绝或降级。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 处理建议：待评估
+理由：客户反馈“商机阶段一推进就报错”，影响范围有限，客户希望尽快处理，建议待评估。">✗ 待评估</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P0
+理由：情绪化措辞下是真实线上故障：全员无法推进商机阶段，影响正在发生；不能因语气拒绝或降级。">✓ 迭代</span><div class="exp">期望 迭代</div></td><td class="num">1/3 → 3/3</td><td class="num"><span class="pill n" title="V0：处理建议不是“拒绝”，话术评估不适用">不适用</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="fixed"><td><span class="mono">FB-2610-039</span><div class="small muted">列表页记住上次的筛选条件和列宽</div></td><td><span class="pill r" title="V0 · 是否重要：是
+理由：客户反馈“列表页记住上次的筛选条件和列宽”，对业务影响较大，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：否
+理由：小的体验缺口（CAP-031 不记忆列宽），2 个客户提出，难度低，可作为低优先级迭代；影响面窄，不重要。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 是否紧急：否
+理由：客户反馈“列表页记住上次的筛选条件和列宽”，对业务影响较大，建议拒绝。">✓ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否紧急：否
+理由：小的体验缺口（CAP-031 不记忆列宽），2 个客户提出，难度低，可作为低优先级迭代；影响面窄，不重要。">✓ 否</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：拒绝
+拒绝理由：需求价值不高，暂不考虑。
+客户话术：您好，您提出的需求暂不在平台规划中，感谢您的理解与支持。">✗ 拒绝</span><span class="arr">→</span><span class="pill g" title="V1 · 处理建议：迭代
+优先级：P2
+理由：小的体验缺口（CAP-031 不记忆列宽），2 个客户提出，难度低，可作为低优先级迭代；影响面窄，不重要。">✓ 迭代</span><div class="exp">期望 迭代/待评估</div></td><td class="num">1/3 → 3/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.66（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.66</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill g">↑ 修复</span></td></tr><tr data-tags="regressed"><td><span class="mono">FB-2610-041</span><div class="small muted">在 A 租户里直接查改 B、C 租户的客户数据</div></td><td><span class="pill r" title="V0 · 是否重要：是
+理由：客户反馈“在 A 租户里直接查改 B、C 租户的客户数据”，对业务影响较大，客户希望尽快处理，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否重要：是
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“在 A 租户里直接查改 B、C 租户的客户数据”，对业务影响较大，客户希望尽快处理，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否紧急：是
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill g" title="V0 · 处理建议：拒绝
+拒绝理由：不符合平台规划。
+客户话术：您好，经评估该需求暂不支持，建议您使用现有功能。">✓ 拒绝</span><span class="arr">→</span><span class="pill r" title="V1 · 处理建议：迭代
+优先级：P0
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议迭代。">✗ 迭代</span><div class="exp">期望 拒绝</div></td><td class="num">1/3 → 0/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.35（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.35</span><span class="arr">→</span><span class="pill n" title="V1：处理建议不是“拒绝”，话术评估不适用">不适用</span></td><td><span class="pill r">↓ 退步</span></td></tr><tr data-tags="wrong"><td><span class="mono">FB-2610-004</span><div class="small muted">每月初全国业绩报表经常超时</div></td><td><span class="pill r" title="V0 · 是否重要：否
+理由：客户反馈“每月初全国业绩报表经常超时”，影响范围有限，客户希望尽快处理，建议拒绝。">✗ 否</span><span class="arr">→</span><span class="pill g" title="V1 · 是否重要：是
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议拒绝。">✓ 是</span><div class="exp">期望 是</div></td><td><span class="pill r" title="V0 · 是否紧急：是
+理由：客户反馈“每月初全国业绩报表经常超时”，影响范围有限，客户希望尽快处理，建议拒绝。">✗ 是</span><span class="arr">→</span><span class="pill r" title="V1 · 是否紧急：是
+理由：对照能力目录与上月同类反馈：该需求影响面较广，存在明确时间压力，建议拒绝。">✗ 是</span><div class="exp">期望 否</div></td><td><span class="pill r" title="V0 · 处理建议：拒绝
+拒绝理由：属于个性化需求。
+客户话术：您好，您提出的需求暂不在平台规划中，感谢您的理解与支持。">✗ 拒绝</span><span class="arr">→</span><span class="pill r" title="V1 · 处理建议：拒绝
+优先级：P0
+拒绝理由：与平台通用产品定位不一致，不进入平台迭代。
+客户话术：您好，感谢您反馈“每月初全国业绩报表经常超时”，我们理解这项诉求对贵司业务的价值。经产品团队评估，该需求与平台的通用产品定位不一致，因此暂不作为平台新功能开发。如需协助，您的客户成功经理可安排顾问跟进。">✗ 拒绝</span><div class="exp">期望 迭代/待评估</div></td><td class="num">0/3 → 1/3</td><td class="num"><span class="pill r" title="V0 话术质量 0.66（Fail）
+理由泛泛（如“不符合平台规划”），话术没有说明原因，也没有给出替代方案。">0.66</span><span class="arr">→</span><span class="pill g" title="V1 话术质量 0.90（Pass）
+理由引用了平台已有能力与原则，话术先认可诉求、说明原因并给出可执行的替代方案。">0.90</span></td><td><span class="pill o">↗ 仍错误（部分改善）</span></td></tr></tbody></table></div>
+</main>
+<footer>数据为合成数据；分数来自 AgentCore Evaluations（按需评估） · 生成时间 2026-11-05 13:52 UTC</footer>
+<script>
+(function () {
+  function apply(target, f, label) {
+    var n = 0;
+    document.querySelectorAll(target + ' tbody tr').forEach(function (tr) {
+      var tags = ' ' + (tr.getAttribute('data-tags') || '') + ' ';
+      var ok = f === 'all' || tags.indexOf(' ' + f + ' ') >= 0;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) { n++; }
+    });
+    document.querySelectorAll('[data-target="' + target + '"][data-f]').forEach(function (el) {
+      el.classList.toggle('active', el.getAttribute('data-f') === f);
+    });
+    var st = document.querySelector('[data-status-for="' + target + '"]');
+    if (st) { st.textContent = (f === 'all' ? '全部' : label) + '：' + n + ' 条'; }
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest ? e.target.closest('[data-f][data-target]') : null;
+    if (!el) { return; }
+    e.preventDefault();
+    var target = el.getAttribute('data-target');
+    apply(target, el.getAttribute('data-f'), el.getAttribute('data-label') || el.textContent.trim());
+    if (el.hasAttribute('data-scroll')) {
+      var t = document.querySelector(target);
+      if (t) { t.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+    }
+  });
+})();
+</script>
+</body>
+</html>

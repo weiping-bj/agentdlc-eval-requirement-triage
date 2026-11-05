@@ -38,18 +38,21 @@
   <div class="step-head"><span class="num">A4.2</span><h3>把自有日志导出成 JSONL（按模板）</h3><span class="time">10 分钟</span></div>
   <p class="why">按模板把每次 Agent 调用整理成一行 JSON。</p>
   <p>先看样例：<a data-repo="telemetry/samples/customer-agent-logs.jsonl">telemetry/samples/customer-agent-logs.jsonl</a></p>
-<pre><code>head -1 telemetry/samples/customer-agent-logs.jsonl | python3 -m json.tool</code></pre>
+<pre><code>python3 -c "import json;print(json.dumps(json.loads(open('telemetry/samples/customer-agent-logs.jsonl',encoding='utf-8').readline()),ensure_ascii=False,indent=2))"</code></pre>
   <div class="expect"><span class="label">预期输出（节选）：</span>
 <pre class="out">{
-    "session_id": "cust-sess-0001",
-    "timestamp": "2026-10-15T09:30:00+08:00",
-    "feedback_id": "FB-2610-001",
-    "user_input": "需求编号: FB-2610-001\n标题: 列表页批量修改自定义字段\n...",
-    "agent_output": "{\"feedback_id\": \"FB-2610-001\", \"important\": \"是\", ...}",
-    "model": "...",
-    "latency_ms": 8200,
-    "tool_calls": [ ... ]
-}</pre><!-- VERIFY --></div>
+  "session_id": "cust-sess-0001",
+  "timestamp": "2026-10-12T09:30:00+08:00",
+  "feedback_id": "FB-2610-001",
+  "user_input": "需求编号: FB-2610-001\n标题: 列表页批量修改自定义字段\n需求描述: 我们在客户列表页想批量修改自定义字段……",
+  "agent_output": "{\"feedback_id\": \"FB-2610-001\", \"important\": \"是\", \"urgent\": \"否\", \"decision\": \"迭代\", ...}",
+  "model": "customer-llm-v2",
+  "latency_ms": 7800,
+  "agent_name": "triage_agent",
+  "tool_calls": [
+    {"name": "search_capabilities", "input": {"query": "列表页批量编辑自定义字段"}, ...}
+  ]
+}</pre></div>
   <div class="tip">你们的日志字段名不一样？把一两行原始日志和 <a data-repo="telemetry/LOG_FORMAT.md">LOG_FORMAT.md</a> 一起交给 coding agent：“写一个脚本把这种日志转换成 LOG_FORMAT.md 的 JSONL 格式”。把转换后的文件放在仓库里，例如 <code>mylogs.jsonl</code>。</div>
 </div>
 
@@ -57,8 +60,19 @@
   <div class="step-head"><span class="num">A4.3</span><h3>先检查日志字段是否齐全</h3><span class="time">2 分钟</span></div>
   <p class="why">在导入前就发现缺字段的问题。</p>
 <pre><code>./11-A-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl</code></pre>
-  <p class="where">脚本：<a data-repo="11-A-convert-logs.sh">11-A-convert-logs.sh</a> → <a data-repo="telemetry/">telemetry/</a></p>
-  <div class="expect"><span class="label">预期输出：</span>每个字段的覆盖率（例如 <code>session_id 100%</code>、<code>tool_calls 0%</code>），能否解析出三项标签，以及结论“可以导入 / 缺少必填字段”。<!-- VERIFY: 以脚本实际输出为准 --></div>
+  <p class="where">脚本：<a data-repo="11-A-convert-logs.sh">11-A-convert-logs.sh</a> → <a data-repo="labkit/convert_logs.py">labkit/convert_logs.py</a></p>
+  <div class="expect"><span class="label">预期输出（样例日志共 5 行）：</span>
+<pre class="out">▶ 检查 telemetry/samples/customer-agent-logs.jsonl：5 行
+  字段覆盖率：
+    ✅ session_id   必填 5/5
+    ✅ timestamp    必填 5/5
+    ✅ user_input   必填 5/5
+    ✅ agent_output 必填 5/5
+    ✅ feedback_id  可选 5/5
+    ...
+  Agent 输出可解析为“三项判断”JSON：5/5（标签准确率评估器需要）
+  ℹ️  5 行时间早于 14 天，发送时会自动平移到最近 1 小时内（保留先后顺序）
+✅ 字段检查通过。下一步：./11-A-convert-logs.sh send telemetry/samples/customer-agent-logs.jsonl</pre><!-- VERIFY --></div>
   <div class="warn">必填字段缺失（没有会话 ID、没有输出、没有时间）时不能导入。这种情况先和客户确认能否补导出；补不了就到 <a href="a5-check.html#s-a5-3">A5.3</a> 切换到 B 版。</div>
 </div>
 
@@ -69,10 +83,18 @@
   <p>脚本做了三件事：</p>
   <ol class="clicks">
     <li>把每行日志变成一组 OTel span（Agent 调用 + 工具调用 + 输入输出事件），格式和 Strands Agent 埋点产生的一致；</li>
-    <li>把时间平移到<b>最近 14 天内</b>（CloudWatch 不接收更早的 span），保留各条之间的先后间隔；</li>
+    <li>把早于 14 天的时间平移到<b>最近 1 小时内</b>（CloudWatch 不接收 14 天以前的 span），保留各条之间的先后顺序；</li>
     <li>以服务名 <code>s12lab-zhang3-imported-logs</code> 发送到 CloudWatch，并登记为一次“运行”，后面 <code>./31-run-eval.sh</code> 可以直接评估它。</li>
   </ol>
-  <div class="expect"><span class="label">预期输出：</span>发送了多少个 session / span，以及 <code>run_id = A-imported-…</code>。<!-- VERIFY: 以脚本实际输出为准 --></div>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
+📡 OTel 已配置：service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs · 区域 us-west-2
+▶ 转换并发送 5 条日志 → service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
+  ✔ cust-sess-0001  FB-2610-001
+  ✔ cust-sess-0002  ...
+  ...
+✅ 已发送 5 个 session（run_id = A-imported-20261107T064000Z）。约 2-3 分钟后可在 CloudWatch 查到。
+   下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre><!-- VERIFY --></div>
 </div>
 
 <div class="step" id="s-a4-5">

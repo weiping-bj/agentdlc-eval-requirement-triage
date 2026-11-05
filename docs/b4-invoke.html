@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>跑黄金集，产生 trace · 场景 12 实验手册</title>
+<title>在控制台查看 Runtime 与 trace · 场景 12 实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="b4-invoke">
@@ -12,22 +12,36 @@
 <nav id="toc"></nav>
 <main>
 <section class="card chapter-head">
-<h1><span class="num">B4</span>跑黄金集，产生 trace <span class="applies b">B 版</span></h1>
-<p class="lead">用黄金集里的需求批量调用 Runtime，每条需求一个 session，为后面的评估准备数据。</p>
+<h1><span class="num">B4</span>在控制台查看 Runtime 与 trace <span class="applies b">B 版</span></h1>
+<p class="lead">在控制台确认 Runtime 已就绪，并找到 B3.4 那次调用产生的 trace。完整黄金集在第 7 章跑（要先注册评估器、开启在线评估）。</p>
 </section>
 <section class="card">
-<div class="step" id="s-b4-1">
-  <div class="step-head"><span class="num">B4.1</span><h3>用黄金集批量调用 Runtime（V0）</h3><span class="time">8 分钟</span></div>
-  <p class="why">脚本逐条发送黄金集需求，记录每条对应的 session。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
-</div>
-<div class="step" id="s-b4-2">
-  <div class="step-head"><span class="num">B4.2</span><h3>在 CloudWatch GenAI Observability 查看会话与 trace</h3><span class="time">3 分钟</span></div>
-  <p class="why">在控制台看到 Agent、会话、trace 和工具调用。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
-</div>
-</section>
 
+<div class="step" id="s-b4-1">
+  <div class="step-head"><span class="num">B4.1</span><h3>在 Bedrock AgentCore 控制台查看 Runtime</h3><span class="time">2 分钟</span></div>
+  <p class="why">确认 Runtime、版本和环境变量（Agent 版本、模型）都符合预期。</p>
+  <ol class="clicks">
+    <li>控制台顶部搜索 <code>Bedrock AgentCore</code> → 打开 <span class="ui">Amazon Bedrock AgentCore</span> 控制台（区域与实验一致）。</li>
+    <li>左侧 <span class="ui">Runtime</span>（Agent runtime）→ 列表里找到 <code>s12lab_zhang3_agent</code>，状态 <span class="pill g">Ready</span>。</li>
+    <li>点进去：能看到版本号、<span class="ui">DEFAULT</span> 端点、执行角色 <code>s12lab-zhang3-runtime-role</code>，以及环境变量 <code>AGENT_VERSION=v0</code>、<code>AGENT_MODEL_ID</code>。</li>
+  </ol>
+  <div class="expect"><span class="label">预期结果：</span>Runtime 状态 Ready，版本 1。<!-- VERIFY: 控制台菜单名以实际界面为准 --></div>
+</div>
+
+<div class="step" id="s-b4-2">
+  <div class="step-head"><span class="num">B4.2</span><h3>在 CloudWatch GenAI Observability 查看 trace</h3><span class="time">3 分钟</span></div>
+  <p class="why">在控制台看到 Agent、会话、trace 和工具调用；后面的评估就是读这些数据。</p>
+  <ol class="clicks">
+    <li>B3.4 之后等 2–3 分钟。打开 CloudWatch → 左侧 <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span>。</li>
+    <li><span class="ui">Agents</span> 列表找到 <code>s12lab_zhang3_agent</code> → 点进去，<span class="ui">Overview</span> 里有会话数、调用次数、延迟、token 用量。</li>
+    <li>切到 <span class="ui">Sessions</span> → 点那个 <code>s12lab-zhang3-smoke-…</code> 会话 → <span class="ui">Traces</span>：调用树里有 <code>s12lab.triage</code> → <code>invoke_agent</code> → <code>chat</code> 和 <code>execute_tool lookup_capability</code>，点开 span 能看到模型的输入和输出。</li>
+  </ol>
+  <div class="expect"><span class="label">预期结果：</span>能看到 1 个会话、1 个 trace，以及模型和工具调用的耗时。<!-- VERIFY --></div>
+  <div class="tip">Runtime 自己的日志在 CloudWatch Logs 日志组 <code>/aws/bedrock-agentcore/runtimes/&lt;Runtime ID&gt;-DEFAULT</code>，调用报错时先看这里。</div>
+  <p>下一步：<a href="06-evaluators.html">第 6 章 注册评估器 + 开启在线评估</a>。</p>
+</div>
+
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

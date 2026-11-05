@@ -60,8 +60,11 @@ def preds_from_results(path: str) -> list:
             continue
         obj = r.get("result") if isinstance(r.get("result"), dict) else r
         objs = sa.triage_objects(obj)
-        if not objs and isinstance(r.get("raw"), str):
-            objs = sa.triage_from_text(r["raw"])
+        for k in ("agent_output", "output", "response", "raw"):  # e.g. telemetry/LOG_FORMAT.md lines
+            if objs:
+                break
+            v = r.get(k)
+            objs = sa.triage_objects(v) if isinstance(v, (dict, list)) else (sa.triage_from_text(v) if isinstance(v, str) else [])
         fid_hint = r.get("feedback_id") or (obj.get("feedback_id") if isinstance(obj, dict) else None)
         if not objs:
             preds.append({"feedback_id": fid_hint, "_unparsed": True})

@@ -27,16 +27,20 @@ ROOT = Path(aws.cfg()["LAB_ROOT"])
 EV = ROOT / "evaluators"
 
 LAMBDAS = {
-    # key: (source dir, handler, extra env)
-    "label": ("s12_label_accuracy", "lambda_function.handler", {}),
+    # key: (source dir, handler, extra env). One function per scored field, so the
+    # field never depends on what the service puts into the event.
+    "label": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "all"}),
+    "label-important": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "important"}),
+    "label-urgent": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "urgent"}),
+    "label-decision": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "decision"}),
     "reject": ("s12_reject_quality", "lambda_function.handler", {}),
 }
 CODE_EVALUATORS = [
     # (name suffix, lambda key, description)
     ("label_accuracy", "label", "三项标签（是否重要/是否紧急/处理建议）与黄金集一致的比例"),
-    ("label_important", "label", "是否重要 单项准确率（0/1）"),
-    ("label_urgent", "label", "是否紧急 单项准确率（0/1）"),
-    ("label_decision", "label", "处理建议 单项准确率（0/1）"),
+    ("label_important", "label-important", "是否重要 单项准确率（0/1）"),
+    ("label_urgent", "label-urgent", "是否紧急 单项准确率（0/1）"),
+    ("label_decision", "label-decision", "处理建议 单项准确率（0/1）"),
     ("reject_quality", "reject", "拒绝理由与客户话术质量（LLM 评审，非拒绝则 Skipped）"),
 ]
 JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/s12_reject_quality.json", "llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
@@ -157,6 +161,29 @@ def upsert(name: str, level: str, config: dict, description: str, existing: dict
     return {"evaluatorId": r["evaluatorId"], "evaluatorArn": r.get("evaluatorArn"), "level": level}
 
 
+def pause_online() -> list:
+    """Enabled online evaluation configs lock their evaluators: disable mine before updating."""
+    from . import online
+    paused = []
+    for path in ("a", "b"):
+        x = online.find(online.config_name(path))
+        if x and x.get("executionStatus") == "ENABLED":
+            aws.client("bedrock-agentcore-control").update_online_evaluation_config(
+                onlineEvaluationConfigId=x["onlineEvaluationConfigId"], executionStatus="DISABLED")
+            paused.append(x["onlineEvaluationConfigId"])
+            print(f"  ⏸  暂停在线评估 {x['onlineEvaluationConfigName']}（更新评估器需要）")
+    if paused:
+        time.sleep(10)
+    return paused
+
+
+def resume_online(ids: list) -> None:
+    ctl = aws.client("bedrock-agentcore-control")
+    for cid in ids:
+        ctl.update_online_evaluation_config(onlineEvaluationConfigId=cid, executionStatus="ENABLED")
+        print(f"  ▶️  已恢复在线评估 {cid}")
+
+
 def judge_config() -> dict | None:
     for c in JUDGE_CONFIG_CANDIDATES:
         p = EV / c
@@ -173,6 +200,7 @@ def register() -> dict:
     role = lambda_role()
     arns = {k: deploy_lambda(k, role) for k in LAMBDAS}
     existing = list_custom()
+    paused = pause_online() if existing else []
     state = {}
     for suffix, key, desc in CODE_EVALUATORS:
         cfg = {"codeBased": {"lambdaConfig": {"lambdaArn": arns[key], "lambdaTimeoutInSeconds": 120}}}
@@ -188,6 +216,7 @@ def register() -> dict:
         print("  ℹ️  未找到原生 LLM 评审配置（evaluators/llm_judge_config/），跳过")
     state["_lambdas"] = arns
     aws.save_state("evaluators", state)
+    resume_online(paused)
     print("✅ 评估器就绪：")
     for k, v in state.items():
         if not k.startswith("_"):

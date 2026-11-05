@@ -15,7 +15,8 @@ label  = Pass (all correct) | Fail | CriticalFail (rejected a must-not-reject it
 
 Which labels are scored (first match wins):
   env S12_SCORE_FIELD = all | important | urgent | decision | level
-  evaluatorName suffix  _important | _urgent | _decision | _level  -> that single label (value 0/1)
+  evaluatorName / evaluatorId / evaluatorArn (id tail "-XXXXXXXXXX" stripped) ending in
+  _important | _urgent | _decision | _level  -> that single label (value 0/1)
   otherwise all (binary scheme: important+urgent+decision; level scheme: level+decision)
 Other env: S12_LABEL_SCHEME=binary|level (default binary), S12_LEVEL_TOLERANCE=0|1 (default 0),
            S12_GOLDEN_PATH (default golden_set.json next to this file).
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,14 +47,39 @@ def _golden():
     return _GOLDEN
 
 
-def resolve_score_field(evaluator_name: str | None) -> str:
+_ID_TAIL = re.compile(r"-[A-Za-z0-9]{10}$")
+_FIELD_TOKEN = re.compile(r"(?:^|_)(important|urgent|decision|level)(?:_|$)")
+
+
+def _name_candidates(event_or_name) -> list:
+    """evaluatorName / evaluatorId / evaluatorArn, normalised: last ARN segment, '-XXXXXXXXXX' id tail stripped."""
+    if isinstance(event_or_name, dict):
+        raw = [event_or_name.get(k) for k in ("evaluatorName", "evaluatorId", "evaluatorArn", "evaluator_name", "evaluator_id")]
+    else:
+        raw = [event_or_name]
+    out = []
+    for v in raw:
+        if not v:
+            continue
+        v = str(v).strip().split("/")[-1].split(":")[-1].lower()
+        out.append(_ID_TAIL.sub("", v))
+    return out
+
+
+def resolve_score_field(event_or_name) -> str:
+    """S12_SCORE_FIELD env > evaluator name/id/arn suffix (_important/_urgent/_decision/_level) > token match > all."""
     env = (os.environ.get("S12_SCORE_FIELD") or "").strip().lower()
     if env:
         return env
-    name = (evaluator_name or "").lower()
-    for suf, field in SUFFIX_FIELDS:
-        if name.endswith(suf):
-            return field
+    names = _name_candidates(event_or_name)
+    for name in names:
+        for suf, field in SUFFIX_FIELDS:
+            if name.endswith(suf):
+                return field
+    for name in names:
+        m = _FIELD_TOKEN.search(name)
+        if m and not name.endswith("_accuracy"):
+            return m.group(1)
     return "all"
 
 
@@ -97,7 +124,10 @@ def evaluate(event: dict) -> dict:
     trace_id = trace_ids[0] if (trace_ids and level != "SESSION") else None
     scheme = (os.environ.get("S12_LABEL_SCHEME") or "binary").strip().lower()
     tol = int(os.environ.get("S12_LEVEL_TOLERANCE") or "0")
-    field = resolve_score_field(event.get("evaluatorName"))
+    field = resolve_score_field(event)
+    print(json.dumps({"s12": "label_eval", "keys": sorted(event.keys()), "evaluatorName": event.get("evaluatorName"),
+                      "evaluatorId": event.get("evaluatorId"), "level": level, "n_spans": len(spans),
+                      "trace": trace_id, "field": field, "scheme": scheme}, ensure_ascii=False))
     if field not in ("all",) + ls.BINARY_FIELDS + ("level",):
         return {"errorCode": "VALIDATION_FAILED", "errorMessage": f"unknown S12_SCORE_FIELD {field!r}"}
 

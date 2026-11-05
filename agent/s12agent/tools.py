@@ -38,8 +38,8 @@ def lookup_capability(keyword: str) -> str:
 def search_capabilities(query: str) -> str:
     """在平台能力目录中检索与需求相关的能力，返回支持状态、限制和替代方案。
 
-    判断需求前必须先调用本工具：status 为“已支持”说明客户可能不会用（给出用法而不是新开发）；
-    “部分支持”看 limits 判断缺口；“不在平台范围/明确不做”是拒绝的依据；“规划中”给出时间预期。
+    判断需求前必须先调用本工具：status 为“已支持”说明客户可能不会用（用 how_to 给出用法，而不是新开发）；
+    “部分支持”看 limits 判断真实缺口；“明确不做”是“超出平台定位”拒绝的依据（引用其 id）。
 
     Args:
         query: 需求的核心诉求（用一句话描述，例如“列表页批量编辑自定义字段”）
@@ -56,6 +56,7 @@ def search_capabilities(query: str) -> str:
             "limits": data.g(c, "limits", "limitations", "constraints"),
             "workaround": data.g(c, "workaround", "alternatives"),
             "effort_hint": data.g(c, "effort_hint", "dev_effort", "difficulty"),
+            "how_to": data.g(c, "how_to", "usage"),
         })
     return json.dumps(out or [{"note": "能力目录中没有相关能力"}], ensure_ascii=False)
 

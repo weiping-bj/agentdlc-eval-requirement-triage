@@ -196,12 +196,17 @@ class Cleaner:
             ("S3 桶", self.buckets()),
             ("IAM 角色", self.roles()),
             ("日志组", self.log_groups()),
-            ("EC2 堆栈", self.stacks()),
         ]
+        stacks = self.stacks()
         left = 0
         for name, xs in checks:
             print(f"  {'✅' if not xs else '❌'} {name}: {len(xs)} {xs if xs else ''}")
             left += len(xs)
+        if self.all:
+            print(f"  {'✅' if not stacks else '❌'} EC2 堆栈: {len(stacks)} {stacks if stacks else ''}")
+            left += len(stacks)
+        elif stacks:
+            print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：最后在第 10.3 步删除）")
         print("✅ 没有残留的实验资源" if not left else f"❌ 仍有 {left} 个资源（删除中的 Runtime/堆栈可稍后重查）")
         return 0 if not left else 2
 

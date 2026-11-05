@@ -70,14 +70,39 @@ def write_json(path: str, obj: Any) -> None:
         f.write(json.dumps(obj, ensure_ascii=False, indent=2) + "\n")
 
 
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _unescape_cell(v: str) -> str:
+    return v[1:] if len(v) > 1 and v[0] == "'" and v[1] in _FORMULA_START else v
+
+
+def _escape_cell(v: Any) -> Any:
+    """Prevent Excel from evaluating customer text as a formula (CSV injection / '#NAME?' mangling)."""
+    if isinstance(v, str) and v[:1] in _FORMULA_START:
+        return "'" + v
+    return v
+
+
+def read_text_any(path: str) -> str:
+    """UTF-8 (with/without BOM) first, then GB18030 (Excel "CSV" on Chinese Windows)."""
+    with open(path, "rb") as f:
+        raw = f.read()
+    for enc in ("utf-8-sig", "gb18030"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError(f"{path}: 无法识别文件编码，请在 Excel 中“另存为 → CSV UTF-8（逗号分隔）”后重试")
+
+
 def read_csv(path: str) -> List[Dict[str, str]]:
-    with open(path, encoding="utf-8-sig", newline="") as f:
-        text = f.read()
+    text = read_text_any(path)
     try:
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=",\t;")
     except csv.Error:
         dialect = csv.excel
-    return [{(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None}
+    return [{(k or "").strip(): _unescape_cell((v or "").strip()) for k, v in row.items() if k is not None}
             for row in csv.DictReader(io.StringIO(text), dialect=dialect)]
 
 
@@ -88,7 +113,7 @@ def write_csv(path: str, rows: List[Dict[str, Any]], fields: List[str]) -> None:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         for r in rows:
-            w.writerow({k: ("" if r.get(k) is None else r.get(k)) for k in fields})
+            w.writerow({k: ("" if r.get(k) is None else _escape_cell(r.get(k))) for k in fields})
 
 
 _NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -128,8 +153,11 @@ def read_xlsx(path: str, sheet: Optional[str] = None) -> List[Dict[str, str]]:
     grid: List[List[str]] = []
     for r in root.find("m:sheetData", _NS):
         row: Dict[int, str] = {}
+        nxt = 0
         for c in r:
-            idx = _col_index(c.get("r", "A"))
+            ref = c.get("r")
+            idx = _col_index(ref) if ref else nxt  # the cell reference is optional in OOXML
+            nxt = idx + 1
             t = c.get("t")
             v = c.find("m:v", _NS)
             if t == "inlineStr":
@@ -218,11 +246,11 @@ def load_yaml(path: str) -> Dict[str, Any]:
     """PyYAML if installed, else a subset parser (nested maps by indentation, '- ' lists, scalars)."""
     try:
         import yaml  # type: ignore
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:
             return yaml.safe_load(f) or {}
     except ImportError:
         pass
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8-sig") as f:
         lines = [(len(l) - len(l.lstrip(" ")), _strip_comment(l).strip()) for l in f.read().splitlines()]
     lines = [(i, t) for i, t in lines if t]
     pos = 0
@@ -243,7 +271,8 @@ def load_yaml(path: str) -> Dict[str, Any]:
             k, v = text.split(":", 1)
             pos += 1
             if v.strip() == "":
-                if pos < len(lines) and lines[pos][0] > indent:
+                if pos < len(lines) and (lines[pos][0] > indent or
+                                         (lines[pos][0] == indent and lines[pos][1].startswith("- "))):
                     obj[k.strip()] = parse(lines[pos][0])
                 else:
                     obj[k.strip()] = None
@@ -259,23 +288,29 @@ def norm_yes_no(v: Any) -> Optional[str]:
     if isinstance(v, bool):
         return "是" if v else "否"
     s = str(v if v is not None else "").strip().lower()
-    if s in ("是", "y", "yes", "true", "1", "重要", "紧急", "有", "√", "✓"):
+    if s in ("是", "y", "yes", "true", "1", "重要", "紧急", "有", "√", "✓", "可", "可以", "允许"):
         return "是"
-    if s in ("否", "n", "no", "false", "0", "不重要", "不紧急", "无", "×", "x"):
+    if s in ("否", "n", "no", "false", "0", "不重要", "不紧急", "无", "×", "x", "不", "不可", "不能", "不可以", "不允许"):
         return "否"
     return None
 
 
+_NEGATION = re.compile(r"(不|暂不|不予|无需|无须|无法|没有|won'?t|not\b|^un|n't)")
+
+
 def norm_decision(v: Any) -> Optional[str]:
+    """迭代 / 拒绝 / 待评估, or None when unknown or negated (e.g. 不建议迭代, 暂不开发 -> None, reported by validation)."""
     s = str(v if v is not None else "").strip().lower()
     if not s:
         return None
     table = [("待评估", ("待评估", "需评估", "评估", "待定", "pending", "evaluate", "澄清")),
-             ("拒绝", ("拒绝", "reject", "不做", "驳回", "关闭")),
+             ("拒绝", ("拒绝", "reject", "rejected", "不做", "驳回", "不予采纳")),
              ("迭代", ("迭代", "iterate", "accept", "纳入", "排期", "开发", "修复", "接受"))]
     for canon, words in table:
         if s == canon or s in words:
             return canon
+    if _NEGATION.search(s):
+        return None
     for canon, words in table:
         if any(w in s for w in words):
             return canon

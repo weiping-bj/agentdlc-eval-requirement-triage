@@ -14,35 +14,91 @@
 <section class="card chapter-head">
 <h1><span class="num">B3</span>部署 V0 到 AgentCore Runtime <span class="applies b">B 版</span></h1>
 <p class="lead">把我们准备好的 mock agent（V0，故意留有缺陷）部署到 AgentCore Runtime，Runtime 会自动把 trace 发到 CloudWatch。</p>
+<div class="note">前提：已完成第 1 章（尤其 <a href="01-setup.html#s-1-8">1.8 Transaction Search</a>）和第 2 章。命令都在 EC2 的 <code>~/scenario12-lab</code> 下执行。</div>
 </section>
 <section class="card">
+
 <div class="step" id="s-b3-1">
   <div class="step-head"><span class="num">B3.1</span><h3>认识 mock agent（V0）</h3><span class="time">3 分钟</span></div>
-  <p class="why">了解 Agent 的输入、输出和两个工具，知道 V0 故意留了哪些缺陷。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <p class="why">了解 Agent 的输入、输出和工具，知道 V0 故意留了哪些缺陷。</p>
+  <table>
+    <tr><th>文件</th><th>作用</th></tr>
+    <tr><td><a data-repo="agent/main.py">agent/main.py</a></td><td>AgentCore Runtime 入口：收到 <code>{"feedback": {...}}</code>，返回判断结果 JSON</td></tr>
+    <tr><td><a data-repo="agent/s12agent/core.py">agent/s12agent/core.py</a></td><td>构建 Strands Agent（模型、提示词、工具），解析输出</td></tr>
+    <tr><td><a data-repo="agent/s12agent/prompts/v0.md">prompts/v0.md</a> · <a data-repo="agent/s12agent/prompts/v1.md">prompts/v1.md</a></td><td>V0 / V1 的系统提示词（V1 是第 8 章的参考优化版）</td></tr>
+    <tr><td><a data-repo="agent/s12agent/tools.py">agent/s12agent/tools.py</a></td><td>工具：V0 只有 <code>lookup_capability</code>；V1 有 <code>search_capabilities</code> + <code>find_similar_requests</code></td></tr>
+  </table>
+  <p><b>V0 故意留下的缺陷</b>（第 7 章的评估会把它们暴露出来）：</p>
+  <ul>
+    <li>判断口径含糊：只说“判断是否重要 / 紧急”，没有标准；</li>
+    <li>容易被客户的措辞带偏：客户写“很急”就可能判紧急；</li>
+    <li>工具只返回<b>能力名称</b>，看不到“已支持 / 部分支持 / 明确不做”，分不清“已有能力”和“真实缺口”；</li>
+    <li>没有“相似需求统计”，判断不了是不是通用需求；</li>
+    <li>没有“不可自动拒绝”的规则（数据丢失、安全、合规、合同承诺），也没要求话术给替代方案。</li>
+  </ul>
 </div>
+
 <div class="step" id="s-b3-2">
   <div class="step-head"><span class="num">B3.2</span><h3>在 EC2 上本地冒烟测试</h3><span class="time">3 分钟</span></div>
   <p class="why">部署前先在本机跑一条，确认代码和模型都正常。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./10-A-run-local.sh smoke</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">▶ 运行 1 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 1
+  [ 1/1] FB-2610-001      12.3s  重要=是 紧急=否 建议=迭代
+✅ 完成：1 条，用时 13s，失败 0 条 → results/run-A-smoke-213000.jsonl
+   run_id = A-smoke-213000</pre><!-- VERIFY --></div>
+  <div class="note">这里显示“路线 A”是因为它在本机运行（与 A 版共用同一个脚本），不影响 B 版。</div>
 </div>
-<div class="step" id="s-b3-3">
-  <div class="step-head"><span class="num">B3.3</span><h3>打包代码并上传到 S3</h3><span class="time">3 分钟</span></div>
-  <p class="why">Runtime 支持直接部署代码包，不需要 Docker。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
-</div>
-<div class="step" id="s-b3-4">
-  <div class="step-head"><span class="num">B3.4</span><h3>创建执行角色和 AgentCore Runtime</h3><span class="time">5 分钟</span></div>
-  <p class="why">脚本创建 Runtime 需要的 IAM 角色和 Runtime 本身，并等待就绪。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
-</div>
-<div class="step" id="s-b3-5">
-  <div class="step-head"><span class="num">B3.5</span><h3>调用一次 Runtime 确认可用</h3><span class="time">2 分钟</span></div>
-  <p class="why">发一条需求反馈给 Runtime，看到结构化的判断结果。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
-</div>
-</section>
 
+<div class="step" id="s-b3-3">
+  <div class="step-head"><span class="num">B3.3</span><h3>打包、上传并创建 AgentCore Runtime（一条命令）</h3><span class="time">5 分钟</span></div>
+  <p class="why">Runtime 支持直接部署代码包，不需要 Docker；脚本一次完成打包、上传、建角色、建 Runtime 并等待就绪。</p>
+<pre><code>./20-B-deploy-runtime.sh</code></pre>
+  <p class="where">脚本：<a data-repo="20-B-deploy-runtime.sh">20-B-deploy-runtime.sh</a> → <a data-repo="labkit/runtime.py">labkit/runtime.py</a></p>
+  <p>脚本依次做了这些事：</p>
+  <ol class="clicks">
+    <li>用 <code>uv</code> 下载 <b>linux/arm64</b> 版依赖（Runtime 运行在 ARM 上），和 <code>agent/</code> 代码、能力目录一起打成 zip；</li>
+    <li>上传到你的私有桶 <code>s3://s12lab-zhang3-&lt;账号&gt;-&lt;区域&gt;/runtime/</code>；</li>
+    <li>创建执行角色 <code>s12lab-zhang3-runtime-role</code>（调用 Bedrock 模型、写 CloudWatch）；</li>
+    <li>创建 Runtime <code>s12lab_zhang3_agent</code>，入口 <code>opentelemetry-instrument main.py</code>（自动埋点），等待状态变为 READY（约 2–4 分钟）。</li>
+  </ol>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">▶ 部署 s12lab_zhang3_agent · Agent 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 区域 us-west-2
+  🪣 已创建 S3 桶 s12lab-zhang3-&lt;account&gt;-us-west-2
+  ⬇️  下载 linux/arm64 依赖（Python 3.12，首次约 1-2 分钟）…
+  📦 打包完成：build/runtime/agent-20261107T063500Z.zip（3xxx 个文件，4x.x MB）
+  ⬆️  已上传 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/runtime/agent-20261107T063500Z.zip
+  🔐 执行角色 s12lab-zhang3-runtime-role
+  🆕 创建 Runtime s12lab_zhang3_agent-AbCdEf1234
+  ⏳ Runtime 状态 CREATING
+  ⏳ Runtime 状态 READY
+✅ Runtime 就绪：s12lab_zhang3_agent-AbCdEf1234（版本 1，Agent v0）
+   下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）</pre><!-- VERIFY --></div>
+  <div class="warn">如果显示 <code>❌ Runtime 状态 CREATE_FAILED</code>：看后面的原因。提到 “binary files that are incompatible with Linux ARM64” 时，删除 <code>build/runtime/</code> 后重跑；其它原因见 <a href="appendix.html#s-x-4">附录 排错</a>。</div>
+</div>
+
+<div class="step" id="s-b3-4">
+  <div class="step-head"><span class="num">B3.4</span><h3>调用一次 Runtime 确认可用</h3><span class="time">2 分钟</span></div>
+  <p class="why">发一条需求反馈给 Runtime，看到结构化的判断结果。</p>
+<pre><code>./20-B-deploy-runtime.sh invoke</code></pre>
+  <p>想换一条需求：<code>./20-B-deploy-runtime.sh invoke --one FB-2610-002</code>（编号见 <a data-repo="data/golden/golden_set.csv">黄金集</a>）。查看部署信息：<code>./20-B-deploy-runtime.sh status</code></p>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">需求 FB-2610-001：列表页批量修改自定义字段
+{
+  "feedback_id": "FB-2610-001",
+  "important": "是",
+  "urgent": "否",
+  "decision": "迭代",
+  "level": null,
+  "reasoning": "……",
+  "reject_reason": "",
+  "customer_reply": ""
+}
+✅ Runtime 调用成功，用时 14.2s，session = s12lab-zhang3-smoke-3f2a…</pre><!-- VERIFY --></div>
+  <div class="tip">第一次调用会慢一些（Runtime 冷启动）。超时就再执行一次。</div>
+</div>
+
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

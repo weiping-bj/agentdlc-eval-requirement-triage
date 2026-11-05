@@ -314,10 +314,26 @@ def _messages_texts(msgs: Any, want_role: str) -> List[str]:
     return out
 
 
-def span_texts(span: Dict[str, Any]) -> Tuple[List[str], List[str]]:
-    """(user_texts, assistant_texts) carried by one span doc or log record."""
+def _event_time(e: Dict[str, Any], default: float) -> float:
+    for k in ("timeUnixNano", "time_unix_nano", "timestamp", "time"):
+        v = e.get(k)
+        if v not in (None, ""):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                break
+    return default
+
+
+def span_texts(span: Dict[str, Any]) -> Tuple[List[str], List[Tuple[str, float]]]:
+    """(user_texts, [(assistant_text, timestamp)]) carried by one span doc or log record.
+
+    Event timestamps are used when present (a root span's final gen_ai.choice is emitted after
+    its child spans started), else the span/log-record start time.
+    """
     users: List[str] = []
-    assistants: List[str] = []
+    assistants: List[Tuple[str, float]] = []
+    base = start_of(span)
     a = attrs(span)
     for k in USER_ATTRS:
         if k in a:
@@ -327,18 +343,18 @@ def span_texts(span: Dict[str, Any]) -> Tuple[List[str], List[str]]:
         if k in a:
             v = a[k]
             if isinstance(v, str) and v.strip()[:1] != "[":
-                assistants.append(content_text(v))
+                assistants.append((content_text(v), base))
             else:
-                assistants.extend(_messages_texts(v, "assistant"))
-    bodies: List[Tuple[str, Any]] = []
+                assistants.extend((t, base) for t in _messages_texts(v, "assistant"))
+    bodies: List[Tuple[str, Any, float]] = []
     if isinstance(span.get("body"), (dict, str)):
-        bodies.append((_event_name(span), span.get("body")))
+        bodies.append((_event_name(span), span.get("body"), base))
     for e in _events(span):
-        bodies.append((_event_name(e), e.get("body") if "body" in e else e.get("attributes")))
-    for name, body in bodies:
+        bodies.append((_event_name(e), e.get("body") if "body" in e else e.get("attributes"), _event_time(e, base)))
+    for name, body, ts in bodies:
         if isinstance(body, str):
             if name in ASSISTANT_EVENT_NAMES:
-                assistants.append(content_text(body))
+                assistants.append((content_text(body), ts))
             elif name in USER_EVENT_NAMES:
                 users.append(content_text(body))
             continue
@@ -350,17 +366,17 @@ def span_texts(span: Dict[str, Any]) -> Tuple[List[str], List[str]]:
             if isinstance(inp, dict):
                 users.extend(_messages_texts(inp.get("messages"), "user"))
             if isinstance(outp, dict):
-                assistants.extend(_messages_texts(outp.get("messages"), "assistant"))
+                assistants.extend((t, ts) for t in _messages_texts(outp.get("messages"), "assistant"))
             continue
         if name in ASSISTANT_EVENT_NAMES:
             t = content_text(body.get("message") if "message" in body else body.get("content"))
             if t:
-                assistants.append(t)
+                assistants.append((t, ts))
         elif name in USER_EVENT_NAMES:
             t = content_text(body.get("content") if "content" in body else body.get("message"))
             if t:
                 users.append(t)
-    return [u for u in users if u], [s for s in assistants if s]
+    return [u for u in users if u], [(t, ts) for t, ts in assistants if t]
 
 
 # ---- main entry --------------------------------------------------------------------------
@@ -394,8 +410,8 @@ def extract_records(session_spans: Iterable[Any], target_trace_id: Optional[str]
     for idx, s in enumerate(spans):
         u, a = span_texts(s)
         user_texts.extend(u)
-        for t in a:
-            assistant_texts.append((start_of(s), idx, t))
+        for t, ts in a:
+            assistant_texts.append((ts, idx, t))
 
     text_fid = None
     for u in user_texts:

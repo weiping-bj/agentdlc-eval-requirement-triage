@@ -37,8 +37,12 @@ def pick_run(run_id: str | None) -> dict:
 
 
 def expected_text(row: dict) -> str:
-    exp = items.expected_of(row)
-    return json.dumps({"feedback_id": items.fid_of(row), **exp}, ensure_ascii=False)
+    """Golden labels as the reference input (label evaluators parse this JSON)."""
+    exp = {"feedback_id": items.fid_of(row), **items.expected_of(row)}
+    for k in ("golden_id", "acceptable_decisions", "can_auto_reject"):
+        if k in row:
+            exp[k] = row[k]
+    return json.dumps(exp, ensure_ascii=False)
 
 
 def evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str, start: int) -> dict:

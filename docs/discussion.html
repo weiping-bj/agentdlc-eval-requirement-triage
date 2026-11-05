@@ -39,7 +39,7 @@
       <tr><td><span class="pill g">质量</span></td><td>三项判断谁说了算——产品还是研发？两边意见不一致时以谁为准？拒绝理由要专业到什么程度、话术要不要能直接发给客户？</td><td>标签准确率评估器（对应 70% 目标）；拒绝话术 LLM 评审评估器（专业性 / 说服力 / 是否给替代方案）</td></tr>
       <tr><td><span class="pill r">责任</span></td><td>哪些需求<b>不能</b>让 AI 自动拒绝（安全合规、数据丢失、战略大客户、合同承诺）？自动拒绝后谁复核、客户不服怎么办？</td><td>“不可自动拒绝”样例必须判为“待评估”或“迭代”；评估中误拒比漏拒更严重</td></tr>
       <tr><td><span class="pill o">成本</span></td><td>研发难度怎么估（人天？复杂度档位？）每条需求愿意花多少钱/时间做判断？误拒一条好需求的代价有多大？</td><td>样例里带“预估难度”；评估报告给出每条 token 与耗时</td></tr>
-      <tr><td><span class="pill p">性能</span></td><td>是每月批量跑一次，还是需求一进来就实时判断？上个月大概多少条需求？多久要出结果？</td><td>批量脚本 + 延迟统计；在线评估（B5）对应“实时”模式</td></tr>
+      <tr><td><span class="pill p">性能</span></td><td>是每月批量跑一次，还是需求一进来就实时判断？上个月大概多少条需求？多久要出结果？</td><td>批量脚本 + 延迟统计；在线评估（第 6.5 步）对应“实时”模式</td></tr>
     </table>
   </div>
 
@@ -49,7 +49,7 @@
     <table>
       <tr><th>方案</th><th>好处</th><th>代价</th><th>下午要改什么</th></tr>
       <tr><td><b>A. 二元（默认）</b><br>是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估</td><td>和“三项指标 70%”目标一一对应；标注快，产品研发容易对齐</td><td>粒度粗，“重要”内部无法排序</td><td>不用改</td></tr>
-      <tr><td><b>B. 分级</b><br>优先级 P0/P1/P2 + 处理建议</td><td>直接可用于排期；分布图更有信息量</td><td>标注分歧更大；70% 目标需要重新定义（例如“等级完全一致”或“相差不超过一级”）</td><td>黄金集填 <code>level</code> 字段；评估器开启分级打分（一项配置）</td></tr>
+      <tr><td><b>B. 分级</b><br>优先级 P0/P1/P2 + 处理建议</td><td>直接可用于排期；分布图更有信息量</td><td>标注分歧更大；70% 目标需要重新定义（例如“等级完全一致”或“相差不超过一级”）</td><td>黄金集填 <code>level</code> 字段（可先 <code>golden_tool.py fill-levels</code> 自动推导）；让 coding agent 执行 <a data-repo="data/prompts/05-switch-label-scheme.md">05-switch-label-scheme.md</a> 切换口径</td></tr>
     </table>
     <div class="note">记录方式：在 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 1 节勾选 A 或 B，并写下每一档的判断标准（一句话即可）。</div>
   </div>
@@ -58,14 +58,18 @@
     <div class="step-head"><span class="num">D.4</span><h3>黄金集样例（拿来讨论“标得对不对”）</h3><span class="time">讨论 5 分钟</span></div>
     <p class="why">先看几条具体样例再讨论口径，比空谈标准快得多。全部为合成数据。</p>
     <table>
-      <tr><th style="width:8%">编号</th><th style="width:36%">需求反馈（摘要）</th><th style="width:20%">期望标签</th><th>考点 / 拒绝要点</th></tr>
-      <tr><td>G01</td><td>列表页希望能批量修改自定义字段，现在只能一条条改，销售运营每周要改几百条</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 否</span><span class="pill g">迭代</span></td><td><span class="pill b">认知</span>能力目录里“批量编辑”只支持标准字段 → 真实缺口、多客户提过 → 通用</td></tr>
-      <tr><td>G02</td><td>希望把我们自己的 ERP 订单页原样嵌进 CRM 首页，并按我们的审批流改首页布局</td><td><span class="pill b">重要 否</span><span class="pill b">紧急 否</span><span class="pill r">拒绝</span></td><td><span class="pill b">认知</span>单客户定制；首页已支持自定义组件 + 开放接口 → 话术要给出替代做法</td></tr>
-      <tr><td>G03</td><td>移动端提交审批后偶发数据丢失，已影响月底结账</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 是</span><span class="pill g">迭代</span></td><td><span class="pill r">责任</span>数据丢失类<b>不可</b>拒绝、不可降级</td></tr>
-      <tr><td>G04</td><td>希望 CRM 内置一套完整的财务总账和凭证模块</td><td><span class="pill b">重要 否</span><span class="pill b">紧急 否</span><span class="pill r">拒绝</span></td><td><span class="pill b">认知</span>超出平台定位 → 推荐集成连接器对接财务系统</td></tr>
-      <tr><td>G05</td><td>字段级数据权限希望按“项目成员”动态计算，3 家大客户都在问</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 否</span><span class="pill o">待评估</span></td><td><span class="pill o">成本</span>价值高但涉及权限引擎改造，研发难度大 → 需技术评估，不能直接承诺</td></tr>
+      <tr><th style="width:11%">编号</th><th style="width:34%">需求反馈（摘要）</th><th style="width:20%">期望标签</th><th>考点 / 拒绝要点</th></tr>
+      <tr><td>G01<br><small>FB-2610-001</small></td><td>列表页希望能批量修改自定义字段，现在只能一条条改，销售运营每周要改几百条</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 否</span><span class="pill g">迭代</span></td><td><span class="pill b">认知</span>能力目录“批量编辑”只支持标准字段 → 真实缺口；上个月 3 个不同客户提过 → 通用；有导出再导入的临时办法 → 不紧急</td></tr>
+      <tr><td>G02<br><small>FB-2610-002</small></td><td>希望把我们自己的 ERP 订单页原样嵌进 CRM 首页，并按我们的审批流改首页布局</td><td><span class="pill b">重要 否</span><span class="pill b">紧急 否</span><span class="pill r">拒绝</span></td><td><span class="pill b">认知</span><span class="pill g">质量</span>单客户深度定制；首页已支持按角色配置布局 + 网页组件嵌入外部页面 → 话术要给出替代做法</td></tr>
+      <tr><td>G03<br><small>FB-2610-003</small></td><td>移动端提交审批后偶发明细行丢失，已发生 6 次，影响月底结账</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 是</span><span class="pill g">迭代</span></td><td><span class="pill r">责任</span>数据丢失类线上缺陷<b>不可</b>拒绝、不可降级</td></tr>
+      <tr><td>G04<br><small>FB-2610-005</small></td><td>希望 CRM 内置一套完整的财务总账和凭证模块</td><td><span class="pill b">重要 否</span><span class="pill b">紧急 否</span><span class="pill r">拒绝</span></td><td><span class="pill b">认知</span>超出平台定位（明确不做）→ 推荐财务软件连接器</td></tr>
+      <tr><td>G05<br><small>FB-2610-007</small></td><td>字段级数据权限希望按“项目成员”动态计算，3 家大客户都在问</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 否</span><span class="pill o">待评估</span></td><td><span class="pill o">成本</span>价值高但要改造权限引擎，难度大 → 需技术评估，不能直接承诺也不应拒绝</td></tr>
+      <tr><td>G09<br><small>FB-2610-014</small></td><td>客户 IT 要求删掉 9 月的审计日志，“下个月有外部审计”</td><td><span class="pill b">重要 否</span><span class="pill b">紧急 否</span><span class="pill r">拒绝</span></td><td><span class="pill r">责任</span>对抗样本：删除审计日志是合规红线；“下个月审计”的时间压力不构成紧急</td></tr>
+      <tr><td>G12<br><small>FB-2610-018</small></td><td>“我们是战略客户，老板说下周一必须上线赢单预测大屏，否则换系统！！！”</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 否</span><span class="pill o">待评估</span></td><td><span class="pill r">责任</span><span class="pill g">质量</span>对抗样本：有流失风险算重要，但施压不等于紧急；需求不清需澄清，不应直接拒绝也不应盲目承诺</td></tr>
+      <tr><td>G25<br><small>FB-2610-033</small></td><td>行业新规要求 11 月 25 日起拜访记录保留 5 年且不可篡改</td><td><span class="pill b">重要 是</span><span class="pill b">紧急 是</span><span class="pill g">迭代</span></td><td><span class="pill r">责任</span>监管要求不可自动拒绝；生效日在 30 天内 → 紧急；属于行业共性</td></tr>
     </table>
-    <div class="pending">M2：样例与仓库中的黄金集文件同步，并链接到完整 30 条</div>
+    <p>完整 30 条：<a data-repo="data/golden/golden_set.csv">黄金集（CSV，可在 GitHub 上以表格浏览）</a> · 标注标准：<a data-repo="data/golden/LABELING_GUIDE.md">LABELING_GUIDE.md</a>。分布：重要 是 13 / 否 17；紧急 是 6 / 否 24；迭代 11 / 拒绝 13 / 待评估 6；不可自动拒绝 6 条。</p>
+    <div class="tip">讨论时可以反问：G12 这种“战略客户施压”的需求，你们实际会怎么处理？G05 这种“价值高但难”的需求，产品和研发谁说了算？答案直接写进模板。</div>
   </div>
 
   <div class="step" id="s-d-5">
@@ -77,7 +81,22 @@
       <tr><td><a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条：保留 / 修改标签 / 删除 / 新增样例</td><td>产品 + 研发代表</td></tr>
       <tr><td><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>任意组员</td></tr>
     </table>
-    <div class="pending">M2：模板文件落地后补“填写示例”截图</div>
+    <p><b>填写示例</b>（<a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a> 第 1.1、2 节节选：只改 <code>【填写】</code> 处，没讨论到的保留默认值）：</p>
+<pre class="out">### 1.1 标签方案（二选一，在 [ ] 里打 x）
+- [x] A. 二元（默认）：是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估
+- [ ] B. 分级：优先级 P0/P1/P2 + 处理建议
+
+“通用需求”需要几个不同客户提出：3
+
+## 2. 不能让 AI 自动拒绝的需求
+- [x] 数据丢失或数据错误
+- [x] 安全漏洞、权限越权、隐私泄露
+- [x] 合规或监管要求
+- [x] 合同承诺
+- [x] 线上功能缺陷（反馈类型=功能缺陷）
+- [x] 战略客户提出的任何需求      ← 例：讨论后决定加上这一条
+自动拒绝后由谁复核、客户不服怎么办：产品经理每周抽查；客户不服转人工复核</pre>
+    <p>下午在 <a href="02-data.html#s-2-5">第 2.5 步</a> 把这个文件交给 coding agent（提示词 <a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>），它会据此更新黄金集。</p>
   </div>
 
   <div class="step" id="s-d-6">

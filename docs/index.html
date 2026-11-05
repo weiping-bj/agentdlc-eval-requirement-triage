@@ -38,7 +38,7 @@
       <tr><td>适合</td><td>团队能在 1 小时内给自己的 Agent 加几行埋点，或能导出 Agent 调用日志</td><td>自有 Agent 改造难度大、日志缺字段，或想完整体验 AgentCore</td></tr>
       <tr><td>Agent 在哪里跑</td><td>客户自己的环境（彩排时：讲师笔记本上的 mock agent）</td><td>AgentCore Runtime（托管）</td></tr>
       <tr><td>数据怎么进 CloudWatch</td><td>OTel + ADOT 埋点，或已有日志 → 转换脚本 → CloudWatch</td><td>Runtime 自动发送，无需改代码</td></tr>
-      <tr><td>要做的章节</td><td><span class="pill p">1</span><span class="pill p">2</span><span class="pill p">A3</span><span class="pill p">A4</span><span class="pill p">A5</span><span class="pill p">6–10</span></td><td><span class="pill o">1</span><span class="pill o">2</span><span class="pill o">B3</span><span class="pill o">B4</span><span class="pill o">B5(可选)</span><span class="pill o">6–10</span></td></tr>
+      <tr><td>要做的章节</td><td><span class="pill p">1</span><span class="pill p">2</span><span class="pill p">A3</span><span class="pill p">A4</span><span class="pill p">A5</span><span class="pill p">6–10</span></td><td><span class="pill o">1</span><span class="pill o">2</span><span class="pill o">B3</span><span class="pill o">B4</span><span class="pill o">6–10</span></td></tr>
       <tr><td>风险兜底</td><td>A5 检查不通过且差距大 → 直接切到 B 版，前面的数据和黄金集照用</td><td>—</td></tr>
     </table>
     <div class="tip">在页面右上角选择“我的路线”，手册会自动淡化另一条路线的内容。</div>
@@ -51,8 +51,8 @@
       <tr><th>时间</th><th>A 版</th><th>B 版</th></tr>
       <tr><td>14:00–14:25</td><td colspan="2">第 1 章 准备 EC2 环境（一组人可以共用讲师演示，每人仍建自己的 EC2）</td></tr>
       <tr><td>14:25–14:55</td><td colspan="2">第 2 章 黄金集：把上午讨论结论落到模板，重新生成 / 校验黄金集</td></tr>
-      <tr><td>14:55–15:35</td><td>A3 埋点 / A4 导日志 → A5 检查</td><td>B3 部署 Runtime → B4 跑黄金集</td></tr>
-      <tr><td>15:35–16:05</td><td colspan="2">第 6–7 章 注册评估器、评估 V0、找失败用例</td></tr>
+      <tr><td>14:55–15:35</td><td>A3 埋点 / A4 导日志 → A5 检查</td><td>B3 部署 Runtime → B4 控制台查看 trace</td></tr>
+      <tr><td>15:35–16:05</td><td colspan="2">第 6–7 章 注册评估器 + 开启在线评估、跑黄金集（V0）并评估、找失败用例</td></tr>
       <tr><td>16:05–16:40</td><td colspan="2">第 8–9 章 优化到 V1、再评估、生成对比页</td></tr>
       <tr><td>16:40–17:00</td><td colspan="2">准备 Demo；第 10 章清理（可在 Demo 后做）</td></tr>
     </table>
@@ -105,14 +105,29 @@
       <tr><td><code>level</code> 优先级（可选）</td><td><span class="pill p">P0</span><span class="pill p">P1</span><span class="pill p">P2</span></td><td>预留字段：现场如果决定用分级代替“是/否”，直接启用（见 <a href="discussion.html#s-d-3">讨论 D.3</a>）</td></tr>
       <tr><td><code>reasoning</code> / <code>reject_reason</code> / <code>customer_reply</code></td><td>文本</td><td>判断依据 / 专业拒绝理由 / 对客户的沟通话术</td></tr>
     </table>
-    <div class="pending">完整输出格式见输出结构定义文件（M2 补链接到 agent 代码中的 schema）</div>
+    <p>完整定义：<a data-repo="data/schema/agent_output.schema.json">data/schema/agent_output.schema.json</a>（输入条目 <a data-repo="data/schema/feedback_item.schema.json">feedback_item.schema.json</a>、黄金集条目 <a data-repo="data/schema/golden_item.schema.json">golden_item.schema.json</a>）。一个输出示例：</p>
+<pre class="out">{"feedback_id": "FB-2610-002", "important": "否", "urgent": "否", "decision": "拒绝", "level": null,
+ "reasoning": "能力目录 CAP-006：首页已支持按角色配置布局和网页组件嵌入外部页面；上个月仅 1 个客户提出，属于单客户定制……",
+ "reject_reason": "单客户深度定制，不具备平台通用性；现有首页自定义组件 + 开放 API 可满足……",
+ "customer_reply": "非常理解贵司希望一线同事在一个页面完成订单查看的诉求……建议使用首页网页组件嵌入 ERP 订单页，并按角色配置首页布局，我们的实施顾问可以协助配置……"}</pre>
   </div>
 
   <div class="step" id="s-0-6">
     <div class="step-head"><span class="num">0.6</span><h3>仓库文件地图</h3><span class="time"></span></div>
     <p class="why">知道每类文件在哪里；手册里所有文件引用都可以直接点击打开。</p>
     <p>仓库地址：<code data-repo-url></code></p>
-    <div class="pending">文件地图表格（M2 按最终目录结构填写，全部为可点击链接）</div>
+    <table>
+      <tr><th style="width:26%">位置</th><th>内容</th><th style="width:14%">用在</th></tr>
+      <tr><td><a data-repo="config/lab.env">config/lab.env</a> · <a data-repo="00-config.sh">00-config.sh</a></td><td>唯一的配置来源：区域、模型、资源名前缀；个人后缀写在 <code>config/local.env</code></td><td>第 1 章、附录</td></tr>
+      <tr><td><a data-repo="ec2/">ec2/</a></td><td>实验 EC2 的 CloudFormation 模板、CloudShell 启动脚本、安装脚本、手动创建说明</td><td>第 1 章</td></tr>
+      <tr><td><a data-repo="data/">data/</a></td><td>60 条合成需求反馈、平台能力目录、30 条黄金集与标注标准、讨论模板、coding agent 提示词、数据工具</td><td>讨论、第 2 章</td></tr>
+      <tr><td><a data-repo="agent/">agent/</a></td><td>mock agent（Strands）：Runtime 入口、V0 / V1 提示词、工具</td><td>A3、B3、第 8 章</td></tr>
+      <tr><td><a data-repo="telemetry/">telemetry/</a></td><td>A 版：OTel/ADOT 环境变量、日志格式说明与样例、日志转换器、遥测检查器</td><td>A3–A5</td></tr>
+      <tr><td><a data-repo="evaluators/">evaluators/</a></td><td>自定义评估器：标签准确率（代码型）、拒绝话术质量（LLM 评审），含单元测试</td><td>第 6 章</td></tr>
+      <tr><td>编号脚本 <a data-repo="01-check-env.sh">01</a>–<a data-repo="99-cleanup.sh">99</a></td><td>按章节顺序执行的命令（01/02 环境 · 10–12 A 版 · 20–21 B 版 · 30–34 评估与对比 · 40 切换版本 · 99 清理）</td><td>全部章节</td></tr>
+      <tr><td><a data-repo="labkit/">labkit/</a></td><td>脚本背后的 Python 模块（一般不需要打开）</td><td>—</td></tr>
+      <tr><td><a href="appendix.html#s-x-5">附录 X.5</a></td><td>逐个文件的说明</td><td>—</td></tr>
+    </table>
   </div>
 </section>
 

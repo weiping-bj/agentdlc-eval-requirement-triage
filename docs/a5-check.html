@@ -16,23 +16,62 @@
 <p class="lead">用检查脚本读取 CloudWatch 里的数据，判断是否满足 AgentCore Evaluations 的要求；差距大时直接切换到 B 版。</p>
 </section>
 <section class="card">
+
 <div class="step" id="s-a5-1">
   <div class="step-head"><span class="num">A5.1</span><h3>运行遥测检查器</h3><span class="time">3 分钟</span></div>
   <p class="why">脚本逐项检查 session、trace、模型输入输出、工具调用等是否齐全。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+<pre><code>./12-A-check-telemetry.sh</code></pre>
+  <p>默认检查最近一次运行（A3.5 的 3 条，或 A4.4 导入的日志）。检查指定运行：</p>
+<pre><code>./12-A-check-telemetry.sh --run A-v0-20261107T063000Z</code></pre>
+  <p class="where">脚本：<a data-repo="12-A-check-telemetry.sh">12-A-check-telemetry.sh</a> → <a data-repo="labkit/check_telemetry.py">labkit/check_telemetry.py</a>；运行记录在 <code>.lab-state/runs.json</code></p>
+  <div class="expect"><span class="label">预期输出（A3.5 的 3 条，mock agent）：</span>
+<pre class="out">▶ 检查 run A-v0-20261107T063000Z（local）的 3 个 session · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent
+  · s12lab-zhang3-v0-FB-2610-001-…  span=12 文档=20
+  ...
+
+检查项（✅ 全部 session 满足 · ⚠️ 部分满足 · ❌ 都不满足）
+  ✅ [必需] 能在 CloudWatch（aws/spans）按 session.id 找到 span  (3/3)
+  ✅ [必需] 每个 span 都带 session.id  (3/3)
+  ✅ [必需] span 来自受支持的框架埋点（如 Strands: strands.telemetry.tracer）  (3/3)
+  ✅ [必需] 有 Agent 调用 span（gen_ai.operation.name = invoke_agent）  (3/3)
+  ✅ [必需] 能取到用户输入内容  (3/3)
+  ✅ [必需] 能取到 Agent 最终输出内容  (3/3)
+  ✅ [可选] 有工具调用 span（execute_tool）→ 工具类评估器可用  (3/3)
+  ✅ [可选] 记录了模型 ID（gen_ai.request.model）  (3/3)
+  ✅ [可选] 记录了 token 用量 → 成本分析可用  (3/3)
+  ✅ [可选] 带需求编号 / 判断结果属性 → 标签准确率评估器最稳  (3/3)
+  ✅ [可选] 带 service.name → 在线评估 / 控制台按 Agent 聚合  (3/3)
+  埋点来源 scope：strands.telemetry.tracer, s12lab.triage   service.name：s12lab-zhang3-local-agent
+  ✅ 试评估（Builtin.Helpfulness）成功：Very Helpful 0.83
+
+🟩 结论：通过 —— 数据满足 AgentCore Evaluations 的要求。继续第 6 章。</pre><!-- VERIFY -->
+  最后的“试评估”会真的调用一次 Evaluations，证明服务能读懂这些数据。</div>
 </div>
+
 <div class="step" id="s-a5-2">
   <div class="step-head"><span class="num">A5.2</span><h3>读懂检查结果：通过 / 有缺口 / 差距大</h3><span class="time">3 分钟</span></div>
   <p class="why">按结果决定：继续评估、补埋点，还是换 B 版。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <table>
+    <tr><th style="width:14%">结论</th><th>含义</th><th>下一步</th></tr>
+    <tr><td><span class="pill g">通过</span></td><td>session、trace、Agent 输入输出、三项标签都能读到</td><td>继续 <a href="06-evaluators.html">第 6 章 注册评估器</a></td></tr>
+    <tr><td><span class="pill o">有缺口</span> 🟨</td><td>必需项都满足，缺“可选”项（例如没有工具调用 span、没有 token 用量）</td><td>可以继续评估（标签准确率、话术质量不受影响）；有时间再补埋点</td></tr>
+    <tr><td><span class="pill o">有缺口</span> 🟧</td><td>只缺 1 项必需内容</td><td>按 ❌ 项补埋点后重试（A3.4）；10 分钟内补不上就切换到 B 版</td></tr>
+    <tr><td><span class="pill r">差距大</span> 🟥</td><td>缺多项必需内容：找不到 session / 没有 Agent 输出 / 不是受支持框架的埋点格式，评估器无法打分</td><td>不在现场硬改客户 Agent → <a href="#s-a5-3">A5.3 切换到 B 版</a></td></tr>
+  </table>
+  <div class="tip">“找不到 session”最常见的原因是数据还没到：等 2–3 分钟再查；其次是没开 Transaction Search（<a href="01-setup.html#s-1-8">1.8</a>）。</div>
 </div>
+
 <div class="step" id="s-a5-3">
   <div class="step-head"><span class="num">A5.3</span><h3>差距大时：切换到 B 版</h3><span class="time">1 分钟</span></div>
   <p class="why">不在现场硬改客户 Agent，改用我们准备好的 mock agent 完成评估闭环。</p>
-  <div class="pending">具体命令 / 点击步骤与预期输出（M2 填充，M3 实测校正）</div>
+  <ol class="clicks">
+    <li>页面右上角“我的路线”点 <span class="ui">B 版 mock agent</span>。</li>
+    <li>从 <a href="b3-deploy.html">B3 部署 V0 到 AgentCore Runtime</a> 继续。第 1–2 章做过的环境、数据和黄金集都照常使用。</li>
+  </ol>
+  <div class="note">把检查结果截图保存下来：它正好说明“自有 Agent 要接入 Evaluations 还差什么”，可以作为 17:00 Demo 的一页内容。</div>
 </div>
-</section>
 
+</section>
 </main>
 </div>
 <footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>

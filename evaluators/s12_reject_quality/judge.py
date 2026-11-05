@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import time
 from typing import Any, Callable, Dict, List, Optional
 
@@ -73,15 +74,23 @@ def resolve_models(cfg: Optional[Dict[str, str]] = None) -> Dict[str, str]:
     }
 
 
+def _err_code(e: Exception) -> str:
+    resp = getattr(e, "response", None)
+    return (resp or {}).get("Error", {}).get("Code", "") if isinstance(resp, dict) else ""
+
+
 class BedrockJudgeClient:
     """Minimal Converse wrapper with bounded retry (throttling) and model fallback."""
 
-    def __init__(self, model: str, fallback: Optional[str], region: str, client=None, sleep: Callable[[float], None] = time.sleep):
+    def __init__(self, model: str, fallback: Optional[str], region: str, client=None, sleep: Callable[[float], None] = time.sleep,
+                 max_tokens: Optional[int] = None):
         self.model, self.fallback, self.region = model, fallback, region
+        self.max_tokens = int(max_tokens or os.environ.get("JUDGE_MAX_TOKENS") or 3000)
         self._client = client
         self._sleep = sleep
         self.used_model: Optional[str] = None
         self.usage = {"inputTokens": 0, "outputTokens": 0}
+        self._no_temperature: set = set()
 
     def _c(self):
         if self._client is None:
@@ -92,27 +101,33 @@ class BedrockJudgeClient:
         return self._client
 
     def _call(self, model: str, system: str, prompt: str) -> str:
+        inference = {"maxTokens": self.max_tokens}
+        if model not in self._no_temperature:
+            inference["temperature"] = 0.0
         kwargs = {"modelId": model, "messages": [{"role": "user", "content": [{"text": prompt}]}],
-                  "inferenceConfig": {"maxTokens": 1200, "temperature": 0.0}}
+                  "inferenceConfig": inference}
         if system:
             kwargs["system"] = [{"text": system}]
-        last = None
-        for attempt in range(4):
+        for attempt in range(5):
             try:
-                resp = self._c().converse(**kwargs)
+                resp = self._c().converse(**dict(kwargs, inferenceConfig=dict(inference)))
                 usage = resp.get("usage") or {}
                 self.usage["inputTokens"] += int(usage.get("inputTokens") or 0)
                 self.usage["outputTokens"] += int(usage.get("outputTokens") or 0)
                 blocks = resp["output"]["message"]["content"]
                 return "".join(b.get("text", "") for b in blocks if isinstance(b, dict))
             except Exception as e:  # botocore ClientError or test doubles
-                code = getattr(e, "response", {}).get("Error", {}).get("Code", "") if hasattr(e, "response") else ""
-                last = e
-                if code in RETRY_ERRORS and attempt < 3:
+                code = _err_code(e)
+                if code == "ValidationException" and "temperature" in str(e).lower() and "temperature" in inference:
+                    # newer Claude models (e.g. Sonnet 5.5) reject the temperature parameter
+                    self._no_temperature.add(model)
+                    inference.pop("temperature")
+                    continue
+                if code in RETRY_ERRORS and attempt < 4:
                     self._sleep(min(20.0, (2 ** attempt) + random.random()))
                     continue
                 raise
-        raise last  # pragma: no cover
+        raise RuntimeError("judge model call failed after retries")  # pragma: no cover
 
     def complete(self, system: str, prompt: str) -> str:
         try:
@@ -120,7 +135,7 @@ class BedrockJudgeClient:
             self.used_model = self.model
             return out
         except Exception as e:
-            code = getattr(e, "response", {}).get("Error", {}).get("Code", "") if hasattr(e, "response") else ""
+            code = _err_code(e)
             if self.fallback and self.fallback != self.model and code in FALLBACK_ERRORS:
                 out = self._call(self.fallback, system, prompt)
                 self.used_model = self.fallback
@@ -128,13 +143,35 @@ class BedrockJudgeClient:
             raise
 
 
+_SCORES_RE = re.compile(r'"scores"\s*:\s*(\{[^{}]*\})', re.S)
+_FLAGS_RE = re.compile(r'"red_flags"\s*:\s*\[(.*?)\]', re.S)
+_STR_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+
 def parse_verdict(text: str) -> Dict[str, Any]:
-    """Parse the judge JSON; tolerant to fences / surrounding prose."""
+    """Parse the judge JSON; tolerant to fences / surrounding prose / truncated tails.
+
+    If the full object does not parse (e.g. output cut at maxTokens inside a list), fall back to the
+    `scores` object (+ `red_flags` if complete) and mark the verdict `_partial`.
+    """
     import span_adapter as sa
-    for v in sa.json_values_in_text(text or ""):
+    text = text or ""
+    for v in sa.json_values_in_text(text):
         if isinstance(v, dict) and isinstance(v.get("scores"), dict):
             return v
-    raise ValueError(f"judge output is not the expected JSON: {(text or '')[:200]!r}")
+    m = _SCORES_RE.search(text)
+    if m:
+        try:
+            scores = json.loads(m.group(1))
+        except ValueError:
+            scores = None
+        if isinstance(scores, dict) and scores:
+            verdict: Dict[str, Any] = {"scores": scores, "_partial": True}
+            fm = _FLAGS_RE.search(text)
+            if fm:
+                verdict["red_flags"] = [json.loads('"' + x + '"') for x in _STR_RE.findall(fm.group(1))]
+            return verdict
+    raise ValueError(f"judge output is not the expected JSON: {text[:200]!r}")
 
 
 def score_verdict(verdict: Dict[str, Any]) -> Dict[str, Any]:
@@ -167,6 +204,8 @@ def explain(result: Dict[str, Any], verdict: Dict[str, Any], fid: str, model: Op
         txt += "未覆盖要点：" + "；".join(miss[:4]) + "。"
     if verdict.get("comment"):
         txt += "点评：" + str(verdict["comment"])[:300]
+    if verdict.get("_partial"):
+        txt += "（评审输出被截断，仅按维度分数计分）"
     txt += f" [评审模型 {model}]{note}"
     return txt[:2000]
 

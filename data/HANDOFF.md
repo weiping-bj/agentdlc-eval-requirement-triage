@@ -1,74 +1,109 @@
-# data/ + evaluators/ 交接说明（给 lead）
+# data/ + evaluators/ 交接说明
 
-> 状态：契约已定稿（字段名已对齐 `agent/s12agent/core.py` / `data.py` 现有命名）。所有数据为合成数据。
+> 全部为合成数据。本文件记录接口约定的最终状态；过程记录见测试日志与 code-review.md。
 
-## 1. 文件位置（与 `agent/s12agent/data.py` 的查找顺序一致）
+## 1. 交付了什么
 
-| 文件 | 内容 |
+- **mock 输入**：60 条“上个月（2026-10）平台需求反馈”。
+  - 覆盖 10 类：通用缺口、已有能力、单客户定制、超出定位、安全红线、模糊、线上故障、价值高但难度大、对抗、合规与合同。
+  - 含 5 组由 ≥3 个不同客户提出的相似需求，用来考“通用性”判断。
+- **平台能力目录**：32 项能力 + 7 项“明确不做”，以及平台定位与原则。
+- **黄金集**：30 条。每条自包含需求原文，标注三项标签、可接受答案、可否自动拒绝、拒绝要点与话术要点、五维、样例类型。
+  - G01–G05 与 `docs/discussion.html` 的样例表一致。
+  - 已冻结 v1，见 `data/golden/MANIFEST.json`。
+- **标注标准**（中文）：`data/golden/LABELING_GUIDE.md`。lead 的 V1 提示词已按它对齐。
+- **工具**（纯标准库，Python 3.9+）：
+  - 客户数据校验与标准化：`ingest_customer_data.py`，支持 csv/xlsx/json，输出充分性报告并给个人信息打码；
+  - mock 数据重新生成：`generate_mock_data.py`；
+  - 黄金集校验、修改、冻结：`golden_tool.py`。
+- **填写模板 + coding agent 中文提示词**：`data/templates/`（4 个模板 + 1 个样例）与 `data/prompts/`（5 个提示词）。
+- **评估器**：
+  - 标签准确率（代码型）；
+  - 拒绝话术质量（代码型 LLM 评审）；
+  - 原生 LLM-as-judge 配置。
+- **测试**：64 个单元测试，加 1 个真实 Bedrock 调用测试。
+
+## 2. 文件地图
+
+| 路径 | 用途 |
 |------|------|
-| `data/capability_catalog.json` | 平台能力目录：`{"platform": {...}, "capabilities": [...]}`；“明确不做”的条目也在 `capabilities` 里（`status="明确不做"`） |
-| `data/feedback_last_month.jsonl` | 60 条合成“上个月需求反馈”（Agent 的输入，不含任何标签） |
-| `data/golden/golden_set.jsonl` | 30 条黄金集（含期望标签、拒绝要点、话术要点、五维标签） |
-| `data/golden/golden_set.csv` | 同上的 Excel 友好视图（脚本生成，不要手改） |
-| `data/golden/agentcore_dataset.json` | 黄金集投影成 AgentCore dataset 格式（`scenario_id/turns/expected_response/assertions/metadata`） |
-| `data/golden/LABELING_GUIDE.md` | 标注标准（中文） |
-| `data/schema/*.schema.json` | 输入条目 / 黄金集条目 / Agent 输出 三份 JSON Schema |
-| `data/templates/` | 11:00 讨论用填写模板：`discussion-feedback.md`、`golden-set-feedback.csv`、`mock-data-params.yaml` |
-| `data/prompts/` | 给 coding agent 的中文提示词（读模板 → 跑脚本 → 校验） |
-| `data/tools/` | 校验/标准化/重新生成脚本（纯标准库，python3 即可） |
+| `data/feedback_last_month.jsonl`（`.csv`） | Agent 输入 |
+| `data/capability_catalog.json` | `{"platform", "capabilities":[...]}`。字段：`id`、`name`、`module`、`status`、`description`、`limits`、`workaround`、`effort_hint`、`keywords`、`how_to` |
+| `data/golden/golden_set.jsonl` | 黄金集，唯一事实源。`.csv` 视图、`agentcore_dataset.json`、`MANIFEST.json` 由脚本生成 |
+| `data/schema/*.schema.json` | 输入条目 / 黄金集条目 / Agent 输出 |
+| `data/templates/` | 讨论用模板：`discussion-feedback.md`、`golden-set-feedback.csv`（已预填 30 行）、`mock-data-params.yaml`、`column-mapping.example.json`、`extra-feedback.example.jsonl` |
+| `data/prompts/01~05` | 客户数据评估、mock 重新生成、黄金集更新、能力目录更新、切换分级 |
+| `data/tools/` | 脚本。`seed/pool.jsonl` 是 60 条带标注的种子库 |
+| `evaluators/s12_label_accuracy/` | 标签准确率 Lambda，另含 `batch_score.py`（本地批量打分 + 分布报告） |
+| `evaluators/s12_reject_quality/` | 拒绝话术 LLM 评审 Lambda，另含 `execution-role-policy.json` |
+| `evaluators/llm_judge_config/s12_reject_quality.json` | 原生 LLM-as-judge 配置，可直接作为 `--evaluator-config` 使用 |
+| `evaluators/shared/` | 适配层与黄金集加载的权威副本；`sync_shared.py` 负责复制到各 Lambda |
+| `evaluators/sample_events/`、`run_local.py` | 本地调用 handler 的样例事件 |
 
-**请求 lead**：`docs/discussion.html` 里链接的是 `templates/…`，我只能写 `data/`，模板实际在 `data/templates/`。请把文档链接改成 `data/templates/…`（脚本默认读 `data/templates/`，也兼容仓库根 `templates/`，二选一即可）。
+## 3. 接口约定（lead 已按此实现）
 
-## 2. 输入条目字段（`feedback_last_month.jsonl` 每行一个）
+### 输入条目
 
-`id`（如 `FB-2610-001`）、`title`、`content`、`customer`（合成公司名，带“（示例）”）、`industry`、`customer_tier`（战略/KA/腰部/长尾）、`channel`、`module`、`submitted_at`（YYYY-MM-DD）、`feedback_type`（新需求/功能缺陷/体验优化/咨询）、`contract_commitment`（是/否）。
-请在 `format_input()` 里把 `feedback_type` 渲染出来（标签“反馈类型”），它是判断“功能缺陷不可拒绝”的依据。
+字段：`id`、`title`、`content`、`customer`、`industry`、`customer_tier`、`channel`、`module`、`submitted_at`、`feedback_type`、`contract_commitment`。
 
-## 3. Agent 输出契约（每条需求一个 JSON 对象）
+用户消息第 1 行为 `需求编号: <id>`，后面每行一个字段，例如 `标题: …`。
+
+### Agent 输出
+
+只输出一个 JSON：
 
 ```json
-{"feedback_id": "FB-2610-001", "important": "是", "urgent": "否", "decision": "迭代",
- "level": null, "reasoning": "...", "reject_reason": "", "customer_reply": ""}
+{"feedback_id", "important": "是|否", "urgent": "是|否", "decision": "迭代|拒绝|待评估",
+ "level": null|"P0"|"P1"|"P2", "reasoning", "reject_reason", "customer_reply"}
 ```
 
-- `important`/`urgent` ∈ {是, 否}；`decision` ∈ {迭代, 拒绝, 待评估}；`level` ∈ {P0, P1, P2, null}（分级模式才用）。
-- `decision="拒绝"` 时 `reject_reason`（内部专业理由）与 `customer_reply`（对客户话术）必须非空。
-- 批量模式也支持：`{"results": [ {...}, {...} ]}`。
-- 评估器也容忍别名（`id`/`需求编号`、`是否重要`、`是否紧急`、`处理建议`、`true/false` 等），但请按上面的标准键输出。
+`decision` 为“拒绝”时，后两项必填。
 
-## 4. Span 埋点契约（评估器 adapter 读取顺序）
+### span 埋点
 
-1. **首选（必须做）**：每条需求一次调用，在该 trace 内任一 span 上写属性
-   - `s12lab.feedback_id` = 需求编号（你已经通过 `trace_attributes` 写在 `invoke_agent` span 上 ✔）
-   - `s12lab.triage_output` = Agent 输出 JSON 字符串（**请新增**：在 Agent 调用外包一层 `s12lab.triage` span，拿到结果后 `span.set_attribute("s12lab.triage_output", json.dumps(out, ensure_ascii=False))`）
-   - 可选 `s12lab.agent_version` = v0/v1（已有 ✔）
-   - 原因：实测（参考 workshop-2-6/spans.py 注释）AgentCore 交给评估器的 `chat` span 往往**没有消息正文**，只靠模型消息解析不可靠。
-2. **兜底**：解析 span 事件 / 属性里的最终 assistant 文本（`events`/`span_events` 的 `gen_ai.choice`、`gen_ai.assistant.message` body，`gen_ai.output.messages`、`gen_ai.completion` 属性，以及顶层 log record 的 `body.output.messages`），取最后一个能解析出上述 JSON 的文本。
-3. 需求编号兜底：输出 JSON 的 `feedback_id` → 属性 → 用户输入里的 `需求编号: FB-xxxx`。
+- 读取顺序：
+  1. 首选属性 `s12lab.triage_output`（输出 JSON 字符串）；
+  2. 再取 `s12lab.feedback_id`；
+  3. 都没有时，再解析最终 assistant 文本：events / span_events / log-record body，按事件时间取最新的一条。
+- 每个 span 带 `session.id`。
 
-## 5. 评估器（`evaluators/`，详见 `evaluators/README.md`）
+### 评估器返回
 
-| 评估器名（建议注册名） | 类型 / 级别 | value / label |
+| 评估器 | 返回 |
+|------|------|
+| 标签准确率 | `value` = 答对项比例；`label` ∈ Pass / Fail / CriticalFail / FormatError / Skipped |
+| 拒绝话术 | `value` 0~1，`label` 为 Pass 或 Fail；非拒绝返回 `label=不适用`，不带 value |
+| 原生配置 | 档位 1.0 / 0.8 / 0.6 / 0.4 / 0.2，另有 0.0“不适用” |
+
+### 部署
+
+| 项 | 标签准确率 Lambda | 拒绝话术 Lambda |
 |------|------|------|
-| `s12_label_accuracy` | code-based, TRACE | 三项命中比例 0~1；`Pass`=三项全对，`Fail`，`CriticalFail`=误拒了不可自动拒绝的需求 |
-| （可选）`s12_important_acc` / `s12_urgent_acc` / `s12_decision_acc` | 同一份代码，Lambda 环境变量 `S12_SCORE_FIELD=important|urgent|decision` | 单项 0/1，控制台平均分 = 该项准确率，直接对比 70% |
-| `s12_reject_quality` | code-based（Lambda 内调 Bedrock 做 LLM 评审），TRACE | 只评 `decision=拒绝` 的 trace，0~1；`Pass`≥0.7；非拒绝返回 `Skipped` |
-| `s12_reject_quality_llm`（备选） | LLM-as-judge 配置（`evaluators/llm_judge_config/`） | 同一套中文 rubric，5 档 |
+| 打包 | 整个目录 zip | 整个目录 zip |
+| handler | `lambda_function.handler` | `lambda_function.handler` |
+| 依赖 | 只用标准库 | boto3 |
+| Bedrock 权限 | 不需要 | 需要 `bedrock:InvokeModel` / `Converse` |
 
-- 黄金集随 Lambda 打包（`evaluators/*/golden_set.json`，用 `python3 data/tools/golden_tool.py sync-evaluators` 同步）；评估时若 Evaluations 传入 `evaluationReferenceInputs`（expected_response 为标签 JSON），优先用它。
-- 评审模型读取顺序：Lambda 环境变量 `JUDGE_MODEL_ID` → `config/local.env` → `config/lab.env` 的 `JUDGE_MODEL_ID` → 默认 `us.anthropic.claude-sonnet-5-5`；失败（无权限/模型不可用）自动回退 `FALLBACK_MODEL_ID`（默认 `us.amazon.nova-2-lite-v1:0`）。
-- 通过线：`TARGET_ACCURACY`（`config/lab.env`，默认 0.70），三项各自 ≥ 0.70 才算达标。
-- 本地批量打分（第 7 章用）：`python3 evaluators/s12_label_accuracy/batch_score.py --results <agent 输出 jsonl> --report-md out.md`，也可直接喂导出的 spans JSON。
+- **标签准确率**：按评估器名后缀 `_important` / `_urgent` / `_decision` 只打单项（`S12_SCORE_FIELD` 可覆盖），其它名字打三项。
+- **拒绝话术**：模型取 `JUDGE_MODEL_ID`，失败时回退 `FALLBACK_MODEL_ID`。
 
-## 6. 待确认问题（我先按默认做了）
+## 4. 已确认的决定
 
-- 模板目录：默认 `data/templates/`（见第 1 节请求）。
-- 一次调用处理一条需求（一个 trace）；批量模式评估器也能算，但控制台的“平均分=准确率”只在一条一 trace 时成立。
+- **模板放 `data/templates/`**：lead 已把文档链接改过去。脚本也兼容仓库根目录的 `templates/`。
+- **原生评审配置“不适用”档 = 0.0**：档位值必须互不重复，避免服务按值反查时把“优秀”和“不适用”弄混。lead 的对比页按 label 排除“不适用”。
+  - Supersedes：lead 起初提议“不适用 = 1.0”。改动原因：1.0 与“优秀”重复。
+- **Claude Sonnet 5.5 不接受 `temperature` 参数**：实测返回 ValidationException。
+  - 原生配置不传 temperature；
+  - 代码型评审遇到该错误会自动去掉参数后重试；
+  - lead 的 Agent 已对 Claude 模型去掉 temperature。
+- **用 G26（集成链路故障）替换原“导入按编码更新”样例**：让“紧急=是”有 6 条，避免“全判否”就拿到 80% 以上的假高分。批量报告同时给出各类别召回率。
+- **客户真实数据只写 `data/customer/`**：lead 已把该目录加入 .gitignore。
+- **适配层已用真实 span 验证**：样例为 `telemetry/fixtures/local-adot-v0-sessions.json`（Strands 1.64 + ADOT 0.22，split 模式），3 个 session 全部正确解析。
+  - 属性路径直接取到输出；
+  - 去掉 `s12lab.triage_output` 后，仍能从 log record 的 `body.output.messages` 和 `需求编号:` 行还原。
+  - `test_span_adapter.py` 有针对这份样例的测试。
 
-## Requests from lead
+## 5. 待确认问题（我已按默认值处理）
 
-- (lead, done) 文档链接已改为 `data/templates/…`；`format_input()` 已渲染 `反馈类型`；已加 `s12lab.triage` 包裹 span，属性 `session.id`、`s12lab.feedback_id`、`s12lab.agent_version`、`s12lab.triage_output`（scope 名 `s12lab.triage`，与 `invoke_agent` 同一 trace）。
-- 单项准确率评估器：请让**同一个 Lambda** 也能从 `event["evaluatorName"]` 后缀推断打分字段（名字以 `_important` / `_urgent` / `_decision` 结尾 → 单项 0/1；其它 → 三项比例），环境变量 `S12_SCORE_FIELD` 仍可覆盖。这样我只部署 1 个 label Lambda，注册 4 个评估器。我的注册名形如 `s12lab_<suffix>_label_accuracy`、`s12lab_<suffix>_label_important` 等。
-- 请在 `evaluators/README.md` 写清每个 Lambda：打包目录（我会把整个目录 zip 进 Lambda 根目录）、handler 名（如 `lambda_function.handler`）、需要的环境变量、是否依赖目录外文件。我部署为 python3.12 / arm64 / 512MB / 超时 120s；reject_quality Lambda 我会设置 `JUDGE_MODEL_ID`、`FALLBACK_MODEL_ID` 并授予 `bedrock:InvokeModel`/`Converse`。
-- 原生 LLM-as-judge 配置（`evaluators/llm_judge_config/`）：请提供可直接传给 `create-evaluator --evaluator-config` 的 JSON，`modelId` 写占位符 `__JUDGE_MODEL_ID__`；不要用 `{expected_response}`（要能挂到在线评估）。
-- 真实 span 样例稍后放到 `telemetry/fixtures/`（只读），可用来测 adapter。
+- **“战略客户的任何需求”是否列为不可自动拒绝**：默认否，留到 11:00 讨论，结论填模板第 2 节。
+- **原生 LLM-as-judge 配置**：没有在 AgentCore 中实际注册过（按约束不创建 AWS 资源）。由 lead 的注册脚本首次验证；如果服务拒绝档位或模型 ID，告诉我调整 `rubric.py`。

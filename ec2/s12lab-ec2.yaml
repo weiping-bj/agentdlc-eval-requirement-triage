@@ -1,0 +1,352 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Scenario 12 lab - one participant EC2 (Amazon Linux 2023), SSM Session Manager
+  only (no inbound ports, no key pair), instance role for Bedrock / AgentCore /
+  CloudWatch lab work. Stack name convention: s12lab-ec2-<suffix>.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: "Participant" }
+        Parameters: [LabSuffix, InstanceType]
+      - Label: { default: "Network (leave empty to create a small dedicated VPC)" }
+        Parameters: [VpcId, SubnetId, NewSubnetAz]
+      - Label: { default: "Advanced" }
+        Parameters: [LatestAmiId]
+
+Parameters:
+  LabSuffix:
+    Type: String
+    Description: Personal suffix, lowercase letters/digits, 2-12 chars, starts with a letter (e.g. zhang3).
+    AllowedPattern: "^[a-z][a-z0-9]{1,11}$"
+    ConstraintDescription: "2-12 chars, lowercase letters/digits, must start with a letter (e.g. zhang3)."
+  InstanceType:
+    Type: String
+    Default: t3.large
+    AllowedValues: [t3.large, t3.xlarge, m7i.large]
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  VpcId:
+    Type: String
+    Default: ""
+    Description: Optional existing VPC (e.g. the default VPC). Set together with SubnetId, or leave both empty.
+  SubnetId:
+    Type: String
+    Default: ""
+    Description: >-
+      Optional existing subnet with a route to an internet gateway (e.g. a default-VPC subnet).
+      Empty = create a minimal VPC (note the default quota of 5 VPCs per Region).
+  NewSubnetAz:
+    Type: String
+    Default: ""
+    Description: Only used when a new VPC is created. Empty = first AZ of the Region.
+
+Rules:
+  SubnetRequiresVpc:
+    RuleCondition: !Not [!Equals [!Ref SubnetId, ""]]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref VpcId, ""]]
+        AssertDescription: VpcId must be set when SubnetId is set.
+  VpcRequiresSubnet:
+    RuleCondition: !Not [!Equals [!Ref VpcId, ""]]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref SubnetId, ""]]
+        AssertDescription: SubnetId must be set when VpcId is set.
+
+Conditions:
+  # Both empty -> create a VPC; both set -> use the existing subnet (Rules forbid one without the other).
+  CreateVpc: !Or [!Equals [!Ref VpcId, ""], !Equals [!Ref SubnetId, ""]]
+  HasNewSubnetAz: !Not [!Equals [!Ref NewSubnetAz, ""]]
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Minimal network (only when no SubnetId is given): 1 VPC, 1 public subnet,
+  # IGW, route table. Outbound internet is needed for dnf/pip/npm/git and SSM.
+  # ---------------------------------------------------------------------------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Condition: CreateVpc
+    Properties:
+      CidrBlock: 10.12.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
+        - { Key: "s12lab:lab", Value: scenario12 }
+        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Condition: CreateVpc
+    Properties:
+      Tags:
+        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
+        - { Key: "s12lab:lab", Value: scenario12 }
+        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Condition: CreateVpc
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: CreateVpc
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.12.0.0/24
+      AvailabilityZone: !If [HasNewSubnetAz, !Ref NewSubnetAz, !Select [0, !GetAZs ""]]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}-public" }
+        - { Key: "s12lab:lab", Value: scenario12 }
+        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: CreateVpc
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}-public" }
+        - { Key: "s12lab:lab", Value: scenario12 }
+        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateVpc
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateVpc
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Conditional DependsOn: the instance waits for the internet route only when
+  # this stack creates the VPC (DependsOn cannot point at a conditional resource).
+  NetworkReady:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Metadata:
+      DefaultRoute: !If [CreateVpc, !Ref PublicDefaultRoute, !Ref AWS::NoValue]
+      SubnetAssociation: !If [CreateVpc, !Ref PublicSubnetRouteTableAssociation, !Ref AWS::NoValue]
+
+  # ---------------------------------------------------------------------------
+  # Security group: NO inbound rules at all. Access is via SSM Session Manager
+  # (the agent dials out over HTTPS). Egress is open for package installs.
+  # ---------------------------------------------------------------------------
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "s12lab ${LabSuffix} - no inbound, SSM only"
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref VpcId]
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+          Description: All outbound (dnf/pip/npm/git, SSM, AWS APIs)
+      Tags:
+        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
+        - { Key: "s12lab:lab", Value: scenario12 }
+        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+  # ---------------------------------------------------------------------------
+  # Instance role.
+  # NOTE: the inline policy is INTENTIONALLY BROAD. It is meant for a 1-day
+  # workshop in a dedicated, disposable lab account, so that participants (and
+  # the coding agent running on this EC2) can create AgentCore resources,
+  # s12lab* IAM roles, Lambda functions, S3 buckets and observability config
+  # without permission friction. Do not reuse it for real workloads.
+  # ---------------------------------------------------------------------------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "s12lab-ec2-${LabSuffix}-${AWS::Region}"
+      Description: !Sub "Scenario 12 lab EC2 role for ${LabSuffix}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      Policies:
+        - PolicyName: s12lab-workshop
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Converse/ConverseStream are authorized by InvokeModel /
+              # InvokeModelWithResponseStream (there is no bedrock:Converse* IAM action).
+              - Sid: BedrockModels
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel*
+                  - bedrock:CountTokens
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                  - bedrock:ListInferenceProfiles
+                  - bedrock:GetInferenceProfile
+                Resource: "*"
+              # First invocation of a marketplace-backed model auto-subscribes;
+              # only allowed when Bedrock makes the call on our behalf.
+              - Sid: BedrockMarketplaceAutoSubscribe
+                Effect: Allow
+                Action:
+                  - aws-marketplace:ViewSubscriptions
+                  - aws-marketplace:Subscribe
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:CalledViaLast: bedrock.amazonaws.com
+              - Sid: AgentCore
+                Effect: Allow
+                Action: bedrock-agentcore:*
+                Resource: "*"
+              - Sid: LabIamRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:TagRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:PassRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab*"
+              # Service-linked roles for bedrock-agentcore / application-signals /
+              # observability are created on first use.
+              - Sid: ServiceLinkedRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                  - iam:GetRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*"
+              # Guardrail: nobody's lab tooling (or a prefix-based cleanup) may
+              # change or delete the participants' own EC2 roles.
+              - Sid: ProtectParticipantEc2Roles
+                Effect: Deny
+                Action:
+                  - iam:DeleteRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:UpdateAssumeRolePolicy
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab-ec2-*"
+              - Sid: LabLambda
+                Effect: Allow
+                Action: lambda:*
+                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:s12lab*"
+              - Sid: LabS3Buckets
+                Effect: Allow
+                Action: s3:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:s3:::s12lab-*"
+                  - !Sub "arn:${AWS::Partition}:s3:::s12lab-*/*"
+              - Sid: S3ListBuckets
+                Effect: Allow
+                Action: s3:ListAllMyBuckets
+                Resource: "*"
+              - Sid: Observability
+                Effect: Allow
+                Action:
+                  - logs:*
+                  - xray:*
+                  - cloudwatch:*
+                  - application-signals:*
+                  - observabilityadmin:Get*
+                  - observabilityadmin:List*
+                Resource: "*"
+              - Sid: ReadOnlyHelpers
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                  - ec2:Describe*
+                  - cloudformation:Describe*
+                  - cloudformation:List*
+                Resource: "*"
+      Tags:
+        - { Key: "s12lab:lab", Value: scenario12 }
+        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "s12lab-ec2-${LabSuffix}-${AWS::Region}"
+      Roles: [!Ref InstanceRole]
+
+  # ---------------------------------------------------------------------------
+  # The EC2 instance (no key pair; login via SSM only).
+  # ---------------------------------------------------------------------------
+  Instance:
+    Type: AWS::EC2::Instance
+    DependsOn: NetworkReady
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          SubnetId: !If [CreateVpc, !Ref PublicSubnet, !Ref SubnetId]
+          GroupSet: [!Ref InstanceSecurityGroup]
+          # Public IPv4 is only for OUTBOUND traffic (no NAT gateway needed);
+          # the security group has no inbound rules.
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 2
+      PropagateTagsToVolumeOnCreation: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Minimal OS bootstrap only. The lab repo is cloned manually by the participant.
+          set -uo pipefail
+          cat > /etc/profile.d/s12lab.sh <<'EOF'
+          export AWS_REGION=${AWS::Region}
+          export AWS_DEFAULT_REGION=${AWS::Region}
+          export LAB_SUFFIX=${LabSuffix}
+          EOF
+          chmod 0644 /etc/profile.d/s12lab.sh
+          for attempt in 1 2 3 4 5; do
+            dnf install -y git jq tar gzip unzip && break
+            echo "dnf install failed (attempt $attempt), retrying in 15s" >&2
+            sleep 15
+          done
+      Tags:
+        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
+        - { Key: "s12lab:lab", Value: scenario12 }
+        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+
+Outputs:
+  InstanceId:
+    Description: EC2 instance id
+    Value: !Ref Instance
+  SessionManagerUrl:
+    Description: Open this URL in the AWS console to get a shell (Session Manager)
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${Instance}?region=${AWS::Region}"
+  RoleName:
+    Description: Instance role name
+    Value: !Ref InstanceRole

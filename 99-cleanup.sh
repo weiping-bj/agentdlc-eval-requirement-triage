@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# 第 10 章：删除实验资源并检查残留
+#   ./99-cleanup.sh                 # 删除我的资源（s12lab-<后缀>-*），然后列出残留
+#   ./99-cleanup.sh --dry-run       # 只显示将删除什么
+#   ./99-cleanup.sh --verify-only   # 只检查残留
+#   ./99-cleanup.sh --all           # 讲师：删除本账号本区域所有 s12lab 资源（含 EC2 堆栈）
+#   ./99-cleanup.sh --all --account-level   # 讲师最终清理：再关闭 Transaction Search、删除 aws/spans
+set -euo pipefail
+cd "$(dirname "$0")"
+if [[ " $* " == *" --all "* ]]; then
+  export LAB_SUFFIX="${LAB_SUFFIX:-instructor}"
+fi
+source ./00-config.sh
+exec "${_S12_PY}" -m labkit.cleanup "$@"

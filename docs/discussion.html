@@ -23,10 +23,10 @@
     <p class="why">带着 4 个明确产出进讨论，结束时直接填进模板，下午用脚本 + coding agent 重新生成黄金集。</p>
     <table>
       <tr><th>#</th><th>产出</th><th>填到哪里</th></tr>
-      <tr><td>1</td><td>三项标签的判断口径（含“是/否”还是“P0/P1/P2”的选择）</td><td><a data-repo="templates/discussion-feedback.md">templates/discussion-feedback.md</a> 第 1 节</td></tr>
-      <tr><td>2</td><td>对样例黄金集的修改意见（哪些标错、缺哪类需求）</td><td><a data-repo="templates/golden-set-feedback.csv">templates/golden-set-feedback.csv</a></td></tr>
-      <tr><td>3</td><td>平台能力目录的补充（哪些能力已有、哪些明确不做）</td><td><a data-repo="templates/discussion-feedback.md">templates/discussion-feedback.md</a> 第 3 节</td></tr>
-      <tr><td>4</td><td>五维鱼骨图要点（认知 / 质量 / 责任 / 成本 / 性能）</td><td><a data-repo="templates/discussion-feedback.md">templates/discussion-feedback.md</a> 第 4 节</td></tr>
+      <tr><td>1</td><td>三项标签的判断口径（含“是/否”还是“P0/P1/P2”的选择）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 1 节</td></tr>
+      <tr><td>2</td><td>对样例黄金集的修改意见（哪些标错、缺哪类需求）</td><td><a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a></td></tr>
+      <tr><td>3</td><td>平台能力目录的补充（哪些能力已有、哪些明确不做）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 3 节</td></tr>
+      <tr><td>4</td><td>五维鱼骨图要点（认知 / 质量 / 责任 / 成本 / 性能）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 4 节</td></tr>
     </table>
   </div>
 
@@ -51,7 +51,7 @@
       <tr><td><b>A. 二元（默认）</b><br>是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估</td><td>和“三项指标 70%”目标一一对应；标注快，产品研发容易对齐</td><td>粒度粗，“重要”内部无法排序</td><td>不用改</td></tr>
       <tr><td><b>B. 分级</b><br>优先级 P0/P1/P2 + 处理建议</td><td>直接可用于排期；分布图更有信息量</td><td>标注分歧更大；70% 目标需要重新定义（例如“等级完全一致”或“相差不超过一级”）</td><td>黄金集填 <code>level</code> 字段；评估器开启分级打分（一项配置）</td></tr>
     </table>
-    <div class="note">记录方式：在 <a data-repo="templates/discussion-feedback.md">讨论反馈模板</a> 第 1 节勾选 A 或 B，并写下每一档的判断标准（一句话即可）。</div>
+    <div class="note">记录方式：在 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 1 节勾选 A 或 B，并写下每一档的判断标准（一句话即可）。</div>
   </div>
 
   <div class="step" id="s-d-4">
@@ -73,9 +73,9 @@
     <p class="why">讨论结论直接写进模板文件；下午的 coding agent 提示词会读取这些模板，重新生成数据和黄金集。</p>
     <table>
       <tr><th>模板</th><th>内容</th><th>谁来填</th></tr>
-      <tr><td><a data-repo="templates/discussion-feedback.md">discussion-feedback.md</a></td><td>标签口径（含 D.3 选择）、不可自动拒绝的规则、能力目录补充、五维要点</td><td>组长 / 记录员</td></tr>
-      <tr><td><a data-repo="templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条：保留 / 修改标签 / 删除 / 新增样例</td><td>产品 + 研发代表</td></tr>
-      <tr><td><a data-repo="templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>任意组员</td></tr>
+      <tr><td><a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a></td><td>标签口径（含 D.3 选择）、不可自动拒绝的规则、能力目录补充、五维要点</td><td>组长 / 记录员</td></tr>
+      <tr><td><a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条：保留 / 修改标签 / 删除 / 新增样例</td><td>产品 + 研发代表</td></tr>
+      <tr><td><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>任意组员</td></tr>
     </table>
     <div class="pending">M2：模板文件落地后补“填写示例”截图</div>
   </div>

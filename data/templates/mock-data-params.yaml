@@ -1,0 +1,54 @@
+# =============================================================================
+# mock 数据参数（11:00 讨论 / 现场反馈后修改这里，然后运行：
+#   python3 data/tools/generate_mock_data.py
+# 不改任何参数 = 原样复现仓库里的 60 条 mock 数据。
+# 需要“种子库里没有”的新类型需求时，让 coding agent 按
+# data/prompts/02-regenerate-mock-data.md 把新条目写进 extra_items_file。
+# =============================================================================
+
+# 需求反馈所属月份（“上个月”），YYYY-MM；留空 = 保持种子库的 2026-10
+month:
+
+# 需求编号前缀；留空且设置了 month 时自动用 FB-<YYMM>-
+id_prefix:
+
+# 生成条数（种子库 60 条 + extra 条目；超过可用条数时脚本会提示缺多少）
+count: 60
+
+# 随机种子（同样的参数 + 同样的种子 = 同样的结果）
+seed: 20261107
+
+# 需求类别配比（写条数或比例都可以；全部注释掉 = 使用种子库的自然分布）
+# 可选类别：
+#   gap_generic           通用能力缺口（应迭代）
+#   existing_capability   已有能力被重复提出（应拒绝并给用法）
+#   customer_specific     单客户深度定制（应拒绝并给替代）
+#   out_of_scope          超出平台定位（应拒绝）
+#   infeasible_or_redline 技术不可行或违背安全合规（应拒绝）
+#   vague                 描述模糊/多诉求混合（待评估）
+#   incident              线上故障/缺陷（不可拒绝）
+#   high_value_hard       价值高但难度大（待评估）
+#   adversarial           对抗样本（注入指令/施压）
+#   compliance_contract   合规或合同承诺（不可拒绝）
+category_mix:
+#  gap_generic: 15
+#  existing_capability: 12
+
+# 黄金集样本无论配比如何都保留（true 推荐）
+keep_golden_items: true
+
+# 客户行业（填了就按客户名稳定地重新分配行业；留空 = 保持原值）
+industries:
+#  - 制造
+#  - 快消
+
+# 来源渠道（填了就把不在列表里的渠道替换掉；留空 = 保持原值）
+channels:
+#  - 客户成功经理
+#  - 工单系统
+
+# coding agent 按现场反馈新写的需求条目（JSONL，格式见 02 号提示词）；文件不存在则忽略
+extra_items_file: data/templates/extra-feedback.jsonl
+
+# 用 --write-golden 生成黄金集草稿时的版本号
+golden_version: v1

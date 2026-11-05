@@ -28,3 +28,4 @@ docs/compare/*.html
 .idea/
 .vscode/
 *.swp
+config/local.env

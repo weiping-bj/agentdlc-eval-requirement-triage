@@ -81,6 +81,8 @@
       <tr><td><a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条填“操作”列：保留 / 修改 / 删除 / 新增；O–U 列是需求原文（对照判断用），V 列“备注”可自由填写</td><td>产品 + 研发代表</td></tr>
       <tr><td><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>任意组员</td></tr>
     </table>
+    <div class="note"><b>想新增样例？</b>新增的样例不必来自那 60 条 mock 需求：在 <a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a> 里“操作”填 <code>新增</code>、<code>feedback_id</code> 留空，写上需求原文（O–U 列）和期望标签（D–N 列）；脚本自动编号为 <code>FB-NEW-9xx</code>，跑黄金集时直接用这一行的需求原文作为 Agent 输入。</div>
+    <div class="warn">如果新样例的期望标签依赖“很多客户都提过”（通用性），还要把它和相似需求加进上个月的需求池 <code>data/feedback_last_month.jsonl</code>（Agent 的 <code>find_similar_requests</code> 工具只在这里找相似需求）：用提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">02-regenerate-mock-data.md</a>，按 <a data-repo="data/templates/extra-feedback.example.jsonl">extra-feedback.example.jsonl</a> 的格式写进 <code>data/templates/extra-feedback.jsonl</code>（现场新建）再重新生成，否则 Agent 看不到证据，会被判错。详见 <a href="02-data.html#s-2-5">第 2.5 步</a>。</div>
     <p><b>填写示例</b>（<a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a> 第 1.1、2 节节选：只改 <code>【填写】</code> 处，没讨论到的保留默认值）：</p>
 <pre class="out">### 1.1 标签方案（二选一，在 [ ] 里打 x）
 - [x] A. 二元（默认）：是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估

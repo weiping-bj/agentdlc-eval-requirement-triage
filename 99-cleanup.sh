@@ -5,6 +5,7 @@
 #   ./99-cleanup.sh --verify-only   # 只检查残留
 #   ./99-cleanup.sh --all           # 讲师：删除本账号本区域所有 s12lab 资源（含 EC2 堆栈）
 #   ./99-cleanup.sh --all --account-level   # 讲师最终清理：再关闭 Transaction Search、删除 aws/spans
+#   ./99-cleanup.sh --all --account-level --service-linked-roles   # 并删除实验中自动创建的服务关联角色
 set -euo pipefail
 cd "$(dirname "$0")"
 if [[ " $* " == *" --all "* ]]; then

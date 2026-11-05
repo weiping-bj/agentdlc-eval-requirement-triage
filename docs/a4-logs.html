@@ -69,10 +69,14 @@
     ✅ user_input   必填 5/5
     ✅ agent_output 必填 5/5
     ✅ feedback_id  可选 5/5
-    ...
-  Agent 输出可解析为“三项判断”JSON：5/5（标签准确率评估器需要）
-  ℹ️  5 行时间早于 14 天，发送时会自动平移到最近 1 小时内（保留先后顺序）
-✅ 字段检查通过。下一步：./11-A-convert-logs.sh send telemetry/samples/customer-agent-logs.jsonl</pre><!-- VERIFY --></div>
+    ⚠️  model        可选 4/5
+    ⚠️  latency_ms   可选 4/5
+    ⚠️  agent_name   可选 1/5
+    ⚠️  tool_calls   可选 2/5
+  Agent 输出可解析为“三项判断”JSON：4/5（标签准确率评估器需要）
+  ℹ️  5 行时间早于 14 天；发送时所有记录都会按原顺序重排到最近几分钟内
+✅ 字段检查通过。下一步：./11-A-convert-logs.sh send telemetry/samples/customer-agent-logs.jsonl</pre>
+  <p>样例里故意放了一行“纯文字输出”（不是 JSON），所以是 4/5：这一行导入后，标签准确率评估器会给出 <code>FormatError</code>，正好演示“客户 Agent 输出不规范”时评估能发现问题。</p></div>
   <div class="warn">必填字段缺失（没有会话 ID、没有输出、没有时间）时不能导入。这种情况先和客户确认能否补导出；补不了就到 <a href="a5-check.html#s-a5-3">A5.3</a> 切换到 B 版。</div>
 </div>
 
@@ -83,18 +87,21 @@
   <p>脚本做了三件事：</p>
   <ol class="clicks">
     <li>把每行日志变成一组 OTel span（Agent 调用 + 工具调用 + 输入输出事件），格式和 Strands Agent 埋点产生的一致；</li>
-    <li>把早于 14 天的时间平移到<b>最近 1 小时内</b>（CloudWatch 不接收 14 天以前的 span），保留各条之间的先后顺序；</li>
+    <li>把时间重排到<b>最近几分钟内</b>（按原先后顺序，每条间隔 10 秒），因为 CloudWatch 不接收 14 天以前的 span；</li>
     <li>以服务名 <code>s12lab-zhang3-imported-logs</code> 发送到 CloudWatch，并登记为一次“运行”，后面 <code>./31-run-eval.sh</code> 可以直接评估它。</li>
   </ol>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
 📡 OTel 已配置：service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs · 区域 us-west-2
 ▶ 转换并发送 5 条日志 → service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
-  ✔ cust-sess-0001  FB-2610-001
-  ✔ cust-sess-0002  ...
-  ...
-✅ 已发送 5 个 session（run_id = A-imported-20261107T064000Z）。约 2-3 分钟后可在 CloudWatch 查到。
-   下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre><!-- VERIFY --></div>
+  ✔ s12lab-zhang3-imp-cust-sess-0001-6d968605c85f  FB-2610-001
+  ✔ s12lab-zhang3-imp-cust-sess-0002-3d9428ffb843  FB-2610-002
+  ✔ s12lab-zhang3-imp-cust-sess-0003-75b320f2afc3  FB-2610-003
+  ✔ s12lab-zhang3-imp-cust-sess-0004-18befc970f97  FB-2610-005
+  ✔ s12lab-zhang3-imp-cust-sess-0005-abbcdc7f76cd  FB-2610-007
+✅ 已发送 5 个 session（run_id = A-imported-20261105T144741Z）。约 2-3 分钟后可在 CloudWatch 查到。
+   下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre>
+  <p>日志里的 <code>session_id</code> 太短时（少于 33 个字符），脚本会自动加上前缀和后缀，所以 session 名形如 <code>s12lab-zhang3-imp-cust-sess-0001-…</code>。中间若出现 OpenTelemetry 的 <code>WARNING</code> 行，可以忽略。</p></div>
 </div>
 
 <div class="step" id="s-a4-5">
@@ -102,9 +109,9 @@
   <p class="why">在控制台看到导入的会话和 trace。</p>
   <ol class="clicks">
     <li>等 2–3 分钟。CloudWatch → <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → Agents 列表找到 <code>s12lab-zhang3-imported-logs</code>。</li>
-    <li>点进去 → <span class="ui">Sessions</span>：session 名就是日志里的 <code>session_id</code>；点开看 trace 里的输入和输出。</li>
+    <li>点进去 → <span class="ui">Sessions</span>：session 名形如 <code>s12lab-zhang3-imp-&lt;日志里的 session_id&gt;-…</code>；点开看 trace 里的输入和输出。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>session 数量与日志行数（不同 session_id 的个数）一致。<!-- VERIFY --></div>
+  <div class="expect"><span class="label">预期结果：</span>5 个 session，与日志行数一致；每个 trace 有 <code>invoke_agent customer_agent</code>（或日志里的 <code>agent_name</code>）→ <code>chat</code>，带工具调用的 2 行还有 <code>execute_tool …</code>。输入输出内容比 span 晚 1–3 分钟可查。</div>
   <p>下一步：<a href="a5-check.html">A5 遥测检查</a>。</p>
 </div>
 

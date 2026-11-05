@@ -31,7 +31,7 @@ def _pages(fn, key, **kw):
 
 
 class Cleaner:
-    def __init__(self, all_suffixes: bool, dry: bool):
+    def __init__(self, all_suffixes: bool, dry: bool, slr: bool = False, account_level: bool = False):
         c = labcfg.load(require_suffix=not all_suffixes)
         self.c = c
         p = c["LAB_PREFIX"]
@@ -39,6 +39,8 @@ class Cleaner:
         self.dash = f"{p}-" if all_suffixes else f"{p}-{c['LAB_SUFFIX']}-"
         self.all = all_suffixes
         self.dry = dry
+        self.slr = slr
+        self.account_level = account_level
         self.ctl = aws.client("bedrock-agentcore-control")
 
     def act(self, what: str, fn, *a, **kw):
@@ -82,10 +84,12 @@ class Cleaner:
 
     def log_groups(self, runtime_ids=()):
         logs = aws.client("logs")
-        prefixes = [f"/aws/bedrock-agentcore/{self.dash}", f"/aws/lambda/{self.dash}"]
+        # runtime ids / online config ids start with their (prefixed) names, so prefixes also catch
+        # groups whose runtime or online config was already deleted
+        prefixes = [f"/aws/bedrock-agentcore/{self.dash}", f"/aws/lambda/{self.dash}",
+                    f"/aws/bedrock-agentcore/runtimes/{self.us}",
+                    f"/aws/bedrock-agentcore/evaluations/results/{self.us}"]
         prefixes += [f"/aws/bedrock-agentcore/runtimes/{rid}" for rid in runtime_ids]
-        if self.all:
-            prefixes += ["/aws/bedrock-agentcore/runtimes/" + self.us]
         out = []
         for pre in prefixes:
             for page in logs.get_paginator("describe_log_groups").paginate(logGroupNamePrefix=pre):
@@ -101,6 +105,23 @@ class Cleaner:
                     logGroupNamePrefix=f"/aws/bedrock-agentcore/evaluations/results/{cid}"):
                 out += [g["logGroupName"] for g in page["logGroups"]]
         return out
+
+    SLR_NAMES = ("AWSServiceRoleForBedrockAgentCoreRuntimeIdentity", "AWSServiceRoleForCloudWatchApplicationSignals")
+
+    def service_linked_roles(self):
+        iam = aws.client("iam")
+        out = []
+        for n in self.SLR_NAMES:
+            try:
+                iam.get_role(RoleName=n)
+                out.append(n)
+            except iam.exceptions.NoSuchEntityException:
+                pass
+        return out
+
+    def _exists_group(self, name: str) -> bool:
+        r = aws.client("logs").describe_log_groups(logGroupNamePrefix=name)
+        return any(g["logGroupName"] == name for g in r.get("logGroups", []))
 
     def stacks(self):
         cfn = aws.client("cloudformation")
@@ -118,7 +139,7 @@ class Cleaner:
         print(f"▶ 清理范围：{'本账号所有 s12lab 资源' if self.all else '我的资源 ' + self.dash + '*'} · 区域 {self.c['AWS_REGION']}")
         cfgs = self.online_configs()
         cfg_ids = [x["onlineEvaluationConfigId"] for x in cfgs]
-        result_groups = self.eval_result_groups(cfg_ids)
+        result_groups = [g for g in self.eval_result_groups(cfg_ids)]
         for x in cfgs:
             cid = x["onlineEvaluationConfigId"]
             self.act(f"停用在线评估 {x['onlineEvaluationConfigName']}", self.ctl.update_online_evaluation_config,
@@ -146,7 +167,7 @@ class Cleaner:
                 bk.delete()
             self.act(f"清空并删除 S3 桶 {b}", empty_and_delete)
         logs = aws.client("logs")
-        for g in self.log_groups(rids) + result_groups:
+        for g in sorted(set(self.log_groups(rids) + result_groups)):
             self.act(f"删除日志组 {g}", logs.delete_log_group, logGroupName=g)
         iam = aws.client("iam")
         for rn in self.roles():
@@ -175,7 +196,12 @@ class Cleaner:
             from . import observability
             if not self.dry:
                 observability.disable()
-            self.act("删除 aws/spans 日志组（账号级，所有人的 trace）", logs.delete_log_group, logGroupName="aws/spans")
+            for g in ("aws/spans", "/aws/application-signals/data"):
+                if self._exists_group(g):
+                    self.act(f"删除日志组 {g}（账号级，Transaction Search 写入）", logs.delete_log_group, logGroupName=g)
+        if self.slr:
+            for rn in self.service_linked_roles():
+                self.act(f"删除服务关联角色 {rn}（实验期间由服务自动创建）", iam.delete_service_linked_role, RoleName=rn)
         if not self.dry and not self.all:
             st = aws.cfg()["STATE_DIR"]
             import shutil
@@ -202,6 +228,21 @@ class Cleaner:
         for name, xs in checks:
             print(f"  {'✅' if not xs else '❌'} {name}: {len(xs)} {xs if xs else ''}")
             left += len(xs)
+        if self.account_level:
+            x = aws.client("xray").get_trace_segment_destination()
+            acct = [g for g in ("aws/spans", "/aws/application-signals/data") if self._exists_group(g)]
+            try:
+                aws.client("logs").describe_resource_policies()  # noqa: B018
+                pol = [p["policyName"] for p in aws.client("logs").describe_resource_policies().get("resourcePolicies", [])
+                       if p["policyName"] == "TransactionSearchXRayAccess"]
+            except Exception:  # noqa: BLE001
+                pol = []
+            items = acct + pol + ([] if x.get("Destination") == "XRay" else [f"trace destination {x.get('Destination')}"])
+            print(f"  {'✅' if not items else '❌'} 账号级（Transaction Search）: {len(items)} {items if items else '（已恢复：trace 目的地 XRay）'}")
+            left += len(items)
+        if self.slr:
+            s = self.service_linked_roles()
+            print(f"  {'✅' if not s else 'ℹ️ '} 服务关联角色: {len(s)} {s if s else ''}（删除为异步，几分钟后再查）")
         if self.all:
             print(f"  {'✅' if not stacks else '❌'} EC2 堆栈: {len(stacks)} {stacks if stacks else ''}")
             left += len(stacks)
@@ -216,10 +257,12 @@ def main(argv=None) -> int:
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--account-level", action="store_true")
     ap.add_argument("--stacks", action="store_true", help="also delete EC2 stacks (default with --all)")
+    ap.add_argument("--service-linked-roles", action="store_true",
+                    help="instructor: also delete the service-linked roles AgentCore/Application Signals created")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--verify-only", action="store_true")
     a = ap.parse_args(argv)
-    cl = Cleaner(a.all, a.dry_run)
+    cl = Cleaner(a.all, a.dry_run, slr=a.service_linked_roles, account_level=a.account_level)
     if not a.verify_only:
         cl.run(a.account_level, a.stacks or a.all)
         if not a.dry_run:

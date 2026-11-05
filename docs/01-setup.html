@@ -44,21 +44,25 @@ bash launch-from-cloudshell.sh zhang3</code></pre>
   <div class="expect"><span class="label">预期输出（约 3–5 分钟）：</span>
 <pre class="out">==&gt; 区域: us-west-2    堆栈: s12lab-ec2-zhang3
 ==&gt; 选择网络（机型 t3.large）...
-    使用默认 VPC: vpc-0abc...  子网: subnet-0def...
+    使用默认 VPC: vpc-0c40…  子网: subnet-0a9c…
 ==&gt; 正在创建/更新 EC2（约 3-5 分钟，请勿关闭窗口）...
-==&gt; 实例 ID:   i-0123456789abcdef0
-==&gt; 登录链接:  https://us-west-2.console.aws.amazon.com/systems-manager/session-manager/i-0123...?region=us-west-2
+
+Waiting for changeset to be created..
+Waiting for stack create/update to complete
+Successfully created/updated stack - s12lab-ec2-zhang3
+==&gt; 实例 ID:   i-06dd…
+==&gt; 登录链接:  https://us-west-2.console.aws.amazon.com/systems-manager/session-manager/i-06dd…?region=us-west-2
 ==&gt; 等待 EC2 在 Session Manager 中上线（最多约 5 分钟）...
 
 ==================== s12lab EC2 ====================
   后缀:      zhang3
   区域:      us-west-2
-  实例 ID:   i-0123456789abcdef0
-  登录链接:  https://us-west-2.console.aws.amazon.com/systems-manager/session-manager/i-0123...
+  实例 ID:   i-06dd…
+  登录链接:  https://us-west-2.console.aws.amazon.com/systems-manager/session-manager/i-06dd…?region=us-west-2
   状态:      已上线，可以登录
   下一步:    打开登录链接 → 点击 Connect / 连接 → 在命令行中先执行:
              sudo su - ec2-user
-====================================================</pre><!-- VERIFY -->
+====================================================</pre>
   </div>
   <div class="tip">重复运行是安全的：堆栈已存在时不会重新部署，只会再打印一次登录链接。如果提示“堆栈已存在”但不是你创建的，说明后缀和别人重了，换一个后缀重新运行。</div>
 </div>
@@ -96,20 +100,23 @@ bash launch-from-cloudshell.sh zhang3</code></pre>
 bash ec2/setup-ec2.sh</code></pre>
   <p class="where">脚本：<a data-repo="ec2/setup-ec2.sh">ec2/setup-ec2.sh</a>（可重复运行；日志在 <code>~/s12lab-setup.log</code>）· Python 依赖清单：<a data-repo="requirements.txt">requirements.txt</a></p>
   <div class="expect"><span class="label">预期输出（结尾，约 3–5 分钟）：</span>
-<pre class="out">==================== s12lab 安装完成 ====================
-  python(.venv) Python 3.12.x
-  node         v22.x.x
-  npm          10.x.x
-  aws          aws-cli/2.x.x Python/3.x Linux/...
-  claude       x.y.z (Claude Code)
+<pre class="out"> + strands-agents==1.64.0
+ …
+==================== s12lab 安装完成 ====================
+  python(.venv) Python 3.12.16
+  node         v22.23.4
+  npm          10.9.9
+  aws          aws-cli/2.38.0 Python/3.9.25 Linux/6.18.56-125.164.amzn2023.x86_64 source/x86_64.amzn.2023
+  claude       2.1.318 (Claude Code)
   region       us-west-2
   model        us.anthropic.claude-sonnet-5-5  (fast: us.anthropic.claude-haiku-5-5)
-  identity     arn:aws:sts::&lt;account&gt;:assumed-role/s12lab-ec2-zhang3-us-west-2/i-0123...
+  identity     arn:aws:sts::&lt;account&gt;:assumed-role/s12lab-ec2-zhang3-us-west-2/i-06dd…
   日志:   /home/ec2-user/s12lab-setup.log
 
 下一步（复制整行执行）:
   cd /home/ec2-user/scenario12-lab &amp;&amp; source ~/.bashrc &amp;&amp; source .venv/bin/activate &amp;&amp; ./01-check-env.sh
-=========================================================</pre><!-- VERIFY --></div>
+=========================================================</pre></div>
+  <div class="tip">实测在 t3.large 上约 4–6 分钟（下载 Python 依赖占大头），版本号以你看到的为准。</div>
   <p>然后执行脚本最后打印的那一行（加载环境变量、进入 Python 虚拟环境）：</p>
 <pre><code>cd ~/scenario12-lab &amp;&amp; source ~/.bashrc &amp;&amp; source .venv/bin/activate</code></pre>
 </div>
@@ -142,27 +149,28 @@ LOCAL_SERVICE_NAME          s12lab-zhang3-local-agent</pre></div>
   <p class="where">检查逻辑：<a data-repo="labkit/checkenv.py">labkit/checkenv.py</a></p>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">① Python 与依赖
-  ✅ Python 3.12.x
-  ✅ strands-agents 1.x
-  ✅ bedrock-agentcore 1.x
-  ✅ aws-opentelemetry-distro 0.x
-  ✅ boto3 1.x
+  ✅ Python 3.12.16
+  ✅ strands-agents 1.64.0
+  ✅ bedrock-agentcore 1.25.3
+  ✅ aws-opentelemetry-distro 0.22.0
+  ✅ boto3 1.43.124
 ② 配置与身份
   ✅ 区域 us-west-2 · 个人后缀 zhang3 · 资源名前缀 s12lab-zhang3
-  ✅ 身份 arn:aws:sts::&lt;account&gt;:assumed-role/s12lab-ec2-zhang3-us-west-2/i-0123...
+  ✅ 身份 arn:aws:sts::&lt;account&gt;:assumed-role/s12lab-ec2-zhang3-us-west-2/i-06dd…
 ③ Bedrock 模型
   ✅ Agent 模型 us.anthropic.claude-sonnet-5-5 可用（回复：收到）
 ④ CloudWatch Transaction Search
   ⚠️  未开启（当前 XRay/ACTIVE）→ 运行 ./02-enable-observability.sh
 
-✅ 环境检查通过。下一步：./02-enable-observability.sh（每个账号/区域只需一次）</pre><!-- VERIFY --></div>
+✅ 环境检查通过。下一步：./02-enable-observability.sh（每个账号/区域只需一次）</pre>
+  <p>同组已经有人做过 1.8 时，④ 会直接显示 <code>✅ 已开启（trace 写入 CloudWatch Logs 的 aws/spans）</code>。</p></div>
   <div class="warn">如果 ③ 显示 <code>❌ ... 不可用：AccessDeniedException</code>（账号没有开通 Claude 模型），执行下面一行切换到 Amazon Nova，再重跑检查：
 <pre><code>./tools/use-model.sh nova &amp;&amp; ./01-check-env.sh</code></pre>
   切回 Claude：<code>./tools/use-model.sh claude</code>。脚本：<a data-repo="tools/use-model.sh">tools/use-model.sh</a></div>
 </div>
 
 <div class="step" id="s-1-8">
-  <div class="step-head"><span class="num">1.8</span><h3>开启 CloudWatch Transaction Search（每个账号一次）</h3><span class="time">2 分钟</span></div>
+  <div class="step-head"><span class="num">1.8</span><h3>开启 CloudWatch Transaction Search（每个账号一次）</h3><span class="time">5–10 分钟</span></div>
   <p class="why">让 trace 数据写进 CloudWatch，评估服务才能读到。</p>
 <pre><code>./02-enable-observability.sh</code></pre>
   <p class="where">脚本：<a data-repo="labkit/observability.py">labkit/observability.py</a>（可重复运行；同组有人已开启时会直接提示“已经开启”）</p>
@@ -170,7 +178,10 @@ LOCAL_SERVICE_NAME          s12lab-zhang3-local-agent</pre></div>
 <pre class="out">  ✅ 已授权 X-Ray 写入 aws/spans
   ✅ span 索引比例设为 100%
   ⏳ 等待生效… 当前状态 PENDING
-✅ Transaction Search 已开启。新的 trace 会写入 CloudWatch Logs 的 aws/spans。</pre><!-- VERIFY -->
+  ⏳ 等待生效… 当前状态 PENDING
+  …（每 15 秒一行）
+✅ Transaction Search 已开启。新的 trace 会写入 CloudWatch Logs 的 aws/spans。</pre>
+  <div class="warn">新账号第一次开启<b>可能需要 5–10 分钟</b>（实测约 6 分钟，脚本最多等 10 分钟），期间可以另开一个 Session Manager 窗口继续第 2 章。</div>
   或（同账号已有人开启过）：
 <pre class="out">✅ Transaction Search 已经开启，无需操作。</pre></div>
   <div class="note">控制台确认位置：CloudWatch →（左侧）Application Signals → <span class="ui">Transaction search</span>，状态显示已启用。</div>
@@ -183,6 +194,10 @@ LOCAL_SERVICE_NAME          s12lab-zhang3-local-agent</pre></div>
   <p>Claude Code 已由安装脚本配置为通过 EC2 实例角色调用 Amazon Bedrock（<code>CLAUDE_CODE_USE_BEDROCK=1</code>，模型取自 <a data-repo="config/lab.env">config/lab.env</a> 的 <code>CODING_AGENT_MODEL_ID</code>），不需要 API Key。进入后先试一句：</p>
 <pre><code>用三句话介绍这个仓库的目录结构，以及第 2 章要用到哪些文件</code></pre>
   <div class="expect"><span class="label">预期结果：</span>Claude Code 读取仓库后用中文回答；退出按 <kbd>Ctrl</kbd>+<kbd>C</kbd> 两次或输入 <code>/exit</code>。</div>
+  <p>只想快速确认 Claude Code 能连上 Bedrock（不进入交互界面）：</p>
+<pre><code>claude -p "只回复两个字：收到"</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">收到</pre></div>
   <div class="tip">所有给 coding agent 的提示词都放在 <a data-repo="data/prompts/">data/prompts/</a>，是普通中文文本，换成其它 coding agent（Kiro、Cursor、Codex 等）也可以直接使用。</div>
 </div>
 

@@ -25,9 +25,10 @@
   <p class="where">脚本：<a data-repo="10-A-run-local.sh">10-A-run-local.sh</a> → <a data-repo="labkit/batch.py">labkit/batch.py</a>（逐条调用 Agent，结果写到 <code>results/</code>）</p>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">▶ 运行 1 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 1
-  [ 1/1] FB-2610-001      12.3s  重要=是 紧急=否 建议=迭代
-✅ 完成：1 条，用时 13s，失败 0 条 → results/run-A-smoke-213000.jsonl
-   run_id = A-smoke-213000</pre><!-- VERIFY --></div>
+  [ 1/1] FB-2610-001       11.9s  重要=是 紧急=否 建议=迭代
+✅ 完成：1 条，用时 12s，失败 0 条 → results/run-A-smoke-215617.jsonl
+   run_id = A-smoke-215617</pre>
+  <p>每条需求大约 10–20 秒（Claude Sonnet 5.5），run_id 里的数字是当时的时间。</p></div>
   <div class="tip">想看 Agent 的完整输出：<code>tail -1 results/run-A-smoke-*.jsonl | python3 -m json.tool</code></div>
 </div>
 
@@ -92,12 +93,16 @@ finally:
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent
 📡 OTel 已配置：service.name=s12lab-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent · 区域 us-west-2
+… WARNING [opentelemetry.instrumentation.logging] … Skipping installation of LoggingHandler …
+… WARNING [opentelemetry.instrumentation.instrumentor] … Attempting to instrument while already instrumented
+… INFO [strands.telemetry.metrics] … Creating Strands MetricsClient
 ▶ 运行 3 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 4
-  [ 1/3] FB-2610-001      11.8s  重要=是 紧急=否 建议=迭代
-  [ 2/3] FB-2610-002      10.2s  重要=否 紧急=否 建议=拒绝
-  [ 3/3] FB-2610-003       9.7s  重要=是 紧急=是 建议=迭代
-✅ 完成：3 条，用时 14s，失败 0 条 → results/run-A-v0-20261107T063000Z.jsonl
-   run_id = A-v0-20261107T063000Z</pre><!-- VERIFY --></div>
+  [ 1/3] FB-2610-001       17.3s  重要=是 紧急=否 建议=迭代
+  [ 2/3] FB-2610-002       24.2s  重要=是 紧急=否 建议=待评估
+  [ 3/3] FB-2610-003       11.1s  重要=是 紧急=是 建议=迭代
+✅ 完成：3 条，用时 25s，失败 0 条 → results/run-A-v0-20261105T135653Z.jsonl
+   run_id = A-v0-20261105T135653Z</pre>
+  <div class="tip">中间几行 <code>WARNING</code> / <code>INFO</code> 是 OpenTelemetry 自己的提示，<b>属于正常现象，可以忽略</b>。只要最后一行是 <code>✅ 完成</code> 就说明数据已经发出。</div></div>
   <div class="warn">trace 进入 CloudWatch 有 <b>1–3 分钟</b>延迟。等两三分钟再做 A3.6 / A5。</div>
 </div>
 
@@ -110,7 +115,7 @@ finally:
     <li>点进去 → <span class="ui">Sessions</span>：能看到 3 个 session（名字形如 <code>s12lab-zhang3-v0-FB-2610-001-…</code>）→ 点任一 session → <span class="ui">Traces</span>：能看到 <code>s12lab.triage</code> → <code>invoke_agent</code> → <code>chat</code> / <code>execute_tool lookup_capability</code> 的调用树。</li>
     <li>（可选）CloudWatch → <span class="ui">Application Signals</span> → <span class="ui">Transaction search</span>：筛选 <code>service.name = s12lab-zhang3-local-agent</code>，看到原始 span。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>3 个 session，每个 1 个 trace；trace 里有模型调用和工具调用。<!-- VERIFY: 控制台菜单名以实际界面为准 --></div>
+  <div class="expect"><span class="label">预期结果：</span>3 个 session，每个 1 个 trace。实测的 trace 结构（span 名）：<code>s12lab.triage</code> → <code>invoke_agent s12lab_triage_v0</code> → <code>execute_event_loop_cycle</code> → <code>chat</code> / <code>execute_tool lookup_capability</code>（另有一个 <code>chat us.anthropic.claude-sonnet-5-5</code> 是 Bedrock 调用本身）。模型的输入和输出内容在你的日志组 <code>/aws/bedrock-agentcore/s12lab-zhang3-local-agent</code> 里，晚 1–3 分钟出现。控制台菜单名称可能随版本略有不同。</div>
   <p>下一步：只有 Agent 埋点的组 → 直接到 <a href="a5-check.html">A5 遥测检查</a>；手里只有历史日志的组 → 先做 <a href="a4-logs.html">A4</a>。</p>
 </div>
 

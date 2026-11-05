@@ -54,7 +54,7 @@ def enable() -> int:
 def disable() -> int:
     logs, xray = aws.client("logs"), aws.client("xray")
     try:
-        xray.update_indexing_rule(Name="Default", Rule={"Probabilistic": {"DesiredSamplingPercentage": 1}})
+        xray.update_indexing_rule(Name="Default", Rule={"Probabilistic": {"DesiredSamplingPercentage": 0}})
     except Exception as e:  # noqa: BLE001
         print(f"  (indexing rule: {e})")
     xray.update_trace_segment_destination(Destination="XRay")

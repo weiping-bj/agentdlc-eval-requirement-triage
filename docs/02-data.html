@@ -73,11 +73,28 @@ CAP-008 已支持 自定义函数</pre></div>
   </ol>
 <pre><code>python3 data/tools/ingest_customer_data.py --in data/customer/客户需求导出.xlsx</code></pre>
   <p class="where">脚本：<a data-repo="data/tools/ingest_customer_data.py">data/tools/ingest_customer_data.py</a>。列名识别不了时，参考 <a data-repo="data/templates/column-mapping.example.json">column-mapping.example.json</a> 写一个 <code>data/customer/mapping.json</code>，加 <code>--mapping data/customer/mapping.json</code> 重跑；Excel 有多个工作表时加 <code>--sheet 工作表名</code>。</p>
-  <div class="expect"><span class="label">预期结果：</span><code>data/customer/</code> 下生成 3 个文件：<code>feedback.normalized.jsonl</code>（统一格式）、<code>report.md</code>（数据充分性报告：字段覆盖、文本质量、个人信息、能否支撑三项判断，结论为“充足 / 基本可用 / 不足”）、以及客户数据带有历史判断时的 <code>golden_candidates.jsonl</code>（黄金集候选）。<!-- VERIFY --></div>
+  <div class="expect"><span class="label">预期结果：</span><code>data/customer/</code> 下生成 <code>feedback.normalized.jsonl</code> 和 <code>.csv</code>（统一格式）、<code>report.md</code>（数据充分性报告：字段覆盖、文本质量、个人信息、能否支撑三项判断，结论为“充足 / 基本可用 / 不足”）；客户数据带有历史判断（是否重要 / 是否紧急 / 处理建议）时还会生成 <code>golden_candidates.jsonl</code>（黄金集候选）。下面是用仓库自带 60 条数据试跑时 <code>report.md</code> 的开头（节选）：
+<pre class="out"># 客户数据充分性报告
+
+- 来源文件：`feedback_last_month.csv`（60 行 → 有效 60 条）
+
+## 结论：充足：可直接用于实验
+
+| 检查项 | 结果 | 要求 | 不满足时怎么办 |
+|---|---|---|---|
+| 需求原文 | ✅ | ≥95% 有描述，且过短（&lt;15 字）不超过 30% |  |
+| 是否重要 的依据 | ✅ | 客户或客户等级 ≥80%，模块 ≥50% |  |
+| 是否紧急 的依据 | ✅ | 反馈类型 ≥60%（区分缺陷/新需求），或描述里有故障信息 |  |
+| 处理建议 的依据 | ✅ | 需求原文齐全 + 平台能力目录 |  |
+| 时间范围 | ✅ | 提交时间 ≥80%（确认是“上个月”的数据） |  |
+| 数量 | ✅ | ≥30 条（黄金集 30 条 + 留出评估样本） |  |
+…
+## 能否直接做黄金集
+- 客户数据不带历史判断：黄金集需要现场标注（按 LABELING_GUIDE.md），或沿用 mock 黄金集</pre></div>
 <pre><code>cat data/customer/report.md</code></pre>
   <table>
     <tr><th>结论</th><th>下一步</th></tr>
-    <tr><td><span class="pill g">充足</span></td><td>加 <code>--use-as-input</code> 重跑，把客户数据作为 Agent 输入（原 mock 文件自动备份）</td></tr>
+    <tr><td><span class="pill g">充足</span></td><td>加 <code>--use-as-input</code> 重跑：在 <code>data/customer/agent_data/</code> 生成 Agent 可读的数据目录，并打印一行 <code>export S12_DATA_DIR=…</code>，执行它之后 Agent（包括 B 版部署打包）就改用客户数据；仓库里的 mock 文件不会被改动</td></tr>
     <tr><td><span class="pill o">基本可用</span></td><td>请客户补充报告里列出的字段；或把客户条目追加到 mock 数据里一起用</td></tr>
     <tr><td><span class="pill r">不足</span></td><td><b>继续使用我们的 mock 数据</b>。报告里有一句可以直接用来说服客户的原因（例如“缺少客户等级和反馈类型，Agent 无法判断重要和紧急，评估结果没有可比性”）</td></tr>
   </table>
@@ -96,7 +113,18 @@ CAP-008 已支持 自定义函数</pre></div>
   <p>（或者先运行 <code>claude</code>，再把提示词文件内容粘贴进去。）只改参数、不加新条目时，直接运行生成脚本：</p>
 <pre><code>python3 data/tools/generate_mock_data.py</code></pre>
   <p class="where">脚本：<a data-repo="data/tools/generate_mock_data.py">data/tools/generate_mock_data.py</a>（同样的参数 + 同样的随机种子 = 同样的结果）</p>
-  <div class="expect"><span class="label">预期结果：</span><code>data/feedback_last_month.jsonl</code> 与 <code>.csv</code> 按新参数重新生成，脚本打印条数和各类别数量。<!-- VERIFY --></div>
+  <div class="expect"><span class="label">预期输出</span>（默认参数，结果与仓库里的文件完全一致）：
+<pre class="out">已生成 60 条需求反馈 → data/feedback_last_month.jsonl（CSV：data/feedback_last_month.csv）
+  - 通用能力缺口（应迭代）：15
+  - 已有能力被重复提出（应拒绝并给用法）：12
+  - 价值高但难度大（待评估）：8
+  - 线上故障/缺陷（不可拒绝）：6
+  - 超出平台定位（应拒绝）：5
+  - 技术不可行或违背安全合规（应拒绝）：5
+  - 描述模糊/多诉求混合（待评估）：3
+  - 单客户深度定制（应拒绝并给替代）：2
+  - 对抗样本（注入指令/施压）：2
+  - 合规或合同承诺（不可拒绝）：2</pre></div>
   <div class="tip">默认不覆盖黄金集。黄金集请走 2.5 的流程修改，这样每条改动都有记录。</div>
 </div>
 
@@ -116,6 +144,8 @@ CAP-008 已支持 自定义函数</pre></div>
     <tr><td>V 备注</td><td>评审人的自由文字说明（例如“产品和研发有分歧”）</td><td><b>不会</b>进入 Agent 输入，也不影响标签</td></tr>
   </table>
   <div class="warn">“操作”列写成其它文字（例如“改一下”）的行不会生效：<code>apply-feedback</code> 会在最后用醒目的 ❌ 列出这些行并且<b>不写入</b>，改好后重新运行即可。<code>修改标签</code>、<code>新增样例</code> 这类常见写法也能识别。</div>
+  <div class="note"><b>“新增”怎么填：</b>新增的样例<b>不必</b>来自那 60 条 mock 需求。<code>feedback_id</code> 留空，填写 O–U 列（需求原文）和 D–N 列（期望标签等）即可；脚本会自动编号为 <code>FB-NEW-9xx</code>（例如 <code>FB-NEW-901</code>），跑黄金集时直接把这一行里的需求原文作为 Agent 的输入。</div>
+  <div class="warn"><b>注意：</b>Agent 的 <code>find_similar_requests</code> 工具只在 <code>data/feedback_last_month.jsonl</code>（上个月的需求池）里找相似需求。如果这条新样例的期望标签依赖“很多客户都提过”（通用性），必须同时把这条需求以及它的相似需求加进需求池：用 coding agent 提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">data/prompts/02-regenerate-mock-data.md</a>，按 <a data-repo="data/templates/extra-feedback.example.jsonl">data/templates/extra-feedback.example.jsonl</a> 的格式写进 <code>data/templates/extra-feedback.jsonl</code>（现场新建）再重新生成（见 2.4）；否则 Agent 看不到这个证据，标签会被判错。</div>
 <pre><code>python3 data/tools/golden_tool.py feedback-template</code></pre>
   <ol class="clicks" start="3">
     <li>把两份模板交给 coding agent，它会读模板、调用脚本更新黄金集并校验：</li>
@@ -123,9 +153,21 @@ CAP-008 已支持 自定义函数</pre></div>
 <pre><code>claude "$(cat data/prompts/03-update-golden-set.md)"</code></pre>
   <p class="where">提示词：<a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>（最常用）。相关的还有：补充 / 纠正能力目录 <a data-repo="data/prompts/04-update-capability-catalog.md">04-update-capability-catalog.md</a>（读模板第 3 节）；从“是/否”切换到 P0/P1/P2 <a data-repo="data/prompts/05-switch-label-scheme.md">05-switch-label-scheme.md</a>（读模板第 1.1 节）。</p>
   <p>如果只是按 CSV 改标签（不需要 coding agent 写新样例），也可以直接运行：</p>
-<pre><code>python3 data/tools/golden_tool.py apply-feedback --feedback data/templates/golden-set-feedback.csv --version v2</code></pre>
+<pre><code>python3 data/tools/golden_tool.py apply-feedback --feedback data/templates/golden-set-feedback.csv --version v2 --dry-run
+python3 data/tools/golden_tool.py apply-feedback --feedback data/templates/golden-set-feedback.csv --version v2</code></pre>
+  <p>第一行只预览（不写入），确认无误再执行第二行。</p>
   <p>选了分级（P0/P1/P2）但还有条目没填优先级时，可以先按“重要 / 紧急”自动推导一版再人工确认：<code>python3 data/tools/golden_tool.py fill-levels</code></p>
-  <div class="expect"><span class="label">预期结果：</span><code>data/golden/golden_set.jsonl</code> 更新，脚本打印改了几条、新增几条，并给出新的标签分布。<!-- VERIFY --></div>
+  <div class="expect"><span class="label">预期输出</span>（示例：1 行“修改”+ 1 行“新增”，预览模式）：
+<pre class="out">修改 G10
+新增 G31（FB-NEW-901）
+（dry-run，未写入）
+黄金集共 31 条
+- 是否重要：否 17，是 14
+- 是否紧急：否 25，是 6
+- 处理建议：待评估 6，拒绝 13，迭代 12（多答案可接受 6 条）
+…
+- 不可自动拒绝：6 条</pre>
+  去掉 <code>--dry-run</code> 正式运行时，最后一行是 <code>已写入 31 条（版本 v2），备份：…</code>。</div>
   <div class="note">标注标准变了，记得同时更新 <a data-repo="data/golden/LABELING_GUIDE.md">LABELING_GUIDE.md</a>（coding agent 提示词会提醒你）。后面第 8 章优化 Agent 时，提示词也要和新口径一致。</div>
 </div>
 

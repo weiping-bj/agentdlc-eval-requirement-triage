@@ -23,7 +23,6 @@ def role_arn() -> str:
         "Condition": {"StringEquals": {"aws:SourceAccount": a, "aws:ResourceAccount": a},
                       "ArnLike": {"aws:SourceArn": [f"arn:aws:bedrock-agentcore:{r}:{a}:evaluator/*",
                                                     f"arn:aws:bedrock-agentcore:{r}:{a}:online-evaluation-config/*"]}}}]}
-    lam = (aws.load_state("evaluators") or {}).get("_lambdas", {})
     inline = {"Version": "2012-10-17", "Statement": [
         {"Effect": "Allow", "Action": ["logs:DescribeLogGroups", "logs:GetQueryResults", "logs:StartQuery",
                                        "logs:StopQuery", "logs:FilterLogEvents", "logs:GetLogEvents",
@@ -38,7 +37,7 @@ def role_arn() -> str:
                                        "bedrock:Converse", "bedrock:ConverseStream"],
          "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]},
         {"Effect": "Allow", "Action": ["lambda:InvokeFunction", "lambda:GetFunction"],
-         "Resource": list(lam.values()) or [f"arn:aws:lambda:{r}:{a}:function:{c['LAB_NAME']}-*"]},
+         "Resource": [f"arn:aws:lambda:{r}:{a}:function:{c['LAB_NAME']}-eval-*"]},
         {"Effect": "Allow", "Action": ["cloudwatch:PutMetricData"], "Resource": "*"},
     ]}
     return aws.ensure_role(c["ONLINE_EVAL_ROLE_NAME"], trust, inline, "s12lab online evaluation role")
@@ -90,12 +89,25 @@ def enable(path: str) -> int:
                                             evaluators=evaluators, dataSourceConfig=data_source(path))
         print(f"✅ 在线评估配置 {name} 已启用（{cid}）")
     else:
-        r = ctl.create_online_evaluation_config(
-            onlineEvaluationConfigName=name,
-            description=f"s12lab online evaluation (path {path.upper()})",
-            rule={"samplingConfig": {"samplingPercentage": 100.0}, "sessionConfig": {"sessionTimeoutMinutes": 2}},
-            dataSourceConfig=data_source(path), evaluators=evaluators,
-            evaluationExecutionRoleArn=role_arn(), enableOnCreate=True, tags=aws.tags_dict())
+        import time
+        role = role_arn()
+        for attempt in range(8):
+            try:
+                r = ctl.create_online_evaluation_config(
+                    onlineEvaluationConfigName=name,
+                    description=f"s12lab online evaluation (path {path.upper()})",
+                    rule={"samplingConfig": {"samplingPercentage": 100.0}, "sessionConfig": {"sessionTimeoutMinutes": 2}},
+                    dataSourceConfig=data_source(path), evaluators=evaluators,
+                    evaluationExecutionRoleArn=role, enableOnCreate=True, tags=aws.tags_dict())
+                break
+            except (ctl.exceptions.ValidationException, ctl.exceptions.ConflictException) as e:
+                # fresh IAM permissions / a just-deleted config with the same name need a moment
+                if attempt < 7 and ("permission" in str(e).lower() or "exist" in str(e).lower()
+                                    or isinstance(e, ctl.exceptions.ConflictException)):
+                    print(f"  ⏳ 等待 IAM 权限生效后重试（{attempt + 1}/7）")
+                    time.sleep(10)
+                    continue
+                raise
         cid = r["onlineEvaluationConfigId"]
         print(f"✅ 已创建在线评估配置 {name}（{cid}），采样 100%，session 空闲 2 分钟后打分")
     st = aws.load_state("online", default={})

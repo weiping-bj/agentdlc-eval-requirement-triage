@@ -1,6 +1,6 @@
 """Chapter 9: static HTML page comparing two on-demand evaluations (V0 baseline vs V1 optimized).
 
-  python -m labkit.compare                                  # before = earliest v0 eval, after = latest other version
+  python -m labkit.compare                                  # after = latest non-v0 eval, before = latest v0 eval of the same path before it
   python -m labkit.compare --before results/eval-B-v0-....json --after results/eval-B-v1-....json
   python -m labkit.compare --before <eval json|run_id> --after <eval json|run_id> --out page.html
 
@@ -865,11 +865,15 @@ def pick_default() -> tuple:
     if len(evals) < 2:
         raise SystemExit("❌ .lab-state/evals.json 里不足两次评估记录：先对 V0 和 V1 各运行一次 ./31-run-eval.sh，"
                          "或用 --before / --after 指定两个 eval JSON")
-    before = next((e for e in evals if str(e.get("version") or "").lower() == "v0"), None)
-    after = None
-    if before is not None:
-        bv = str(before.get("version") or "").lower()
-        after = next((e for e in reversed(evals) if str(e.get("version") or "").lower() != bv), None)
+    # after = the latest non-v0 evaluation; before = the latest v0 evaluation of the same
+    # path (mode) that happened before it -> re-runs of V0 never pair with a stale baseline
+    ver = lambda e: str(e.get("version") or "").lower()  # noqa: E731
+    after = next((e for e in reversed(evals) if ver(e) not in ("v0", "")), None)
+    before = None
+    if after is not None:
+        idx = evals.index(after)
+        before = next((e for e in reversed(evals[:idx]) if ver(e) == "v0" and e.get("mode") == after.get("mode")), None) \
+            or next((e for e in reversed(evals[:idx]) if ver(e) == "v0"), None)
     if before is None or after is None:
         before, after = evals[-2], evals[-1]
     return root() / str(before["file"]), root() / str(after["file"])
@@ -877,7 +881,7 @@ def pick_default() -> tuple:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m labkit.compare", description="生成 V0 vs V1 评估对比页（自包含静态 HTML）")
-    ap.add_argument("--before", help="优化前的 eval JSON 路径或 run_id（默认：evals.json 中最早的 v0）")
+    ap.add_argument("--before", help="优化前的 eval JSON 路径或 run_id（默认：同一路线、在“优化后”之前最近一次的 v0）")
     ap.add_argument("--after", help="优化后的 eval JSON 路径或 run_id（默认：evals.json 中最新的非 v0 版本）")
     ap.add_argument("--out", help="输出 HTML（默认：results/compare-<before>-vs-<after>.html）")
     a = ap.parse_args(argv)

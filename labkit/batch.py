@@ -41,9 +41,19 @@ def _local_one(row: dict, version: str, model: str, sid: str) -> dict:
 
 def _runtime_one(row: dict, arn: str, sid: str) -> dict:
     cli = aws.client("bedrock-agentcore")
-    resp = cli.invoke_agent_runtime(agentRuntimeArn=arn, runtimeSessionId=sid, qualifier="DEFAULT",
-                                    contentType="application/json", accept="application/json",
-                                    payload=json.dumps({"feedback": items.item_of(row)}, ensure_ascii=False).encode())
+    payload = json.dumps({"feedback": items.item_of(row)}, ensure_ascii=False).encode()
+    for attempt in range(3):  # transient RuntimeClientError / throttling: retry the same session
+        try:
+            resp = cli.invoke_agent_runtime(agentRuntimeArn=arn, runtimeSessionId=sid, qualifier="DEFAULT",
+                                            contentType="application/json", accept="application/json",
+                                            payload=payload)
+            break
+        except Exception as e:  # noqa: BLE001
+            transient = any(s in str(e) for s in ("RuntimeClientError", "Throttl", "ServiceUnavailable", "InternalServer", "timeout"))
+            if attempt < 2 and transient:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise
     body = resp["response"].read().decode("utf-8")
     data = json.loads(body)
     if isinstance(data, str):
@@ -97,7 +107,7 @@ def run(mode: str, source: str, version: str, limit: int | None, workers: int, o
         for rec in ex.map(work, rows):
             done += 1
             r = rec.get("result") or {}
-            status = "❌ " + rec["error"][:80] if rec.get("error") else (
+            status = "❌ " + rec["error"][:200] if rec.get("error") else (
                 f"重要={r.get('important')} 紧急={r.get('urgent')} 建议={r.get('decision')}")
             print(f"  [{done:>2}/{len(rows)}] {rec['feedback_id']:<16} {rec['latency_ms']/1000:5.1f}s  {status}")
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")

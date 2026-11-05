@@ -138,6 +138,7 @@ JUDGE_MODEL_ID=us.amazon.nova-2-lite-v1:0
     <tr><td>us-west-2 · B 版全流程</td><td><span class="pill g">已跑通</span></td><td>在实验 EC2（CloudShell 一键创建、Session Manager 登录、安装脚本）上：部署 Runtime → 注册评估器 → 在线评估 → 黄金集 V0 → 评估 → 切 V1 重新部署 → 再评估 → 对比页 → 60 条分诊报告</td></tr>
     <tr><td>us-west-2 · A 版全流程</td><td><span class="pill g">已跑通</span></td><td>在讲师笔记本上扮演“客户自有 Agent”：ADOT 埋点 → CloudWatch → 评估 V0/V1 → 对比页；已有日志 → 转换 → 遥测检查 → 评估</td></tr>
     <tr><td>在线评估分数写入 CloudWatch</td><td><span class="pill g">已确认</span></td><td>A 版（不在 Runtime 上的 Agent）和 B 版都能在 <code>Bedrock-AgentCore/Evaluations</code> 指标里看到每个评估器的分数</td></tr>
+    <tr><td>清理（第 10 章）</td><td><span class="pill g">已跑通</span></td><td>在实验 EC2 上用收紧后的角色（权限边界）重新部署并评估一遍，再运行 <code>./99-cleanup.sh</code>：零残留；讲师 <code>--all --force-account-level --service-linked-roles</code> 在 us-west-2 清理并还原 Transaction Search，us-west-2 / us-east-1 逐项清单确认零残留</td></tr>
     <tr><td>Claude Code 走 Bedrock（实例角色）</td><td><span class="pill g">已确认</span></td><td><code>claude -p</code> 在 EC2 上正常回复</td></tr>
     <tr><td>Amazon Nova 备选模型</td><td><span class="pill g">已确认</span></td><td>一行命令切换，Agent 与工具调用正常（X.3）</td></tr>
     <tr><td>us-east-1</td><td><span class="pill o">部分确认</span></td><td>模型可调用、AgentCore API 可用；<b>没有</b>端到端部署过</td></tr>

@@ -31,17 +31,24 @@
   🗑  停用在线评估 s12lab_zhang3_online_b
   🗑  删除在线评估 s12lab_zhang3_online_b
   🗑  删除评估器 s12lab_zhang3_label_accuracy
-  ...
+  …（共 6 个评估器）
   🗑  删除 Lambda s12lab-zhang3-eval-label
-  🗑  删除 Lambda s12lab-zhang3-eval-reject
-  🗑  删除 Runtime s12lab_zhang3_agent (s12lab_zhang3_agent-AbCdEf1234)
+  …（共 5 个 Lambda）
+  🗑  删除 Runtime s12lab_zhang3_agent (s12lab_zhang3_agent-3vovz354wT)
   🗑  清空并删除 S3 桶 s12lab-zhang3-&lt;account&gt;-us-west-2
-  🗑  删除日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent
+  🗑  删除日志组 /aws/bedrock-agentcore/evaluations/results/s12lab_zhang3_online_b-bkJi0V9Xam
+  🗑  删除日志组 /aws/bedrock-agentcore/runtimes/s12lab_zhang3_agent-3vovz354wT-DEFAULT
   🗑  删除日志组 /aws/lambda/s12lab-zhang3-eval-label
-  ...
-  🗑  删除 IAM 角色 s12lab-zhang3-runtime-role-us-west-2
+  …
   🗑  删除 IAM 角色 s12lab-zhang3-eval-lambda-role-us-west-2
-  🗑  删除 IAM 角色 s12lab-zhang3-online-eval-role-us-west-2</pre><!-- VERIFY --></div>
+  🗑  删除 IAM 角色 s12lab-zhang3-online-eval-role-us-west-2
+  🗑  删除 IAM 角色 s12lab-zhang3-runtime-role-us-west-2
+
+▶ 残留检查（us-west-2，前缀 s12lab_zhang3_* / s12lab-zhang3-*）
+  ✅ 在线评估配置: 0
+  …
+✅ 没有残留的实验资源</pre></div>
+  <p class="where">以上为在实验 EC2（收紧后的实例角色）上实测的输出，约 1 分钟。删除在线评估时如果它还在“更新中”，脚本会自动等待后再删。</p>
 </div>
 
 <div class="step" id="s-10-2">
@@ -59,7 +66,7 @@
   ✅ IAM 角色: 0
   ✅ 日志组: 0
   ℹ️  EC2 堆栈 s12lab-ec2-zhang3 仍在（正常：最后在第 10.3 步删除）
-✅ 没有残留的实验资源</pre><!-- VERIFY: 按代码推导，待在实验 EC2 上实测 --></div>
+✅ 没有残留的实验资源</pre></div>
   <div class="note">EC2 堆栈还在是正常的：你正在用这台 EC2，下一步才删除它。Runtime 删除需要 1–2 分钟，偶尔第一次检查还能看到它，稍后再查即可。如果看到“有 N 类资源无法列出（权限不足）”，说明结论不完整，请把输出发给讲师。</div>
 </div>
 

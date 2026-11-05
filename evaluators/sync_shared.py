@@ -27,13 +27,12 @@ def _golden_bundle(golden_path: str) -> str:
     sys.path.insert(0, os.path.join(EV, "shared"))
     import golden_store  # noqa: E402
     items = golden_store.load_golden(golden_path)
-    version = None
+    versions = set()
     with open(golden_path, encoding="utf-8") as f:
         for line in f:
             if line.strip():
-                version = json.loads(line).get("version")
-                break
-    doc = {"version": version, "source": "data/golden/golden_set.jsonl", "count": len(items),
+                versions.add(json.loads(line).get("version") or "v1")
+    doc = {"version": ",".join(sorted(versions)), "source": "data/golden/golden_set.jsonl", "count": len(items),
            "items": dict(sorted(items.items()))}
     return json.dumps(doc, ensure_ascii=False, indent=1) + "\n"
 

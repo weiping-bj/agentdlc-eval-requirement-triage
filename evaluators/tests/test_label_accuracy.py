@@ -222,3 +222,21 @@ def test_suffix_from_evaluator_id_scores_single_field(golden_rows, capsys):
     assert r["value"] == 0.0 and "1/1" not in r["explanation"] and "0/1" in r["explanation"]
     log = capsys.readouterr().out
     assert '"field": "urgent"' in log and '"n_spans": 1' in log
+
+
+def test_review_M7_minimal_reference_keeps_bundled_guards(golden_rows):
+    g03 = g(golden_rows, "G03")
+    out = output_from_gold(g03, decision="拒绝")
+    ref = [{"expectedResponse": {"text": json.dumps({"feedback_id": g03["feedback_id"], "important": "是", "urgent": "是",
+                                                     "decision": "迭代"}, ensure_ascii=False)}}]
+    assert lf.handler(event([triage_span(out)], refs=ref))["label"] == "CriticalFail"
+    other = [{"expectedResponse": {"text": json.dumps({"feedback_id": "FB-OTHER", "important": "否", "urgent": "否",
+                                                       "decision": "拒绝"}, ensure_ascii=False)}}]
+    r = lf.handler(event([triage_span(output_from_gold(g03))], refs=other))
+    assert r["label"] == "Pass"  # another item's reference is not borrowed; bundled gold is used
+
+
+def test_review_L2_unmatched_target_trace_is_skipped(golden_rows):
+    g01 = g(golden_rows, "G01")
+    r = lf.handler(event([triage_span(output_from_gold(g01), trace="1" * 32)], trace="2" * 32))
+    assert r["label"] == "Skipped" and "value" not in r

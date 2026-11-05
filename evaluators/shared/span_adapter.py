@@ -44,8 +44,8 @@ YES = {"是", "yes", "y", "true", "1", "重要", "紧急", "高"}
 NO = {"否", "no", "n", "false", "0", "不重要", "不紧急", "低"}
 DECISIONS = ("迭代", "拒绝", "待评估")
 DECISION_ALIASES = [
-    ("待评估", ("待评估", "需评估", "评估", "pending", "evaluate", "review", "待定", "澄清", "补充信息")),
-    ("拒绝", ("拒绝", "reject", "decline", "不做", "驳回")),
+    ("待评估", ("待评估", "需评估", "评估", "pending", "evaluate", "needs review", "待定", "澄清", "补充信息")),
+    ("拒绝", ("拒绝", "reject", "rejected", "decline", "不做", "驳回")),
     ("迭代", ("迭代", "iterate", "accept", "纳入", "开发", "修复", "fix")),
 ]
 LEVELS = ("P0", "P1", "P2")
@@ -64,7 +64,11 @@ def norm_yes_no(v: Any) -> Optional[str]:
     return None
 
 
+_NEGATION = re.compile(r"(不|暂不|不予|无需|无须|无法|没有|won'?t|not\b|^un|n't)")
+
+
 def norm_decision(v: Any) -> Optional[str]:
+    """Canonical decision, or None when unknown or negated (不建议迭代 / won't fix -> None -> reported as invalid)."""
     if v is None:
         return None
     s = str(v).strip().lower()
@@ -73,6 +77,8 @@ def norm_decision(v: Any) -> Optional[str]:
     for canon, words in DECISION_ALIASES:
         if s == canon or s in words:
             return canon
+    if _NEGATION.search(s):
+        return None
     for canon, words in DECISION_ALIASES:
         if any(w in s for w in words):
             return canon
@@ -151,9 +157,13 @@ def json_values_in_text(text: str) -> List[Any]:
         return vals
     s = text.strip()
     try:
-        return [json.loads(s)]
+        whole = json.loads(s)
     except ValueError:
-        pass
+        whole = None
+    else:
+        if isinstance(whole, str) and whole.strip()[:1] in "{[":
+            return json_values_in_text(whole)  # double-encoded JSON string
+        return [whole]
     i = 0
     n = len(s)
     while i < n:
@@ -210,16 +220,48 @@ def trace_id_of(span: Dict[str, Any]) -> str:
     return _norm_tid(span.get("traceId") or span.get("trace_id") or ctx.get("trace_id") or ctx.get("traceId"))
 
 
-def start_of(span: Dict[str, Any]) -> float:
-    for k in ("startTimeUnixNano", "start_time", "startTime", "timeUnixNano", "observedTimeUnixNano", "time_unix_nano"):
-        v = span.get(k)
-        if v in (None, ""):
-            continue
+def to_ns(v: Any) -> float:
+    """Timestamp (ns / us / ms / s number, or ISO-8601 string) -> nanoseconds; 0 when missing or unparsable."""
+    if v in (None, "", 0, "0"):
+        return 0.0
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
         try:
-            return float(v)
-        except (TypeError, ValueError):
+            from datetime import datetime
+            s = str(v).strip().replace("Z", "+00:00")
+            m = re.match(r"^(.*?\.\d{6})\d*(.*)$", s)  # Python 3.9 accepts at most 6 fraction digits
+            if m:
+                s = m.group(1) + m.group(2)
+            return datetime.fromisoformat(s).timestamp() * 1e9
+        except ValueError:
             return 0.0
+    if x <= 0:
+        return 0.0
+    if x < 1e11:
+        return x * 1e9
+    if x < 1e14:
+        return x * 1e6
+    if x < 1e17:
+        return x * 1e3
+    return x
+
+
+def _first_time(span: Dict[str, Any], keys: Tuple[str, ...]) -> float:
+    for k in keys:
+        t = to_ns(span.get(k))
+        if t:
+            return t
     return 0.0
+
+
+def start_of(span: Dict[str, Any]) -> float:
+    return _first_time(span, ("startTimeUnixNano", "start_time", "startTime", "timeUnixNano", "time_unix_nano",
+                              "observedTimeUnixNano", "timestamp", "@timestamp"))
+
+
+def end_of(span: Dict[str, Any]) -> float:
+    return _first_time(span, ("endTimeUnixNano", "end_time", "endTime")) or start_of(span)
 
 
 def spans_for_trace(spans: List[Dict[str, Any]], target_trace_id: Optional[str]) -> Tuple[List[Dict[str, Any]], bool]:
@@ -246,6 +288,10 @@ def _event_name(e: Dict[str, Any]) -> str:
     return str(e.get("name") or e.get("eventName") or e.get("event_name") or (attrs(e).get("event.name")) or "")
 
 
+_NON_ANSWER_PART_TYPES = {"reasoning", "thinking", "redacted_thinking", "tool_call", "tool_call_response",
+                          "tool_use", "tool_result", "function_call"}
+
+
 def content_text(c: Any) -> str:
     """Flatten message content (str / JSON-encoded block list / dict / list of blocks) to plain text.
 
@@ -270,7 +316,8 @@ def content_text(c: Any) -> str:
         parts = []
         for b in c:
             if isinstance(b, dict):
-                if any(k in b for k in ("toolUse", "toolResult", "reasoningContent")):
+                if any(k in b for k in ("toolUse", "toolResult", "reasoningContent")) or \
+                        str(b.get("type", "")).lower() in _NON_ANSWER_PART_TYPES:
                     continue
                 t = b.get("text")
                 if isinstance(t, str):
@@ -315,14 +362,7 @@ def _messages_texts(msgs: Any, want_role: str) -> List[str]:
 
 
 def _event_time(e: Dict[str, Any], default: float) -> float:
-    for k in ("timeUnixNano", "time_unix_nano", "timestamp", "time"):
-        v = e.get(k)
-        if v not in (None, ""):
-            try:
-                return float(v)
-            except (TypeError, ValueError):
-                break
-    return default
+    return _first_time(e, ("timeUnixNano", "time_unix_nano", "timestamp", "time", "observedTimeUnixNano")) or default
 
 
 def span_texts(span: Dict[str, Any]) -> Tuple[List[str], List[Tuple[str, float]]]:
@@ -334,6 +374,7 @@ def span_texts(span: Dict[str, Any]) -> Tuple[List[str], List[Tuple[str, float]]
     users: List[str] = []
     assistants: List[Tuple[str, float]] = []
     base = start_of(span)
+    attr_ts = end_of(span)  # attribute-carried output is written when the span ends
     a = attrs(span)
     for k in USER_ATTRS:
         if k in a:
@@ -343,9 +384,9 @@ def span_texts(span: Dict[str, Any]) -> Tuple[List[str], List[Tuple[str, float]]
         if k in a:
             v = a[k]
             if isinstance(v, str) and v.strip()[:1] != "[":
-                assistants.append((content_text(v), base))
+                assistants.append((content_text(v), attr_ts))
             else:
-                assistants.extend((t, base) for t in _messages_texts(v, "assistant"))
+                assistants.extend((t, attr_ts) for t in _messages_texts(v, "assistant"))
     bodies: List[Tuple[str, Any, float]] = []
     if isinstance(span.get("body"), (dict, str)):
         bodies.append((_event_name(span), span.get("body"), base))
@@ -411,7 +452,7 @@ def extract_records(session_spans: Iterable[Any], target_trace_id: Optional[str]
         u, a = span_texts(s)
         user_texts.extend(u)
         for t, ts in a:
-            assistant_texts.append((ts, idx, t))
+            assistant_texts.append((ts, idx, len(assistant_texts), t))
 
     text_fid = None
     for u in user_texts:
@@ -440,13 +481,27 @@ def extract_records(session_spans: Iterable[Any], target_trace_id: Optional[str]
         if raw_objs:
             break
     if not raw_objs:
-        for _, _, t in sorted(assistant_texts, key=lambda x: (x[0], x[1]), reverse=True):
+        for _, _, _, t in sorted(assistant_texts, key=lambda x: (x[0], x[1], x[2]), reverse=True):
             objs = triage_from_text(t)
             if objs:
                 raw_objs = objs
                 source = "message"
                 break
 
+    # Drafts: one text/attribute may hold several triage objects (e.g. "草稿：{...} 最终：{...}").
+    # If they do not name >= 2 different feedback ids it is a single-item answer -> keep only the last one
+    # (the last one naming the trace's feedback id when that is known); otherwise it is a batch.
+    def _fid(o):
+        v = _pick(o, "feedback_id")
+        return str(v).strip() if v not in (None, "") else None
+    if len(raw_objs) > 1:
+        named = [o for o in raw_objs if _fid(o)]
+        if len({_fid(o) for o in named}) <= 1:
+            hint = attr_fid or text_fid
+            pref = [o for o in named if not hint or _fid(o) == hint] or named or raw_objs
+            raw_objs = [pref[-1]]
+        else:
+            raw_objs = named
     records: Dict[str, Dict[str, Any]] = {}
     order: List[str] = []
     single = len(raw_objs) == 1

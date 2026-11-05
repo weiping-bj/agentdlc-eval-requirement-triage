@@ -69,8 +69,9 @@ def build_zip() -> Path:
         for p in sorted((ROOT / "agent" / "s12agent").rglob("*")):
             if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc":
                 add(zf, p, "s12agent/" + str(p.relative_to(ROOT / "agent" / "s12agent"))); n += 1
+        data_dir = Path(os.environ["S12_DATA_DIR"]) if os.environ.get("S12_DATA_DIR") else ROOT / "data"
         for f in DATA_FILES:
-            src = ROOT / "data" / f
+            src = data_dir / f
             if src.exists():
                 add(zf, src, f"s12agent/agent_data/{f}"); n += 1
     print(f"  📦 打包完成：{out.relative_to(ROOT)}（{n} 个文件，{out.stat().st_size/1e6:.1f} MB）")

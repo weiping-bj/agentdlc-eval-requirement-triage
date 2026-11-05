@@ -94,6 +94,8 @@ def evaluate(event: dict, client=None) -> dict:
                       "evaluatorId": event.get("evaluatorId"), "level": level, "n_spans": len(spans),
                       "n_records": len(ex["records"]), "source": ex["records"][0]["source"] if ex["records"] else None},
                      ensure_ascii=False))
+    if not ex["trace_matched"]:
+        return {"label": "Skipped", "explanation": "session 中没有目标 trace 的 span（可能尚未写入），跳过。"}
     if not ex["records"]:
         if ex["has_assistant_text"]:
             return {"label": "FormatError", "value": 0.0, "explanation": "trace 中有 Agent 回复，但解析不出约定的 JSON。"}
@@ -104,7 +106,7 @@ def evaluate(event: dict, client=None) -> dict:
         return {"label": "不适用", "explanation": f"处理建议不是“拒绝”（{decs}），拒绝话术评估不适用。"}
     client = client or _client()
     outs = []
-    for rec in rejected[:5]:
+    for rec in rejected[:2]:  # bounded: each judge call can take ~20-40 s and the Lambda timeout is ~120 s
         gold = _golden().get(rec["feedback_id"])
         req = judge.requirement_text(ex.get("user_text") if len(ex["records"]) == 1 else "", gold)
         if req.startswith("（") and gold:

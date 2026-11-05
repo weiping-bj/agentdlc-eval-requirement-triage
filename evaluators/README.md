@@ -65,7 +65,9 @@
 3. **需求编号**：依次取输出 JSON 的 `feedback_id` → 属性 `s12lab.feedback_id` → 用户输入里的 `需求编号: FB-xxxx`（`gen_ai.user.message`、`body.input.messages`、`gen_ai.prompt`）。
 
 其它兼容处理：
-- **trace 过滤**：按 `evaluationTarget.traceIds[0]` 过滤，兼容 `traceId` / `trace_id`，也兼容 X-Ray 格式。找不到目标 trace 时改用整个 session，并在 explanation 里注明。
+- **trace 过滤**：按 `evaluationTarget.traceIds[0]` 过滤，兼容 `traceId` / `trace_id`，也兼容 X-Ray 格式。session 中找不到目标 trace 时返回 `Skipped`，不借用其它 trace 的输出。
+- **草稿与终稿**：同一段文本里有多个分诊 JSON，但没有出现 2 个以上不同的 `feedback_id` 时，按单条需求处理，只取最后一个（优先取与 trace 的需求编号一致的那个）。出现多个不同编号时按批量处理。reasoning / thinking 类内容块会被忽略。
+- **时间排序**：优先用事件时间；span 属性里的输出按 span 结束时间排序。支持 ns / ms / s 数值和 ISO-8601 字符串。双重编码的 JSON 字符串也能解析。
 - **键名风格**：camelCase（`traceId`、`startTimeUnixNano`）和 snake_case（`trace_id`、`start_time`、`span_events`）都支持。
 
 ## 3. `s12_label_accuracy`：三项标签准确率（代码型）
@@ -78,8 +80,9 @@
   - 512 MB、超时 60~120 秒即可；
   - 不需要 Bedrock 权限。
 - **真值来源**：
-  1. `evaluationReferenceInputs[].expectedResponse.text`：标签 JSON，与 [`data/golden/agentcore_dataset.json`](../data/golden/agentcore_dataset.json) 的 `expected_response` 同格式；
-  2. 否则按 `feedback_id` 查同目录的 `golden_set.json`。在线评估不会传真值，所以黄金集要随 Lambda 打包。
+  1. 先按 `feedback_id` 查同目录的 `golden_set.json`。在线评估不会传真值，所以黄金集要随 Lambda 打包。
+  2. 如果 `evaluationReferenceInputs[].expectedResponse.text` 里有标签 JSON（与 [`data/golden/agentcore_dataset.json`](../data/golden/agentcore_dataset.json) 的 `expected_response` 同格式），就用其中出现的字段覆盖打包黄金集的对应字段。没出现的字段（可接受答案、不可自动拒绝）沿用打包黄金集。
+  3. 写明了其它 `feedback_id` 的参考输入不会被借用。
 - **打分**：
   - `important`、`urgent` 必须完全一致；
   - `decision` 只要在黄金集 `acceptable_decisions` 里就算对（模糊样例允许多个答案）；
@@ -94,7 +97,7 @@
 | `label=Skipped`（无 value） | trace 里没有 Agent 输出，或该需求不在黄金集里（例如非黄金集的普通流量） |
 | `errorCode` / `errorMessage` | 配置错误（如 `S12_SCORE_FIELD` 取值非法）或未预期的异常 |
 
-**单 Lambda、多评估器**：同一个 Lambda 可以注册成多个评估器，按评估器名后缀决定打哪些项。
+**单 Lambda、多评估器**：同一个 Lambda 可以注册成多个评估器，按评估器名后缀决定打哪些项。名字依次从事件的 `evaluatorName`、`evaluatorId`、`evaluatorArn` 读取：取 ARN 最后一段，去掉 id 末尾的 `-XXXXXXXXXX`，先按后缀匹配，再按 `_important_` 这类片段匹配。每次调用会在 Lambda 日志里打印一行 JSON（`"s12":"label_eval"`，含事件键、名字、id、级别、span 数、实际打分项），方便排查。
 
 | 评估器名后缀 | 打哪些项 | value | 控制台平均分 |
 |------|------|------|------|
@@ -136,7 +139,13 @@ python3 evaluators/s12_label_accuracy/batch_score.py --results results/all-60.js
   3. `config/lab.env`；
   4. 默认 `us.anthropic.claude-sonnet-5-5`。
 
-  主模型出现 `AccessDenied` / `Validation` / `ResourceNotFound` 时，自动改用 `FALLBACK_MODEL_ID`（默认 `us.amazon.nova-2-lite-v1:0`）。限流时有界退避重试。区域读取顺序：`JUDGE_REGION` → `AWS_REGION` → `us-west-2`。
+  主模型出现 `AccessDenied` / `Validation` / `ResourceNotFound` 时，自动改用 `FALLBACK_MODEL_ID`（默认 `us.amazon.nova-2-lite-v1:0`）。限流时有界退避重试（最多 4 次，单次读超时 50 秒）。区域读取顺序：`JUDGE_REGION` → `AWS_REGION` → `us-west-2`。
+
+  其它限制：
+  - 评审输出上限 `JUDGE_MAX_TOKENS`，默认 3000。
+  - 要求输出紧凑 JSON，列表放最后并限制长度。万一被截断，仍按已输出的维度分数计分，并在 explanation 里注明。
+  - 单次调用最多评审 2 条拒绝（批量输出时），避免超过 Lambda 超时。
+  - 每次调用打印一行 `"s12":"reject_eval"` 日志。
 
   > 实测：Claude Sonnet 5.5 不接受 `temperature` 参数（`ValidationException: temperature is deprecated`）。评审客户端遇到这个错误会自动去掉该参数，并记住这个模型。
 - **评分**：只评 `decision=拒绝` 的 trace。评审维度共五个，每项 1~5 分：
@@ -164,7 +173,7 @@ python3 evaluators/s12_label_accuracy/batch_score.py --results results/all-60.js
 - **不传 `temperature`**：Sonnet 5.5 不接受该参数。
 - **评分档位**：1.0 优秀 / 0.8 良好 / 0.6 一般 / 0.4 较差 / 0.2 不合格 / **0.0 不适用**（处理建议不是拒绝）。
   - 档位值互不重复，避免服务按分值反查档位时混淆。
-  - 对比页面和统计时请按 label 排除“不适用”。
+  - 对比页面和统计时请按 label 排除“不适用”。注意 AgentCore 控制台给出的服务端平均分包含这些 0.0，不代表话术质量，只能看按 label 过滤后的结果。
 - **重新生成**：配置由 `rubric.py` 生成。改了评分标准后运行 `python3 evaluators/sync_shared.py`。
 
 ## 6. 本地验证

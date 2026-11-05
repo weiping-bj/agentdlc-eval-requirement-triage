@@ -1,6 +1,6 @@
 # data/ + evaluators/ 交接说明
 
-> 全部为合成数据。本文件记录接口约定的最终状态；过程记录见测试日志与 code-review.md。
+> 全部为合成数据。本文件记录接口约定的最终状态。过程记录见 test-run.log（测试日志）与 code-review.md（独立评审：23 条发现，21 条已修复，2 条说明后保留）。
 
 ## 1. 交付了什么
 
@@ -21,7 +21,9 @@
   - 标签准确率（代码型）；
   - 拒绝话术质量（代码型 LLM 评审）；
   - 原生 LLM-as-judge 配置。
-- **测试**：64 个单元测试，加 1 个真实 Bedrock 调用测试。
+- **测试**：共 103 个，含真实 Bedrock 调用测试（Claude Sonnet 5.5）。
+  - Python 3.12：103 个全部通过；
+  - Python 3.9：99 个通过，4 个跳过（可选依赖与 Bedrock 测试）。
 
 ## 2. 文件地图
 
@@ -84,8 +86,14 @@
 | 依赖 | 只用标准库 | boto3 |
 | Bedrock 权限 | 不需要 | 需要 `bedrock:InvokeModel` / `Converse` |
 
-- **标签准确率**：按评估器名后缀 `_important` / `_urgent` / `_decision` 只打单项（`S12_SCORE_FIELD` 可覆盖），其它名字打三项。
-- **拒绝话术**：模型取 `JUDGE_MODEL_ID`，失败时回退 `FALLBACK_MODEL_ID`。
+- **标签准确率**：
+  - 打分项按评估器名后缀决定：`_important` / `_urgent` / `_decision` 只打单项，其它名字打三项。`S12_SCORE_FIELD` 可覆盖。
+  - 名字依次从 `evaluatorName`、`evaluatorId`、`evaluatorArn` 读取，并去掉 id 末尾的 `-XXXXXXXXXX`。
+  - 每次调用打印一行 JSON 日志。
+- **拒绝话术**：
+  - 模型取 `JUDGE_MODEL_ID`，失败时回退 `FALLBACK_MODEL_ID`；评审输出上限 `JUDGE_MAX_TOKENS`（默认 3000）。
+  - 评审输出被截断时，按已输出的维度分数计分。
+  - 单次调用最多评审 2 条拒绝。
 
 ## 4. 已确认的决定
 
@@ -98,6 +106,12 @@
   - lead 的 Agent 已对 Claude 模型去掉 temperature。
 - **用 G26（集成链路故障）替换原“导入按编码更新”样例**：让“紧急=是”有 6 条，避免“全判否”就拿到 80% 以上的假高分。批量报告同时给出各类别召回率。
 - **客户真实数据只写 `data/customer/`**：lead 已把该目录加入 .gitignore。
+  - `--use-as-input` 生成 `data/customer/agent_data/`，再用 `S12_DATA_DIR` 指向它（Agent 的 `data.py` 优先读这个变量），不再覆盖仓库里的 mock 文件。
+  - Supersedes：之前是“覆盖 `data/feedback_last_month.jsonl` 并留 .bak”。改动原因：该文件被 git 跟踪，客户数据可能被提交到公开仓库。
+- **目标 trace 不在 session 里时，两个评估器都返回 `Skipped`**，不借用其它 trace 的输出。
+  - Supersedes：之前是“改用整个 session 并在说明里注明”。改动原因：会给错误的 trace 打分。
+- **参考输入（`evaluationReferenceInputs`）只覆盖它写明的字段**，其余（可接受答案、不可自动拒绝）沿用打包黄金集。
+  - Supersedes：之前是“整条替换”。改动原因：只写三项标签的参考输入会让严重错误（CriticalFail）判定失效。
 - **适配层已用真实 span 验证**：样例为 `telemetry/fixtures/local-adot-v0-sessions.json`（Strands 1.64 + ADOT 0.22，split 模式），3 个 session 全部正确解析。
   - 属性路径直接取到输出；
   - 去掉 `s12lab.triage_output` 后，仍能从 log record 的 `body.output.messages` 和 `需求编号:` 行还原。

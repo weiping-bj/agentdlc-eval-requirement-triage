@@ -345,3 +345,145 @@ def test_norm_helpers():
     assert C.norm_yes_no(True) == "是" and C.norm_yes_no("No") == "否" and C.norm_yes_no("?") is None
     assert C.split_list("多组织/分子公司；第二点") == ["多组织/分子公司", "第二点"]
     assert C.split_list("认知/质量", C.TAG_SEPS) == ["认知", "质量"]
+
+
+# ---------------------------------------------------------------- regressions from code-review.md
+def test_review_H1_pii_masked_everywhere_and_use_as_input_stays_out_of_git(tmp_path):
+    src = tmp_path / "c.csv"
+    _write_csv(src, ["需求标题", "需求描述", "客户名称", "联系电话", "回复客户", "处理建议", "是否重要", "是否紧急"],
+               [["导出", "请联系 +86 138-1234-5678 或 010-62345678", "张三 13900001111", "138 1234 5678",
+                 "请联系 13812345678 或 zhang.san@acme.com", "拒绝", "否", "否"]])
+    before = open(C.FEEDBACK_PATH, encoding="utf-8").read()
+    out = tmp_path / "o"
+    assert ING.main(["--in", str(src), "--out-dir", str(out), "--use-as-input"]) == 0
+    blob = "".join(p.read_text(encoding="utf-8") for p in out.rglob("*.jsonl"))
+    for raw in ("138-1234-5678", "62345678", "13900001111", "138 1234 5678", "13812345678", "zhang.san@"):
+        assert raw not in blob, raw
+    assert open(C.FEEDBACK_PATH, encoding="utf-8").read() == before  # tracked mock file untouched
+    assert (out / "agent_data" / "feedback_last_month.jsonl").exists() and (out / "agent_data" / "capability_catalog.json").exists()
+    assert not os.path.exists(C.FEEDBACK_PATH + ".bak")
+
+
+def test_review_H2_gbk_csv_and_bom_files(tmp_path):
+    p = tmp_path / "gbk.csv"
+    p.write_bytes("golden_id,操作,是否紧急\nG01,修改,是\n".encode("gb18030"))
+    assert C.read_csv(str(p))[0]["操作"] == "修改"
+    y = tmp_path / "p.yaml"
+    y.write_text("﻿count: 10\nindustries:\n- 制造\n- 快消\n", encoding="utf-8")
+    import builtins
+    real_import = builtins.__import__
+    builtins.__import__ = lambda n, *a, **k: (_ for _ in ()).throw(ImportError) if n == "yaml" else real_import(n, *a, **k)
+    try:
+        assert C.load_yaml(str(y)) == {"count": 10, "industries": ["制造", "快消"]}
+    finally:
+        builtins.__import__ = real_import
+
+
+def test_review_H3_can_auto_reject_variants_and_invalid_rejected():
+    rows = _golden()
+    for v, want in (("不可", False), ("不能", False), ("不", False), ("可以", True)):
+        new, _ = G.apply_feedback(rows, [{"golden_id": "G01", "操作": "修改", "可自动拒绝": v}], "v2")
+        assert next(r for r in new if r["golden_id"] == "G01")["can_auto_reject"] is want, v
+    new, _ = G.apply_feedback(rows, [{"golden_id": "G01", "操作": "修改", "可自动拒绝": "看情况"}], "v2")
+    errors, _ = G.validate(new)
+    assert any("can_auto_reject" in e for e in errors)
+
+
+def test_review_M1_apply_twice_does_not_duplicate(tmp_path):
+    g = tmp_path / "golden_set.jsonl"
+    shutil.copyfile(C.GOLDEN_PATH, g)
+    fb = tmp_path / "fb.csv"
+    C.write_csv(str(fb), [{"操作": "新增", "标题": "语音录入拜访", "需求描述": "外勤希望语音录入拜访记录", "是否重要": "否",
+                           "是否紧急": "否", "处理建议": "待评估", "五维": "质量", "样例类型": "模糊"}], G.FEEDBACK_CSV_FIELDS)
+    r1 = _run("data/tools/golden_tool.py", "--golden", str(g), "apply-feedback", "--feedback", str(fb))
+    assert r1.returncode == 0, r1.stdout
+    r2 = _run("data/tools/golden_tool.py", "--golden", str(g), "apply-feedback", "--feedback", str(fb))
+    assert r2.returncode == 1 and "未重复应用" in r2.stdout
+    r3 = _run("data/tools/golden_tool.py", "--golden", str(g), "apply-feedback", "--feedback", str(fb), "--force")
+    assert "跳过" in r3.stdout
+    assert len(C.read_jsonl(str(g))) == 31
+
+
+def test_review_M2_ids_stable_and_golden_remapped(tmp_path):
+    pool = C.read_jsonl(C.POOL_PATH)
+    extra = dict(pool[0], id="", title="现场新增：批量打印报价单", submitted_at="2026-10-01")
+    extra["_meta"] = dict(pool[0]["_meta"], golden_id=None)
+    items, _ = GM.build({"id_prefix": "FB-2610-", "count": 61}, pool, [extra])
+    by_title = {r["title"]: r["id"] for r in items}
+    for r in pool:
+        assert by_title[r["title"]] == r["id"]  # existing ids unchanged
+    assert by_title["现场新增：批量打印报价单"] == "FB-2610-061"
+    # month change -> golden feedback ids remapped automatically
+    g = tmp_path / "g.jsonl"
+    shutil.copyfile(C.GOLDEN_PATH, g)
+    params = tmp_path / "p.yaml"
+    params.write_text("month: 2026-11\n", encoding="utf-8")
+    out = tmp_path / "fb.jsonl"
+    assert GM.main(["--params", str(params), "--out", str(out), "--golden-out", str(g)]) == 0
+    fb = {r["id"]: r for r in C.read_jsonl(str(out))}
+    for row in C.read_jsonl(str(g)):
+        assert row["feedback_id"].startswith("FB-2611-") and fb[row["feedback_id"]]["title"] == row["input"]["title"]
+
+
+def test_review_M3_negated_decisions():
+    for v in ("不接受", "暂不开发", "不建议迭代", "won't fix"):
+        assert C.norm_decision(v) is None, v
+    assert C.norm_decision("已修复，已关闭") != "拒绝"
+    assert "状态" not in ING.SYNONYMS["label_decision"]
+
+
+def test_review_M6_freeze_failure_leaves_file_and_sync_uses_golden_arg(tmp_path):
+    g = tmp_path / "golden_set.jsonl"
+    rows = _golden()
+    rows[0]["expected"]["important"] = "maybe"
+    C.write_jsonl(str(g), rows)
+    sha = GT._sha(str(g))
+    r = _run("data/tools/golden_tool.py", "--golden", str(g), "freeze", "--version", "v9")
+    assert r.returncode == 1 and GT._sha(str(g)) == sha
+    import inspect
+    assert "--golden" in inspect.getsource(GT.sync_evaluators)
+
+
+def test_review_L4_L6_L7_feedback_roundtrip_details():
+    rows = _golden()
+    g08 = next(r for r in rows if r["golden_id"] == "G08")
+    tmpl = {r["golden_id"]: r for r in G.to_feedback_rows(rows)}
+    row = dict(tmpl["G08"], 操作="修改", 是否紧急="是")
+    new, _ = G.apply_feedback(rows, [row], "v2")
+    assert next(r for r in new if r["golden_id"] == "G08")["reply_points"] == g08["reply_points"]  # "；" inside a point kept
+    new, _ = G.apply_feedback(rows, [{"golden_id": "G01", "操作": "修改", "优先级": "P1级"}], "v2")
+    errors, _ = G.validate(new)
+    assert any("level" in e for e in errors)
+    _, log = G.apply_feedback(rows, [dict(tmpl["G01"], 是否紧急="是")], "v2")
+    assert any("保留" in l and "未生效" in l for l in log)
+
+
+def test_review_L3_xlsx_without_cell_refs(tmp_path):
+    import zipfile
+    p = tmp_path / "noref.xlsx"
+    with zipfile.ZipFile(p, "w") as z:
+        z.writestr("xl/workbook.xml", '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                   'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+                   '<sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>')
+        z.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Target="worksheets/sheet1.xml" Type="x"/></Relationships>')
+        z.writestr("xl/worksheets/sheet1.xml", '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
+                   '<row><c t="inlineStr"><is><t>需求编号</t></is></c><c t="inlineStr"><is><t>需求标题</t></is></c></row>'
+                   '<row><c t="inlineStr"><is><t>X1</t></is></c><c t="inlineStr"><is><t>导出报表</t></is></c></row>'
+                   '</sheetData></worksheet>')
+    assert C.read_xlsx(str(p)) == [{"需求编号": "X1", "需求标题": "导出报表"}]
+
+
+def test_review_L13_csv_formula_cells_escaped_roundtrip(tmp_path):
+    p = tmp_path / "f.csv"
+    C.write_csv(str(p), [{"a": "=HYPERLINK(\"x\")", "b": "- 支持导出"}], ["a", "b"])
+    raw = p.read_text(encoding="utf-8-sig")
+    assert "'=HYPERLINK" in raw and "'- 支持导出" in raw
+    assert C.read_csv(str(p)) == [{"a": "=HYPERLINK(\"x\")", "b": "- 支持导出"}]
+
+
+def test_review_L12_backups_never_overwrite(tmp_path):
+    g = tmp_path / "golden_set.jsonl"
+    g.write_text("{}\n", encoding="utf-8")
+    a, b = GT._backup(str(g)), GT._backup(str(g))
+    assert a != b and os.path.exists(a) and os.path.exists(b)

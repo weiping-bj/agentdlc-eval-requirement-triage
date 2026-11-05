@@ -83,8 +83,12 @@ def resolve_score_field(event_or_name) -> str:
     return "all"
 
 
-def gold_from_reference_inputs(refs, feedback_id: str | None):
-    """Ground truth passed by Evaluations (expectedResponse.text = JSON of expected labels)."""
+def gold_from_reference_inputs(refs, feedback_id: str | None, base: dict | None = None):
+    """Ground truth passed by Evaluations (expectedResponse.text = JSON of expected labels).
+
+    Keys present in the reference override the bundled golden record `base`; missing keys
+    (acceptable_decisions, can_auto_reject, ...) are kept from `base`.
+    """
     cands = []
     for r in refs or []:
         if not isinstance(r, dict):
@@ -101,19 +105,34 @@ def gold_from_reference_inputs(refs, feedback_id: str | None):
             if src is None:
                 continue
             norm = sa.normalize_output(src)
-            acc = src.get("acceptable_decisions") or ([norm["decision"]] if norm["decision"] else [])
-            cands.append({
-                "feedback_id": norm.get("feedback_id") or feedback_id, "golden_id": src.get("golden_id"),
-                "important": norm["important"], "urgent": norm["urgent"], "decision": norm["decision"],
-                "level": norm["level"], "acceptable_decisions": acc,
-                "can_auto_reject": bool(src.get("can_auto_reject", True)),
-            })
+            ref = {k: norm[k] for k in ("important", "urgent", "decision", "level") if norm.get(k) is not None}
+            ref["feedback_id"] = norm.get("feedback_id")
+            if isinstance(src.get("acceptable_decisions"), list):
+                ref["acceptable_decisions"] = [sa.norm_decision(x) or x for x in src["acceptable_decisions"]]
+            if "can_auto_reject" in src:
+                ref["can_auto_reject"] = bool(src["can_auto_reject"])
+            if src.get("golden_id"):
+                ref["golden_id"] = src["golden_id"]
+            cands.append(ref)
     if not cands:
         return None
+    chosen = None
     for c in cands:
         if feedback_id and c.get("feedback_id") == feedback_id:
-            return c
-    return cands[0]
+            chosen = c
+            break
+    if chosen is None:
+        chosen = next((c for c in cands if not c.get("feedback_id")), None)  # never borrow another item's labels
+    if chosen is None:
+        return None
+    gold = dict(base or {})
+    gold.update({k: v for k, v in chosen.items() if v is not None})
+    gold["feedback_id"] = feedback_id or gold.get("feedback_id")
+    if "decision" in chosen and "acceptable_decisions" not in chosen:
+        acc = [a for a in (base or {}).get("acceptable_decisions") or [] if a]
+        gold["acceptable_decisions"] = acc if chosen["decision"] in acc else [chosen["decision"]]
+    gold.setdefault("can_auto_reject", True)
+    return gold
 
 
 def evaluate(event: dict) -> dict:
@@ -132,7 +151,10 @@ def evaluate(event: dict) -> dict:
         return {"errorCode": "VALIDATION_FAILED", "errorMessage": f"unknown S12_SCORE_FIELD {field!r}"}
 
     ex = sa.extract_records(spans, trace_id)
-    note = "" if ex["trace_matched"] else "（未找到目标 trace 的 span，已改用整个 session）"
+    if not ex["trace_matched"]:
+        return {"label": "Skipped",
+                "explanation": f"session 中没有目标 trace {trace_id} 的 span（可能尚未写入），跳过，不借用其它 trace 的输出。"}
+    note = ""
     if not ex["records"]:
         if ex["has_assistant_text"]:
             return {"label": "FormatError", "value": 0.0,
@@ -144,7 +166,8 @@ def evaluate(event: dict) -> dict:
     results, missing_gold = [], []
     for rec in ex["records"]:
         fid = rec["feedback_id"]
-        gold = gold_from_reference_inputs(refs, fid) or _golden().get(fid)
+        bundled = _golden().get(fid)
+        gold = gold_from_reference_inputs(refs, fid, bundled) or bundled
         if not gold:
             missing_gold.append(fid)
             continue

@@ -134,3 +134,38 @@ def test_real_adot_split_mode_fixture(strip_attr):
         r = found[0]
         assert r["source"] == ("message" if strip_attr else "attribute")
         assert r["output"]["decision"] in ("迭代", "拒绝", "待评估") and r["output"]["important"] in ("是", "否")
+
+
+# ---------------------------------------------------------------- regressions from code-review.md
+def test_review_M4_draft_then_final_keeps_final():
+    text = ('先给一个草稿：{"important":"是","urgent":"否","decision":"拒绝"} 复核后最终结论：'
+            + json.dumps(dict(OUT, decision="迭代"), ensure_ascii=False))
+    span = {"traceId": T, "name": "chat", "attributes": {"gen_ai.completion": text, "s12lab.feedback_id": "FB-2610-001"}}
+    recs = sa.extract_records([span], T)["records"]
+    assert [(r["feedback_id"], r["output"]["decision"]) for r in recs] == [("FB-2610-001", "迭代")]
+    parts = [{"type": "reasoning", "content": json.dumps(dict(OUT, decision="拒绝"), ensure_ascii=False)},
+             {"type": "text", "text": json.dumps(OUT, ensure_ascii=False)}]
+    assert sa.content_text(parts) == json.dumps(OUT, ensure_ascii=False)
+
+
+def test_review_M3_evaluator_negation():
+    assert sa.norm_decision("不建议迭代") is None and sa.norm_decision("won't fix") is None
+    assert sa.norm_decision("rejected after review") == "拒绝" and sa.norm_decision("建议拒绝") == "拒绝"
+
+
+def test_review_L1_ordering_ties_attr_end_time_iso():
+    ev = [{"name": "gen_ai.choice", "body": {"message": json.dumps(dict(OUT, decision="拒绝"), ensure_ascii=False)}},
+          {"name": "gen_ai.choice", "body": {"message": json.dumps(dict(OUT, decision="迭代"), ensure_ascii=False)}}]
+    assert sa.extract_records([{"traceId": T, "events": ev}], T)["records"][0]["output"]["decision"] == "迭代"
+    root = {"traceId": T, "startTimeUnixNano": 100, "endTimeUnixNano": 900,
+            "attributes": {"gen_ai.output.messages": json.dumps([{"role": "assistant", "content": [{"text": json.dumps(dict(OUT, decision="迭代"), ensure_ascii=False)}]}], ensure_ascii=False)}}
+    child = {"traceId": T, "startTimeUnixNano": 200, "endTimeUnixNano": 300,
+             "attributes": {"gen_ai.completion": json.dumps(dict(OUT, decision="拒绝"), ensure_ascii=False)}}
+    assert sa.extract_records([root, child], T)["records"][0]["output"]["decision"] == "迭代"
+    assert sa.to_ns("2026-10-01T00:00:00.123456789Z") > 1.7e18 and sa.to_ns(1730000000000) == 1.73e18 and sa.to_ns(0) == 0
+
+
+def test_review_L8_double_encoded_attribute():
+    span = triage_span(OUT)
+    span["attributes"]["s12lab.triage_output"] = json.dumps(json.dumps(OUT, ensure_ascii=False), ensure_ascii=False)
+    assert sa.extract_records([span], T)["records"][0]["output"]["decision"] == "迭代"

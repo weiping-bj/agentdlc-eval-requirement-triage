@@ -3,7 +3,7 @@
 Single source for both judges:
   - code-based Lambda judge (judge.py, asks the model for a JSON verdict),
   - native AgentCore LLM-as-a-judge config (evaluators/llm_judge_config/s12_reject_quality.json,
-    rendered by evaluators/llm_judge_config/build_config.py; no output-format text there because the
+    rendered by evaluators/sync_shared.py; no output-format text there because the
     service appends its own).
 """
 from __future__ import annotations

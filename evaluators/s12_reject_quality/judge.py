@@ -97,7 +97,7 @@ class BedrockJudgeClient:
             import boto3
             from botocore.config import Config
             self._client = boto3.client("bedrock-runtime", region_name=self.region,
-                                        config=Config(read_timeout=90, connect_timeout=10, retries={"max_attempts": 2}))
+                                        config=Config(read_timeout=50, connect_timeout=5, retries={"max_attempts": 1}))
         return self._client
 
     def _call(self, model: str, system: str, prompt: str) -> str:
@@ -108,7 +108,7 @@ class BedrockJudgeClient:
                   "inferenceConfig": inference}
         if system:
             kwargs["system"] = [{"text": system}]
-        for attempt in range(5):
+        for attempt in range(4):
             try:
                 resp = self._c().converse(**dict(kwargs, inferenceConfig=dict(inference)))
                 usage = resp.get("usage") or {}
@@ -123,8 +123,8 @@ class BedrockJudgeClient:
                     self._no_temperature.add(model)
                     inference.pop("temperature")
                     continue
-                if code in RETRY_ERRORS and attempt < 4:
-                    self._sleep(min(20.0, (2 ** attempt) + random.random()))
+                if code in RETRY_ERRORS and attempt < 3:
+                    self._sleep(min(8.0, (2 ** attempt) + random.random()))
                     continue
                 raise
         raise RuntimeError("judge model call failed after retries")  # pragma: no cover
@@ -174,6 +174,25 @@ def parse_verdict(text: str) -> Dict[str, Any]:
     raise ValueError(f"judge output is not the expected JSON: {text[:200]!r}")
 
 
+_EMPTY_FLAG = {"", "无", "没有", "无红线", "无红线问题", "没有红线", "none", "null", "n/a", "na", "-", "[]", "否", "no"}
+
+
+def normalize_flags(raw: Any) -> List[str]:
+    """Judge red_flags -> list of real flags. Accepts a list or a single string; drops 'none'-style markers."""
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for f in raw:
+        if not isinstance(f, str):
+            continue
+        key = re.sub(r"[\s。．.,，;；!！:：]", "", f).lower()
+        if key not in _EMPTY_FLAG:
+            out.append(f.strip())
+    return out
+
+
 def score_verdict(verdict: Dict[str, Any]) -> Dict[str, Any]:
     keys = [k for k, _, _ in rubric.DIMENSIONS]
     scores = {}
@@ -184,7 +203,7 @@ def score_verdict(verdict: Dict[str, Any]) -> Dict[str, Any]:
             s = 1.0
         scores[k] = max(1.0, min(5.0, s))
     value = sum((s - 1.0) / 4.0 for s in scores.values()) / len(scores)
-    flags = [f for f in (verdict.get("red_flags") or []) if isinstance(f, str) and f.strip() and f.strip() not in ("无", "none", "None")]
+    flags = normalize_flags(verdict.get("red_flags"))
     if flags:
         value = min(value, 0.4)
     value = round(value, 4)

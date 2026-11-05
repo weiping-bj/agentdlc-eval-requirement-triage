@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import os
 import random
+import re
 import sys
 from collections import Counter, OrderedDict
 
@@ -107,16 +108,25 @@ def build(params: dict, pool: list, extra: list) -> tuple:
             day = min(int(d[-2:]), 28)
             r["submitted_at"] = f"{y}-{int(m):02d}-{day:02d}"
     out.sort(key=lambda r: (r.get("submitted_at") or "", r.get("id") or ""))
+    # Stable ids: keep the numeric suffix of existing ids (the golden set references them); only swap the
+    # prefix when month/id_prefix is set, and number new or duplicate items after the current maximum.
     prefix = params.get("id_prefix")
     if prefix is None and month:
         prefix = f"FB-{month[2:4]}{month[5:7]}-"
-    if prefix:
-        for i, r in enumerate(out, 1):
-            r["id"] = f"{prefix}{i:03d}"
-    seen = Counter(r["id"] for r in out)
-    dups = [k for k, v in seen.items() if v > 1]
-    if dups:
-        warnings.append(f"需求编号重复：{dups[:5]}（请设置 id_prefix 让脚本重新编号）")
+    rx = re.compile(r"^(.*?)(\d+)$")
+    nums = [int(m.group(2)) for m in (rx.match(str(r.get("id") or "")) for r in out) if m]
+    nxt = (max(nums) if nums else 0) + 1
+    seen = set()
+    for r in out:
+        old_id = str(r.get("id") or "")
+        m = rx.match(old_id)
+        new_id = f"{prefix}{int(m.group(2)):03d}" if (prefix and m) else old_id
+        if not new_id or new_id in seen:
+            new_id = f"{prefix or 'FB-NEW-'}{nxt:03d}"
+            nxt += 1
+        seen.add(new_id)
+        r["_meta"]["source_id"] = old_id
+        r["id"] = new_id
     return out, warnings
 
 
@@ -151,6 +161,31 @@ def main(argv=None) -> int:
     cats = Counter(r["_meta"]["category"] for r in items)
     for k, v in cats.most_common():
         print(f"  - {CATEGORY_CN.get(k, k)}：{v}")
+    id_map = {r["_meta"]["source_id"]: r["id"] for r in items if r["_meta"].get("source_id") and r["_meta"]["source_id"] != r["id"]}
+    if not a.write_golden and os.path.exists(a.golden_out):
+        golden = C.read_jsonl(a.golden_out)
+        by_id = {r["id"]: r for r in feedback}
+        touched = 0
+        for g in golden:
+            fid = g.get("feedback_id")
+            if fid in id_map:
+                g["feedback_id"] = id_map[fid]
+                g.setdefault("input", {})["id"] = id_map[fid]
+                if by_id.get(g["feedback_id"], {}).get("submitted_at"):
+                    g["input"]["submitted_at"] = by_id[g["feedback_id"]]["submitted_at"]
+                touched += 1
+        missing = [g["golden_id"] for g in golden if g.get("feedback_id") not in by_id]
+        moved = [g["golden_id"] for g in golden if g.get("feedback_id") in by_id
+                 and by_id[g["feedback_id"]].get("title") != (g.get("input") or {}).get("title")]
+        if touched:
+            import golden_tool as GT  # noqa: E402  (backup helper)
+            bk = GT._backup(a.golden_out)
+            C.write_jsonl(a.golden_out, golden)
+            print(f"需求编号有变化：已同步更新黄金集中 {touched} 条的 feedback_id（备份：{bk}）；接着运行 golden_tool.py freeze")
+        if missing:
+            print(f"警告：黄金集 {', '.join(missing[:10])} 引用的需求不在新生成的输入里（被配额去掉了？）")
+        if moved:
+            print(f"警告：黄金集 {', '.join(moved[:10])} 与同编号输入的标题不一致，请检查")
     if a.write_golden:
         if os.path.exists(a.golden_out) and not a.force:
             print("黄金集已存在，未覆盖（加 --force 覆盖；现场修改黄金集请用 golden_tool.py apply-feedback）")

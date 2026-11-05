@@ -13,12 +13,14 @@
      1. 参考 `data/templates/column-mapping.example.json`，新建 `data/customer/mapping.json`，写清“源列名 → 目标字段”。
      2. 加上 `--mapping data/customer/mapping.json` 重跑。
    - Excel 有多个工作表时，用 `--sheet <工作表名>`。
+   - CSV 是 UTF-8 或 GBK（Excel 中文版默认）都可以；读不出来时，在 Excel 里“另存为 → CSV UTF-8”。
+   - 客户的“状态”这类通用列不会被自动当作“处理建议”；确实要用时，在 mapping.json 里写 `"状态": "label_decision"`。
 2. 阅读 `data/customer/report.md`，用 5 行以内的中文向我汇报：
    - 结论（充足 / 基本可用 / 不足）；
    - 最关键的 1~2 个缺项；
    - 是否带有历史判断、能否做黄金集候选。
 3. 根据结论给出建议，**等我确认后再执行**：
-   - **充足**：建议加 `--use-as-input` 重跑，把客户数据作为 Agent 输入（原 mock 文件会自动备份）。
+   - **充足**：建议加 `--use-as-input` 重跑。它会生成 `data/customer/agent_data/`（客户数据 + 能力目录副本，不进 git），并打印 `export S12_DATA_DIR=…`；设置后 Agent 就读取客户数据。仓库里的 mock 文件不会被改动。
    - **基本可用**：列出客户需要补充的字段。也可以建议与 mock 数据合并：把客户条目追加到 mock 文件末尾，`id` 不冲突即可。
    - **不足**：建议继续使用 mock 数据。用一句话说明原因，方便我说服客户，例如“缺少客户等级和反馈类型，Agent 无法判断重要和紧急，评估结果没有可比性”。
 4. 如果客户数据带有历史判断（输出了 `data/customer/golden_candidates.jsonl`），并且三项齐全的有 ≥20 条，告诉我可以按 `data/prompts/03-update-golden-set.md` 把它们并入黄金集。只给建议，不要自动合并。

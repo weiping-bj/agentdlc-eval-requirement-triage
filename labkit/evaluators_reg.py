@@ -139,49 +139,85 @@ def list_custom() -> dict:
             return out
 
 
+def _same(a, b) -> bool:
+    return json.dumps(a, sort_keys=True, ensure_ascii=False) == json.dumps(b, sort_keys=True, ensure_ascii=False)
+
+
 def upsert(name: str, level: str, config: dict, description: str, existing: dict) -> dict:
+    """Create the evaluator, or bring it to `config`.
+
+    An evaluator that was ever attached to an online evaluation config is locked for
+    modification for good (disabling/deleting the config does not unlock it), but it can
+    still be deleted. So: unchanged -> keep; changed + unlocked -> update; changed + locked
+    -> delete and re-create (register() removes my online configs first and restores them).
+    """
     ctl = aws.client("bedrock-agentcore-control")
     if name in existing:
         eid = existing[name]["evaluatorId"]
-        try:
+        g = ctl.get_evaluator(evaluatorId=eid)
+        if _same(g.get("evaluatorConfig"), config) and g.get("level") == level:
+            print(f"  ✔ 评估器无变化 {name}")
+            return {"evaluatorId": eid, "evaluatorArn": g.get("evaluatorArn"), "level": level}
+        if not g.get("lockedForModification"):
             ctl.update_evaluator(evaluatorId=eid, evaluatorConfig=config, level=level, description=description[:200])
             print(f"  🔁 已更新评估器 {name}")
-        except ctl.exceptions.ConflictException as e:
-            print(f"  ⚠️  {name} 被在线评估配置锁定，未更新（先运行 ./33-online-eval.sh disable）：{e}")
-        except Exception as e:  # noqa: BLE001
-            if "lock" in str(e).lower() or "in use" in str(e).lower():
-                print(f"  ⚠️  {name} 正被在线评估使用，未更新：{e}")
-            else:
-                raise
-        g = ctl.get_evaluator(evaluatorId=eid)
-        return {"evaluatorId": eid, "evaluatorArn": g.get("evaluatorArn"), "level": level}
-    r = ctl.create_evaluator(evaluatorName=name, level=level, evaluatorConfig=config,
-                             description=description[:200], tags=aws.tags_dict())
+            return {"evaluatorId": eid, "evaluatorArn": g.get("evaluatorArn"), "level": level}
+        ctl.delete_evaluator(evaluatorId=eid)
+        print(f"  ♻️  {name} 已被在线评估锁定，删除后重建")
+        for _ in range(30):
+            try:
+                ctl.get_evaluator(evaluatorId=eid)
+                time.sleep(2)
+            except ctl.exceptions.ResourceNotFoundException:
+                break
+    for attempt in range(10):
+        try:
+            r = ctl.create_evaluator(evaluatorName=name, level=level, evaluatorConfig=config,
+                                     description=description[:200], tags=aws.tags_dict())
+            break
+        except ctl.exceptions.ConflictException:
+            time.sleep(5)  # name still held by the evaluator being deleted
+    else:
+        raise SystemExit(f"❌ 无法创建评估器 {name}")
     print(f"  🆕 已注册评估器 {name} → {r['evaluatorId']}")
     return {"evaluatorId": r["evaluatorId"], "evaluatorArn": r.get("evaluatorArn"), "level": level}
 
 
-def pause_online() -> list:
-    """Enabled online evaluation configs lock their evaluators: disable mine before updating."""
+def needs_replacement(existing: dict, desired: dict) -> bool:
+    """True if a changed evaluator is locked (then online configs must be removed first)."""
+    ctl = aws.client("bedrock-agentcore-control")
+    for name, (level, config) in desired.items():
+        if name in existing:
+            g = ctl.get_evaluator(evaluatorId=existing[name]["evaluatorId"])
+            if g.get("lockedForModification") and not (_same(g.get("evaluatorConfig"), config) and g.get("level") == level):
+                return True
+    return False
+
+
+def remove_online() -> list:
+    """Delete my online evaluation configs (they pin evaluators); return the paths to restore."""
     from . import online
-    paused = []
+    ctl = aws.client("bedrock-agentcore-control")
+    paths = []
     for path in ("a", "b"):
         x = online.find(online.config_name(path))
-        if x and x.get("executionStatus") == "ENABLED":
-            aws.client("bedrock-agentcore-control").update_online_evaluation_config(
-                onlineEvaluationConfigId=x["onlineEvaluationConfigId"], executionStatus="DISABLED")
-            paused.append(x["onlineEvaluationConfigId"])
-            print(f"  ⏸  暂停在线评估 {x['onlineEvaluationConfigName']}（更新评估器需要）")
-    if paused:
-        time.sleep(10)
-    return paused
+        if x:
+            ctl.delete_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"])
+            paths.append(path)
+            print(f"  ⏸  临时删除在线评估配置 {x['onlineEvaluationConfigName']}（更新被锁定的评估器需要）")
+    for path in paths:
+        for _ in range(30):
+            if not online.find(online.config_name(path)):
+                break
+            time.sleep(3)
+    return paths
 
 
-def resume_online(ids: list) -> None:
-    ctl = aws.client("bedrock-agentcore-control")
-    for cid in ids:
-        ctl.update_online_evaluation_config(onlineEvaluationConfigId=cid, executionStatus="ENABLED")
-        print(f"  ▶️  已恢复在线评估 {cid}")
+def restore_online(paths: list) -> None:
+    from . import online
+    for path in paths:
+        print(f"  ▶️  重新创建在线评估配置（路线 {path.upper()}）")
+        online.enable(path)
 
 
 def judge_config() -> dict | None:
@@ -200,23 +236,26 @@ def register() -> dict:
     role = lambda_role()
     arns = {k: deploy_lambda(k, role) for k in LAMBDAS}
     existing = list_custom()
-    paused = pause_online() if existing else []
+    desired = {ev_name(s): ("TRACE", {"codeBased": {"lambdaConfig": {"lambdaArn": arns[k], "lambdaTimeoutInSeconds": 120}}})
+               for s, k, _ in CODE_EVALUATORS}
+    jc = judge_config()
+    if jc:
+        desired[ev_name("reject_quality_llm")] = ("TRACE", jc)
+    else:
+        print("  ℹ️  未找到原生 LLM 评审配置（evaluators/llm_judge_config/），跳过")
+    removed = remove_online() if needs_replacement(existing, desired) else []
     state = {}
     for suffix, key, desc in CODE_EVALUATORS:
-        cfg = {"codeBased": {"lambdaConfig": {"lambdaArn": arns[key], "lambdaTimeoutInSeconds": 120}}}
-        state[suffix] = upsert(ev_name(suffix), "TRACE", cfg, desc, existing)
-    jc = judge_config()
+        state[suffix] = upsert(ev_name(suffix), *desired[ev_name(suffix)], desc, existing)
     if jc:
         try:
             state["reject_quality_llm"] = upsert(ev_name("reject_quality_llm"), "TRACE", jc,
                                                  "拒绝理由与话术质量（原生 LLM-as-a-judge）", existing)
         except Exception as e:  # noqa: BLE001
             print(f"  ⚠️  原生 LLM 评审评估器注册失败（不影响其它评估器）：{str(e)[:300]}")
-    else:
-        print("  ℹ️  未找到原生 LLM 评审配置（evaluators/llm_judge_config/），跳过")
     state["_lambdas"] = arns
     aws.save_state("evaluators", state)
-    resume_online(paused)
+    restore_online(removed)
     print("✅ 评估器就绪：")
     for k, v in state.items():
         if not k.startswith("_"):

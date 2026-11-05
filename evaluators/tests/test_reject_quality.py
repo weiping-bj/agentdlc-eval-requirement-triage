@@ -175,3 +175,16 @@ def test_max_tokens_default_and_env(monkeypatch):
     monkeypatch.setenv("JUDGE_MAX_TOKENS", "4096")
     c2 = judge.BedrockJudgeClient("m", None, "us-west-2", client=FakeConverse([GOOD]))
     assert c2.max_tokens == 4096
+
+
+@pytest.mark.parametrize("flags,expect_pass", [("none", True), ("无红线", True), ("N/A", True), (["没有"], True),
+                                               ("承诺上线时间", False), (None, True), (123, True)])
+def test_review_M5_red_flag_shapes(flags, expect_pass):
+    res = judge.score_verdict({"scores": {"A": 5, "B": 5, "C": 5, "D": 5, "E": 5}, "red_flags": flags})
+    assert (res["label"] == "Pass") is expect_pass, (flags, res)
+
+
+def test_review_L2_unmatched_trace_skipped(golden_rows):
+    c, fake = client([GOOD])
+    r = lf.evaluate(event([triage_span(output_from_gold(g(golden_rows, "G04")), trace="1" * 32)], trace="2" * 32), client=c)
+    assert r["label"] == "Skipped" and fake.calls == []

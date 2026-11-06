@@ -67,22 +67,52 @@ Version: 1.x.x</pre></div>
 
 <div class="step" id="s-a3-4">
   <div class="step-head"><span class="num">A3.4</span><h3>给每次请求带上 session.id（自有 Agent 需要改几行代码）</h3><span class="time">5 分钟</span></div>
-  <p class="why">评估服务按 session 找数据，没有 session.id 就找不到。</p>
-  <p>在你们 Agent 处理<b>一次请求</b>的入口处，加 4 行代码（把同一条需求的所有 span 归到同一个 session）：</p>
-<pre><code>from opentelemetry import baggage, context
+  <p class="why">评估服务按 session 找数据，没有 session.id 就找不到；评估器还要能拿到 Agent 的最终输出。</p>
 
-token = context.attach(baggage.set_baggage("session.id", session_id))  # 每条需求一个唯一 ID
-try:
-    result = agent(prompt)            # 你原来的 Agent 调用
-finally:
-    context.detach(token)</code></pre>
-  <p>然后用 <code>opentelemetry-instrument</code> 启动你的程序（代码其它地方不用改）：</p>
-<pre><code>opentelemetry-instrument python your_agent.py</code></pre>
-  <p>mock agent 的做法可以直接参考：</p>
+  <div class="pathbox" data-path="a"><div class="ph">用 mock agent（本仓库自带）：这一步已经内置，什么都不用做，直接到 <a href="#s-a3-5">A3.5</a></div>
   <ul>
-    <li><a data-repo="labkit/batch.py">labkit/batch.py</a> 的 <code>_local_one()</code>：设置 baggage <code>session.id</code>；</li>
-    <li><a data-repo="agent/s12agent/core.py">agent/s12agent/core.py</a> 的 <code>triage()</code>：外层 <code>s12lab.triage</code> span，写入 <code>s12lab.feedback_id</code>、<code>s12lab.agent_version</code> 和最终结果 <code>s12lab.triage_output</code>（评估器优先从这里读 Agent 输出）。</li>
-  </ul>
+    <li><a data-repo="labkit/batch.py">labkit/batch.py</a> 的 <code>_local_one()</code>：每条需求设置 baggage <code>session.id</code>。</li>
+    <li><a data-repo="agent/s12agent/core.py">agent/s12agent/core.py</a> 的 <code>triage()</code>：外层包一个 <code>s12lab.triage</code> span，写入 <code>session.id</code>、<code>s12lab.feedback_id</code>、<code>s12lab.agent_version</code> 和 <code>s12lab.triage_output</code>（最终 JSON，评估器优先从这里读）。</li>
+    <li>mock agent 的 A3 只需要两条命令：<a href="#s-a3-1">A3.1</a> <code>./10-A-run-local.sh smoke</code>，然后 <a href="#s-a3-5">A3.5</a> <code>./10-A-run-local.sh trace 3</code>；<a href="#s-a3-2">A3.2</a> / <a href="#s-a3-3">A3.3</a> 只看不改。</li>
+  </ul></div>
+
+  <div class="pathbox" data-path="a"><div class="ph">接入你们自己的 Agent（Python）</div>
+  <p>把下面这段放在<b>每次处理一条需求的入口</b>（HTTP 接口的处理函数、队列的消费函数、批处理循环里的每一条），<b>不要</b>放在程序启动时。把 <code>my_agent(item)</code> 换成你们原来的 Agent 调用：它要返回一个 dict，字段见 <a data-repo="evaluators/README.md">evaluators/README.md</a> 第 1 节（返回的是 JSON 文本时先 <code>json.loads</code>）。只用 OpenTelemetry 自带的接口，和框架无关。</p>
+<pre><code>import json
+import uuid
+
+from opentelemetry import baggage, context, trace
+
+tracer = trace.get_tracer("s12lab.triage")
+
+
+def handle_one(item: dict) -&gt; dict:
+    """处理一条需求：一条需求 = 一个 session = 一个 trace。在每次处理请求的入口调用。"""
+    session_id = f"s12lab-{uuid.uuid4()}"  # 每条需求一个新的唯一 ID
+    token = context.attach(baggage.set_baggage("session.id", session_id))  # 之后产生的 span 都带上它
+    try:
+        with tracer.start_as_current_span("s12lab.triage") as span:
+            span.set_attribute("session.id", session_id)
+            fid = item.get("id") or item.get("feedback_id")  # 需求编号：按你们的字段名改
+            if fid:
+                span.set_attribute("s12lab.feedback_id", fid)
+            result = my_agent(item)  # 换成你们原来的 Agent 调用；返回 dict，字段见 evaluators/README.md 第 1 节
+            span.set_attribute("s12lab.triage_output", json.dumps(result, ensure_ascii=False, default=str))
+            return result
+    finally:
+        context.detach(token)</code></pre>
+  <p class="where">同一段代码：<a data-repo="telemetry/snippets/a34_session_wrapper.py">telemetry/snippets/a34_session_wrapper.py</a>（仓库里的测试会运行它，并检查我们的评估器能读出结果）。</p>
+  <ul>
+    <li>程序要在 <code>opentelemetry-instrument</code> 下运行，并先设置 <a href="#s-a3-3">A3.3</a> 的环境变量：
+<pre><code>source ./00-config.sh &amp;&amp; source telemetry/otel_env.sh my-agent /aws/bedrock-agentcore/my-agent
+.venv/bin/python -m labkit.loggroup /aws/bedrock-agentcore/my-agent   # 日志组要先存在（只需一次）
+opentelemetry-instrument python your_agent.py</code></pre></li>
+    <li>处理函数是 async 的（FastAPI 等）：把 <code>def handle_one</code> 改成 <code>async def</code>，把 <code>my_agent(item)</code> 改成 <code>await my_agent(item)</code>，其余不变。</li>
+    <li>如果 Agent 把活交给自己开的线程或进程（线程池、multiprocessing 等），那里面的 span 可能拿不到这个上下文，<code>session.id</code> 会丢：尽量在同一个线程里调用 Agent，或者把 context 显式传过去。</li>
+    <li>改完按 <a href="a5-check.html">A5</a> 的标准检查。注意 <code>./12-A-check-telemetry.sh</code> 只检查我们脚本记下的运行（mock agent 和 A4 导入），查不了你们自己的程序：让你们的 Agent 跑几条，再到 <a href="#s-a3-6">A3.6</a> 的 CloudWatch GenAI Observability 里按服务名 <code>my-agent</code> 找到它，确认每条需求一个 session，<code>s12lab.triage</code> span 上有 <code>s12lab.triage_output</code>。</li>
+    <li>LangGraph：强烈建议写 <code>s12lab.triage_output</code>，否则我们的自定义评估器可能解析不了 LangGraph 序列化的图状态（未验证）。按 AgentCore 文档，LangGraph 的埋点包用 <code>opentelemetry-instrumentation-langchain&gt;=0.55.0</code> 或 <code>openinference-instrumentation-langchain&gt;=0.1.62</code>。</li>
+  </ul></div>
+
   <div class="note">评估器需要的数据：① 每个 span 带 <code>session.id</code>；② 一条需求 = 一个 trace；③ 能拿到 Agent 的最终输出（JSON）。Strands 框架自动产生 <code>invoke_agent</code> / <code>chat</code> / <code>execute_tool</code> span；其它框架看 A5 的检查结果决定要不要补。</div>
 </div>
 

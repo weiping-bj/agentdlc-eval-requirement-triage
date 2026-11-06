@@ -7,8 +7,11 @@ Input format: telemetry/LOG_FORMAT.md. Each line becomes one session with one tr
 mimics what Strands Agents emits (scope `strands.telemetry.tracer`):
   invoke_agent <agent>  ->  chat  +  execute_tool <tool> (per tool call)
 Timestamps are re-stamped to 10 s apart ending ~2 minutes ago (CloudWatch rejects spans older
-than 14 days), keeping the original order. The run is registered in .lab-state/runs.json (mode
-"imported") so ./31-run-eval.sh and ./12-A-check-telemetry.sh can use it.
+than 14 days), keeping the original order, but never earlier than the creation of the log
+groups they land in (Logs Insights cannot see events that pre-date their log group, so on a
+first send, with a group created seconds ago, the window starts just after its creation).
+The run is registered in .lab-state/runs.json (mode "imported") so ./31-run-eval.sh and
+./12-A-check-telemetry.sh can use it.
 """
 from __future__ import annotations
 
@@ -20,7 +23,12 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import aws
+from . import aws, loggroup
+
+# CloudWatch rejects spans and log records more than 2 h in the future; stay well inside that.
+FUTURE_SAFE_S = 3600
+# Keep every re-stamped time this far after the log group creation (ms rounding, float ns).
+AFTER_CREATION_S = 2
 
 REQUIRED = ["session_id", "timestamp", "user_input", "agent_output"]
 OPTIONAL = ["feedback_id", "model", "latency_ms", "agent_name", "tool_calls"]
@@ -131,6 +139,37 @@ def _content_record(logger, span, sid: str, t_ns: int, inp: list, out: list) -> 
                           attributes={"event.name": "strands.telemetry.tracer", "session.id": sid}))
 
 
+def _group_created(logs, group: str) -> float | None:
+    """Creation time of a log group in epoch seconds (CloudWatch reports ms), None if it does not exist."""
+    for g in logs.describe_log_groups(logGroupNamePrefix=group).get("logGroups", []):
+        if g["logGroupName"] == group:
+            return g["creationTime"] / 1000.0
+    return None
+
+
+def _not_before(group: str) -> tuple[float, str]:
+    """Earliest time a re-stamped span or content record may carry, and the log group that sets it:
+    just after the creation of the target group (created here first if it is missing) and of
+    aws/spans, where the spans land. Logs Insights cannot see events that pre-date their log group."""
+    try:  # these lookups are not part of the imported data: keep botocore auto-instrumentation out
+        from opentelemetry.instrumentation.utils import suppress_instrumentation
+    except ImportError:
+        from contextlib import nullcontext as suppress_instrumentation
+    logs = aws.client("logs")
+    with suppress_instrumentation():
+        created = _group_created(logs, group)
+        if created is None:
+            loggroup.ensure(group)
+            created = _group_created(logs, group) or time.time()
+        spans_created = _group_created(logs, "aws/spans")
+    if spans_created is None:
+        print("  ⚠️  aws/spans 日志组还不存在（这个账号还没写入过 span，这次发送时才会创建）：这次的 span 可能查不到，"
+              "1 分钟后再发送一次即可")
+    elif spans_created > created:
+        return spans_created + AFTER_CREATION_S, "aws/spans"
+    return created + AFTER_CREATION_S, group
+
+
 def send(path: str) -> int:
     from opentelemetry import baggage, context, trace
     from opentelemetry._logs import get_logger_provider
@@ -142,8 +181,20 @@ def send(path: str) -> int:
         print("❌ 没有可发送的行，先运行 check"); return 1
     # Re-stamp: keep the original ORDER but lay the sessions out 10 s apart, ending ~2 min ago.
     # (Original gaps can be hours or years; CloudWatch rejects spans older than 14 days.)
+    # Never before the log groups exist: on a first send the group is only seconds old, so the
+    # window then starts just after its creation and ends up to 10 s x rows in the future.
     order = sorted(range(len(rows)), key=lambda i: parse_ts(rows[i]["timestamp"]) or 0)
-    base = time.time() - 120 - 10 * len(rows)
+    now = time.time()
+    not_before, bound = _not_before(c["CONVERTED_LOG_GROUP"])
+    base = max(now - 120 - 10 * len(rows), not_before)
+    ahead = base + 10 * (len(rows) - 1) + 9.0 - now          # a session lasts at most 9 s
+    age = max(0, int(now - not_before + AFTER_CREATION_S))
+    if ahead > FUTURE_SAFE_S:
+        fits = int((now + FUTURE_SAFE_S - 9.0 - base) // 10) + 1
+        print(f"❌ 日志组 {bound} {age} 秒前才创建，记录的时间不能早于它；{len(rows)} 行按 10 秒间隔要排到 "
+              f"{int(ahead // 60)} 分钟之后，超出 CloudWatch 接受的范围。请把文件拆成每份不超过 {fits} 行，"
+              "或过一段时间再发送。")
+        return 1
     starts = {i: base + 10 * k for k, i in enumerate(order)}
     tracer = trace.get_tracer("strands.telemetry.tracer")
     logger = get_logger_provider().get_logger("strands.telemetry.tracer")
@@ -224,6 +275,9 @@ def send(path: str) -> int:
                  "agentRuntimeArn": None})
     aws.save_state("runs", runs)
     print(f"✅ 已发送 {len(rows)} 个 session（run_id = {run_id}）。约 2-3 分钟后可在 CloudWatch 查到。")
+    if ahead > 60:  # 12-A / 31 query up to now + 60 s
+        print(f"   ℹ️  日志组 {bound} {age} 秒前才创建，记录不能早于它：后面的 session 排在接下来约 "
+              f"{int(ahead // 60) + 1} 分钟里，这段时间过后再运行 ./31-run-eval.sh")
     print("   下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）")
     return 0
 

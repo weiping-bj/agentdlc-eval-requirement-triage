@@ -36,12 +36,18 @@
 
 🟩 结论：通过 —— 数据满足 AgentCore Evaluations 的要求。继续第 6 章。</pre>
   <p>检查最多取 5 个 session（<code>--sessions</code> 可改）；A3.5 只发了 3 条时显示 <code>(3/3)</code>。最后的“试评估”会真的调用一次 Evaluations，证明服务能读懂这些数据。</p>
-  <p>做了 A4 时，对导入的 5 条样例日志运行同一个检查（实测）：</p>
-<pre class="out">▶ 检查 run A-imported-20261105T144741Z（imported）的 5 个 session · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
+  <p>做了 A4 时，对导入的 5 条样例日志运行同一个检查（实测，第一次发送后马上运行）：</p>
+<pre class="out">▶ 检查 run A-imported-20261106T151120Z（imported）的 5 个 session · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
   ⏳ 等待数据在 CloudWatch 中可查询…（15s）      ← 数据刚发出时会自动等待，最多 3 分钟
-  · s12lab-zhang3-imp-20261105T144741Z-cust-sess-0001  span=3 文档=6
-  · s12lab-zhang3-imp-20261105T144741Z-cust-sess-0002  span=2 文档=4
-  …
+  ⏳ 等待数据在 CloudWatch 中可查询…（30s）
+  ⏳ 等待数据在 CloudWatch 中可查询…（45s）
+  ⏳ 等待数据在 CloudWatch 中可查询…（60s）
+  ⏳ 等待数据在 CloudWatch 中可查询…（75s）
+  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0001  span=3 文档=6
+  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0002  span=2 文档=4
+  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0003  span=4 文档=8
+  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0004  span=2 文档=4
+  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0005  span=2 文档=4
 
 检查项（✅ 全部 session 满足 · ⚠️ 部分满足 · ❌ 都不满足）
   ✅ [必需] 能在 CloudWatch（aws/spans）按 session.id 找到 span  (5/5)
@@ -59,7 +65,7 @@
   ✅ 试评估（Builtin.Helpfulness）成功：Very Helpful 0.83
 
 🟨 结论：可以评估（必需项都满足），部分可选项缺失会限制个别评估器。继续第 6 章。</pre>
-  <p>样例日志只有 2 行带工具调用、都没有 token 用量，所以是 🟨：必需项都满足，可以评估。</p>
+  <p>样例日志只有 2 行带工具调用、都没有 token 用量，所以是 🟨：必需项都满足，可以评估。<code>文档</code> 是 <code>span</code> 的两倍：每个 span 都有一条对应的输入输出内容记录；如果 <code>文档</code> 和 <code>span</code> 一样多、“用户输入”是 0/5，说明内容记录没查到。</p>
   <p>数据刚发出 2–3 分钟内可能还查不到，检查器会自动等待；如果等完仍显示 <code>span=0</code>，再运行一次即可。</p></div>
 </div>
 

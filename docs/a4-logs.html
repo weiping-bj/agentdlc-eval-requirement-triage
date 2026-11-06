@@ -87,20 +87,22 @@
   <p>脚本做了三件事：</p>
   <ol class="clicks">
     <li>把每行日志变成一组 OTel span（Agent 调用 + 工具调用 + 输入输出事件），格式和 Strands Agent 埋点产生的一致；</li>
-    <li>把时间重排到<b>最近几分钟内</b>（按原先后顺序，每条间隔 10 秒），因为 CloudWatch 不接收 14 天以前的 span；</li>
+    <li>把时间重排到<b>最近几分钟内</b>（按原先后顺序，每条间隔 10 秒），因为 CloudWatch 不接收 14 天以前的 span；时间也不会早于日志组的创建时间（CloudWatch Logs Insights 查不到比日志组更早的记录），所以第一次发送时日志组刚建好，记录从建好后几秒开始排，最后几条落在接下来的几十秒里；</li>
     <li>以服务名 <code>s12lab-zhang3-imported-logs</code> 发送到 CloudWatch，并登记为一次“运行”，后面 <code>./31-run-eval.sh</code> 可以直接评估它。</li>
   </ol>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
 📡 OTel 已配置：service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs · 区域 us-west-2
+… WARNING [opentelemetry.instrumentation.logging] … Skipping installation of LoggingHandler …
 ▶ 转换并发送 5 条日志 → service.name=s12lab-zhang3-imported-logs · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
-  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0001  FB-2610-001
-  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0002  FB-2610-002
-  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0003  FB-2610-003
-  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0004  FB-2610-005
-  ✔ s12lab-zhang3-imp-20261105T144741Z-cust-sess-0005  FB-2610-007
-✅ 已发送 5 个 session（run_id = A-imported-20261105T144741Z）。约 2-3 分钟后可在 CloudWatch 查到。
+  ✔ s12lab-zhang3-imp-20261106T151120Z-cust-sess-0001  FB-2610-001
+  ✔ s12lab-zhang3-imp-20261106T151120Z-cust-sess-0002  FB-2610-002
+  ✔ s12lab-zhang3-imp-20261106T151120Z-cust-sess-0003  FB-2610-003
+  ✔ s12lab-zhang3-imp-20261106T151120Z-cust-sess-0004  FB-2610-005
+  ✔ s12lab-zhang3-imp-20261106T151120Z-cust-sess-0005  FB-2610-007
+✅ 已发送 5 个 session（run_id = A-imported-20261106T151120Z）。约 2-3 分钟后可在 CloudWatch 查到。
    下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre>
+  <p>这是第一次发送（日志组刚创建）的实测输出：发送一次就够，不需要再发第二次。<code>WARNING … Skipping installation of LoggingHandler</code> 是 OpenTelemetry 自己的提示，正常现象。</p>
   <p>每次发送，脚本都会把日志里的 <code>session_id</code> 改写为 <code>s12lab-&lt;后缀&gt;-imp-&lt;发送时间&gt;-&lt;原 id&gt;</code>：同一个文件重复发送也不会和上一次混在一起，在 CloudWatch 里按这个前缀就能找到。</p></div>
 </div>
 
@@ -109,9 +111,9 @@
   <p class="why">在控制台看到导入的会话和 trace。</p>
   <ol class="clicks">
     <li>等 2–3 分钟。CloudWatch → <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → Agents 列表找到 <code>s12lab-zhang3-imported-logs</code>。</li>
-    <li>点进去 → <span class="ui">Sessions</span>：session 名形如 <code>s12lab-zhang3-imp-&lt;发送时间&gt;-&lt;日志里的 session_id&gt;</code>（例如 <code>s12lab-zhang3-imp-20261105T144741Z-cust-sess-0001</code>）；点开看 trace 里的输入和输出。</li>
+    <li>点进去 → <span class="ui">Sessions</span>：session 名形如 <code>s12lab-zhang3-imp-&lt;发送时间&gt;-&lt;日志里的 session_id&gt;</code>（例如 <code>s12lab-zhang3-imp-20261106T151120Z-cust-sess-0001</code>）；点开看 trace 里的输入和输出。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>5 个 session，与日志行数一致；每个 trace 有 <code>invoke_agent customer_agent</code>（或日志里的 <code>agent_name</code>）→ <code>chat</code>，带工具调用的 2 行还有 <code>execute_tool …</code>。输入输出内容比 span 晚 1–3 分钟可查。</div>
+  <div class="expect"><span class="label">预期结果：</span>5 个 session，与日志行数一致；每个 trace 有 <code>invoke_agent customer_agent</code>（或日志里的 <code>agent_name</code>）→ <code>chat</code>，带工具调用的 2 行还有 <code>execute_tool …</code>，trace 里能看到输入和输出。第一次发送就能看到；用 Logs Insights 实测：输入输出内容约 35 秒、span 约 1.5 分钟后可查，所以等 2–3 分钟再到控制台看。</div>
   <p>下一步：<a href="a5-check.html">A5 遥测检查</a>（不带 <code>--run</code> 时检查的就是这次导入）。导入的运行可以照常用 <code>./31-run-eval.sh --run A-imported-&lt;时间&gt;</code> 评估；它不在 6.5 的在线评估范围内。</p>
 </div>
 

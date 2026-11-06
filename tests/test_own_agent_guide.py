@@ -137,6 +137,10 @@ def test_imported_run_window_covers_a_long_log_file(tmp_path, monkeypatch):
            "CONVERTED_SERVICE_NAME": "s12lab-zz-imported-logs",
            "CONVERTED_LOG_GROUP": "/aws/bedrock-agentcore/s12lab-zz-imported-logs"}
     monkeypatch.setattr(aws, "cfg", lambda: cfg)
+    old = int((time.time() - 3 * 86400) * 1000)  # both log groups created days ago: window not clamped
+    logs = type("L", (), {"describe_log_groups": lambda self, logGroupNamePrefix: {"logGroups": [
+        {"logGroupName": logGroupNamePrefix, "creationTime": old}]}})()
+    monkeypatch.setattr(aws, "client", lambda name: logs)
     log = tmp_path / "logs.jsonl"
     log.write_text("".join(json.dumps({"session_id": f"s{i}", "timestamp": "2026-10-12T09:30:00+08:00",
                                        "user_input": f"需求编号: FB-{i}", "agent_output": "ok"}) + "\n"

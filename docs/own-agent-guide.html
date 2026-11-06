@@ -280,10 +280,10 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
   <ul>
     <li><code>check</code>：逐项列出字段覆盖率和“输出可解析为三项判断 JSON”的条数；出现 <code>✅ 字段检查通过</code> 才继续；如果后面还有一行 <code>⚠️ 不到一半的输出能解析成三项判断</code>，先调整 <code>agent_output</code> 的格式，否则标签准确率评估器会大量记 <code>FormatError</code>。有 <code>❌ 第 N 行缺少必填字段</code> / <code>不是合法 JSON</code> / <code>timestamp 无法解析</code> 时先修正：缺必填字段或不是合法 JSON 的行，<code>send</code> 会直接跳过。</li>
     <li><code>send</code>：创建日志组 <code>/aws/bedrock-agentcore/s12lab-&lt;后缀&gt;-imported-logs</code>，以服务名 <code>s12lab-&lt;后缀&gt;-imported-logs</code> 发送；每行变成 <code>invoke_agent &lt;agent_name&gt;</code> → <code>chat</code>（+ 每个工具调用一个 <code>execute_tool</code>）的 trace；输出能解析成三项判断 JSON 时，写在根 span 的 <code>s12lab.triage_output</code> 上。</li>
-    <li>时间按原先后顺序重排到<b>最近几分钟内</b>（每条间隔 10 秒），因为 CloudWatch 不接收 14 天以前的 span；session_id 改写为 <code>s12lab-&lt;后缀&gt;-imp-&lt;发送时间&gt;-&lt;原 session_id&gt;</code>，同一文件重复发送也不会混在一起。</li>
+    <li>时间按原先后顺序重排到<b>最近几分钟内</b>（每条间隔 10 秒），因为 CloudWatch 不接收 14 天以前的 span；也不会早于日志组的创建时间（CloudWatch Logs Insights 查不到比日志组更早的记录），所以第一次发送时记录从日志组建好后几秒开始排；行数多时后面的 session 会排到接下来的几分钟里，<code>send</code> 结尾会多一行 <code>ℹ️</code> 提示要等多久（按代码核对，实测只跑了 5 行样例）；session_id 改写为 <code>s12lab-&lt;后缀&gt;-imp-&lt;发送时间&gt;-&lt;原 session_id&gt;</code>，同一文件重复发送也不会混在一起。</li>
   </ul>
   <div class="expect"><span class="label">预期输出（<code>send</code> 的结尾，实测：样例日志 5 行）：</span>
-<pre class="out">✅ 已发送 5 个 session（run_id = A-imported-20261105T144741Z）。约 2-3 分钟后可在 CloudWatch 查到。
+<pre class="out">✅ 已发送 5 个 session（run_id = A-imported-20261106T151120Z）。约 2-3 分钟后可在 CloudWatch 查到。
    下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre>
   记下这一行的 <code>run_id</code>（<code>A-imported-&lt;发送时间&gt;</code>），后面都用它。</div>
 </div>
@@ -291,11 +291,11 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
 <div class="step" id="s-g-13">
   <div class="step-head"><span class="num">G.13</span><h3>路线二 ③ 遥测检查与按需评估</h3><span class="time"><span class="pill g">已实测</span></span></div>
   <p class="why">确认导入的数据能被 Evaluations 使用，再对照黄金集打分。</p>
-  <p><code>send</code> 之后等 2–3 分钟：</p>
+  <p><code>send</code> 之后等 2–3 分钟；<code>send</code> 结尾有 <code>ℹ️</code> 等待提示时，等到它说的时间之后再运行：</p>
 <pre><code>./12-A-check-telemetry.sh --run A-imported-&lt;发送时间&gt;
 ./31-run-eval.sh --run A-imported-&lt;发送时间&gt;</code></pre>
   <ul>
-    <li>导入的 trace 没有 token 用量；没有 <code>tool_calls</code> 的行也没有工具调用 span，所以检查结论通常是 🟨（必需项都满足，可以评估）。实测样例日志：必需项 5/5，工具调用 2/5，token 用量 0/5，试评估成功。</li>
+    <li>导入的 trace 没有 token 用量；没有 <code>tool_calls</code> 的行也没有工具调用 span，所以检查结论通常是 🟨（必需项都满足，可以评估）。实测样例日志（第一次发送，日志组刚创建）：必需项 5/5，工具调用 2/5，token 用量 0/5，试评估成功。</li>
     <li>导入的服务名不在 G.6 的在线评估范围内：路线二只做按需评估，控制台的 Evaluations 页签不会有这些 session 的分数。</li>
     <li>刚 <code>send</code> 完时导入的就是最后一条登记的运行，不带 <code>--run</code> 也能评到它；但之后再跑别的运行就不是了，所以照样建议带上 <code>--run</code>。</li>
   </ul>

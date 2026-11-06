@@ -20,7 +20,7 @@
 
 - `agent_output` 里如果是“三项判断”JSON（键名可用 `important/urgent/decision` 或 `是否重要/是否紧急/处理建议`），
   标签准确率评估器就能打分；否则只能用内置评估器（如 Helpfulness）。
-- 发送时所有记录按原先后顺序重排到“最近几分钟内”（每条间隔 10 秒），因为 CloudWatch 不接收 14 天前的 span。
+- 发送时所有记录按原先后顺序重排到“最近几分钟内”（每条间隔 10 秒），因为 CloudWatch 不接收 14 天前的 span；时间也不会早于日志组的创建时间（CloudWatch Logs Insights 查不到比日志组更早的记录），所以第一次发送就能查到输入输出内容。
 - 没有 `tool_calls` 也可以导入，只是工具类评估器无法使用。
 - 样例文件：[`samples/customer-agent-logs.jsonl`](samples/customer-agent-logs.jsonl)。
 

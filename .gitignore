@@ -30,3 +30,6 @@ docs/compare/*.html
 *.swp
 config/local.env
 data/customer/
+# Template backups written by tools/pull-templates.sh
+data/templates/.backup/
+data/templates/.*.tmp

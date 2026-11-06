@@ -100,6 +100,9 @@ def read_csv(path: str) -> List[Dict[str, str]]:
     text = read_text_any(path)
     try:
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=",\t;")
+        # Excel always writes "" for a quote inside a quoted cell; a quote-free 4 KB sample sniffs as
+        # doublequote=False and later cells with quotes would split into the next columns.
+        dialect.doublequote = True
     except csv.Error:
         dialect = csv.excel
     return [{(k or "").strip(): _unescape_cell((v or "").strip()) for k, v in row.items() if k is not None}

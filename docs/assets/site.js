@@ -37,6 +37,60 @@ function repoLink(path) {
   return `${REPO_URL}/${isDir ? "tree" : "blob"}/${REPO_BRANCH}/${path.replace(/\/$/, "")}`;
 }
 
+function rawUrl(path) {
+  return REPO_URL.replace("https://github.com/", "https://raw.githubusercontent.com/") + "/" + REPO_BRANCH + "/" + path;
+}
+
+/* <a data-download="data/templates/x.csv"></a> -> one-click download of the raw file under its exact name.
+ * href is the raw URL (works as a plain link too); a plain click fetches it and saves it as x.csv, because a
+ * cross-origin `download` attribute is ignored and the browser would only show the text. While it runs the
+ * link says "下载中…" and ignores more clicks (no duplicate "(1)" files). On error a note with the GitHub
+ * file page link appears next to it (its "Download raw file" button gives the same file); no popup.
+ * Ctrl/Cmd/Shift/middle clicks keep the browser's own behaviour. */
+function resolveDownloadLinks() {
+  document.querySelectorAll("a[data-download]").forEach((a) => {
+    const path = a.dataset.download;
+    const name = path.split("/").pop();
+    a.href = rawUrl(path);
+    a.setAttribute("download", name);
+    if (!a.textContent.trim()) a.textContent = name;
+    const label = a.textContent;
+    let busy = false;
+    a.addEventListener("click", (ev) => {
+      if (ev.button || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+      if (!window.fetch || !window.URL || !URL.createObjectURL) return;
+      ev.preventDefault();
+      if (busy) return;
+      busy = true;
+      a.textContent = label + "（下载中…）";
+      fetch(a.href, { cache: "no-store" })
+        .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
+        .then((buf) => {
+          const u = URL.createObjectURL(new Blob([buf], { type: "application/octet-stream" }));
+          const t = document.createElement("a");
+          t.href = u; t.download = name; t.style.display = "none";
+          document.body.appendChild(t); t.click(); t.remove();
+          setTimeout(() => URL.revokeObjectURL(u), 10000);
+          a.textContent = label + " ✓";
+        })
+        .catch(() => {
+          a.textContent = label;
+          if (!a.nextElementSibling || !a.nextElementSibling.classList.contains("dl-fail")) {
+            const s = document.createElement("small");
+            s.className = "dl-fail";
+            s.textContent = "（下载失败：请打开 ";
+            const g = document.createElement("a");
+            g.href = repoLink(path); g.target = "_blank"; g.rel = "noopener"; g.textContent = "GitHub 文件页";
+            s.appendChild(g);
+            s.appendChild(document.createTextNode("，点右上角的下载图标）"));
+            a.after(s);
+          }
+        })
+        .finally(() => { busy = false; });
+    });
+  });
+}
+
 function buildTopbar() {
   const bar = document.getElementById("topbar");
   if (!bar) return;
@@ -109,10 +163,7 @@ function resolveRepoLinks() {
   // <span data-repo-url></span> -> 仓库地址文本；<span data-clone-url></span> -> clone 地址
   document.querySelectorAll("[data-repo-url]").forEach((e) => (e.textContent = REPO_URL));
   document.querySelectorAll("[data-clone-url]").forEach((e) => (e.textContent = REPO_URL + ".git"));
-  document.querySelectorAll("[data-raw]").forEach((e) => {
-    const raw = REPO_URL.replace("https://github.com/", "https://raw.githubusercontent.com/") + "/" + REPO_BRANCH + "/" + e.dataset.raw;
-    e.textContent = raw;
-  });
+  document.querySelectorAll("[data-raw]").forEach((e) => (e.textContent = rawUrl(e.dataset.raw)));
 }
 
 function addCopyButtons() {
@@ -150,6 +201,7 @@ function trackActiveStep() {
 
 document.addEventListener("DOMContentLoaded", () => {
   resolveRepoLinks();
+  resolveDownloadLinks();
   buildTopbar();
   buildToc();
   buildPager();

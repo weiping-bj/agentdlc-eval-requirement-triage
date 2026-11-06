@@ -18,6 +18,58 @@
 </section>
 <section class="card">
 
+<div class="step" id="s-2-0">
+  <div class="step-head"><span class="num">2.0</span><h3>把上午填好的两份模板拷到 EC2（经过你的私有 S3 桶）</h3><span class="time">5 分钟</span></div>
+  <p class="why">记录员上午在笔记本上填好了 <code>discussion-feedback.md</code> 和 <code>golden-set-feedback.csv</code>（<a href="discussion.html#s-d-6">讨论材料 D.6</a>）。EC2 没有入站端口、不能 scp，所以用你的私有 S3 桶中转：控制台拖进去，EC2 上一条命令拷进 <code>data/templates/</code>。</p>
+  <ol class="clicks">
+    <li><b>EC2 上</b>：创建（或找到）你的私有桶，并打印它的名字和控制台链接：</li>
+  </ol>
+<pre><code>./tools/pull-templates.sh --prepare</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">  🪣 已创建 S3 桶 s12lab-zhang3-&lt;account&gt;-us-west-2
+✅ 你的私有桶：s12lab-zhang3-&lt;account&gt;-us-west-2
+   名字规则：s12lab-&lt;个人后缀&gt;-&lt;12 位账号 ID&gt;-&lt;区域&gt;；只在本实验账号内可见
+👉 在笔记本浏览器打开下面的链接（需已登录控制台），点「上传」，把 discussion-feedback.md 和
+   golden-set-feedback.csv 拖进去（不要改文件名；放在 templates/ 文件夹里也可以），再点「上传」：
+   https://us-west-2.console.aws.amazon.com/s3/buckets/s12lab-zhang3-&lt;account&gt;-us-west-2?region=us-west-2&amp;tab=objects
+上传完成后回到 EC2 运行：./tools/pull-templates.sh</pre>
+  桶已存在时没有第一行（第 9 章的对比页也放在这个桶里）。</div>
+  <ol class="clicks" start="2">
+    <li><b>笔记本上</b>：打开上面打印的链接。找不到链接时：控制台搜索 <span class="ui">S3</span> →「存储桶」→ 在搜索框输入 <code>s12lab-你的后缀</code>，你的桶就是 <code>s12lab-你的后缀-12位账号ID-区域</code> 这一个（例如 <code>s12lab-zhang3-123456789012-us-west-2</code>）。</li>
+    <li>点 <span class="ui">上传</span>（Upload）→ 把两个文件拖进页面（或点「添加文件」选中它们）→ 页面底部点 <span class="ui">上传</span>。想放进文件夹也可以：先点「创建文件夹」建一个 <code>templates</code>，进入后再上传。</li>
+    <li><b>回到 EC2</b>：一条命令拷进 <code>data/templates/</code>（原文件先自动备份）：</li>
+  </ol>
+<pre><code>./tools/pull-templates.sh</code></pre>
+  <div class="expect"><span class="label">预期输出</span>（实测：CSV 由 Excel 存成了 GBK，md 放在 templates/ 文件夹里）：
+<pre class="out">==&gt; 从 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/ 查找 discussion-feedback.md 和 golden-set-feedback.csv
+✅ discussion-feedback.md：已拷贝 → data/templates/discussion-feedback.md  ← s3://s12lab-zhang3-&lt;account&gt;-us-west-2/templates/discussion-feedback.md（4.3 KB，上传于 11-06 10:24 北京时间）
+     原文件已备份到 data/templates/.backup/20261106-022426/discussion-feedback.md
+✅ golden-set-feedback.csv：已拷贝 → data/templates/golden-set-feedback.csv  ← s3://s12lab-zhang3-&lt;account&gt;-us-west-2/golden-set-feedback.csv（13.2 KB，上传于 11-06 10:24 北京时间，GBK → UTF-8）
+     原文件已备份到 data/templates/.backup/20261106-022426/golden-set-feedback.csv
+     “操作”列：保留 29 · 修改 1 · 新增 1
+
+完成：2/2 个模板已就位（data/templates/）。重复运行是安全的。
+下一步（手册第 2.5 步）：先预览，再交给 coding agent：
+  python3 data/tools/golden_tool.py apply-feedback --dry-run
+  claude "$(cat data/prompts/03-update-golden-set.md)"
+  黄金集改完要 freeze，并重新部署评估器：./30-create-evaluators.sh（第 6 章）</pre>
+  再运行一次会显示“与 EC2 上现有文件相同，无需拷贝”，不会重复备份。</div>
+  <p class="where">脚本：<a data-repo="tools/pull-templates.sh">tools/pull-templates.sh</a> → <a data-repo="labkit/pull_templates.py">labkit/pull_templates.py</a>。只会写 <code>data/templates/</code> 下这两个文件；Excel 存的 GBK 编码会自动转成 UTF-8；重复运行是安全的（内容没变就跳过）。</p>
+  <table>
+    <tr><th style="width:36%">看到的提示</th><th>意思 / 怎么办</th></tr>
+    <tr><td><code>⚠️ …桶里没找到这个文件</code></td><td>这个文件没上传（或文件名改了）：EC2 上那份保持不变。上传后重跑命令即可</td></tr>
+    <tr><td><code>⚠️ …内容和仓库里的默认模板完全一样</code></td><td>上传的是没改过的文件，或改完没保存：在笔记本上保存后重新上传、重跑</td></tr>
+    <tr><td><code>…文件类型不对</code></td><td>存成了 <code>.xlsx</code> / <code>.docx</code> 等：CSV 在 Excel 里“另存为 → CSV UTF-8”，md 用记事本另存为 <code>.md</code>，用原文件名重新上传</td></tr>
+    <tr><td><code>⚠️ …改用名字相近的 …</code></td><td>文件名被改过（例如多了 “(1)”、“副本”），脚本已用它；没问题就继续，下次保持原名</td></tr>
+    <tr><td><code>❌ …内容不同的改过的版本</code></td><td>桶里有两份都改过、内容又不一样：在 S3 控制台勾选不要的那份 →「删除」，再运行</td></tr>
+    <tr><td><code>⚠️ …保留 EC2 上的</code></td><td>EC2 上那份在上次拷贝之后被改过（例如 claude / coding agent 改的），脚本不会覆盖；确实要用桶里的覆盖，加 <code>--force</code> 重跑（旧文件会先备份）</td></tr>
+    <tr><td><code>❌ 你的桶 … 还不存在</code></td><td>先运行上面第 1 步 <code>--prepare</code></td></tr>
+  </table>
+  <p>拷好之后：mock 数据意见（模板第 5 节）按 <a href="#s-2-4">2.4</a> 的提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">02-regenerate-mock-data.md</a>；黄金集按 <a href="#s-2-5">2.5</a> 的提示词 <a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>（或先 <code>python3 data/tools/golden_tool.py apply-feedback --dry-run</code> 预览）；改完 <a href="#s-2-6">2.6 冻结</a>，再到第 6 章重跑 <code>./30-create-evaluators.sh</code> 让评估器用上新黄金集。</p>
+  <div class="tip"><b>改动很小？</b>例如只改了一两句口径，可以不走 S3：在 EC2 上运行 <code>claude</code>，直接告诉它“把 data/templates/discussion-feedback.md 第 1.2 节‘紧急 = 是’的口径改成：……”。<b>CSV 不要粘贴</b>进对话（30 多行、很多逗号，容易错列或被截断），请走上面的 S3 步骤。</div>
+  <div class="note"><b>一组有好几台 EC2？</b>（大家在同一个实验账号里）记录员只上传一次，传到<b>操作员</b>的桶里。操作员拉取后用 coding agent 更新黄金集（2.5），再把 coding agent 改好的 CSV 传回桶里<b>同一个位置</b>覆盖原文件（路径就是拉取时 <code>←</code> 后面显示的那个）：<code>aws s3 cp data/templates/golden-set-feedback.csv s3://操作员的桶/golden-set-feedback.csv</code>。其他人再从这个桶拉（桶名找操作员要，就是操作员运行 <code>--prepare</code> 时打印的那个）：<code>./tools/pull-templates.sh --bucket s12lab-操作员后缀-&lt;account&gt;-us-west-2</code>，然后只运行 2.5 的两行 <code>apply-feedback</code> 命令和 2.6 的 <code>freeze</code>（不必再用 coding agent），黄金集就和操作员的一致。</div>
+</div>
+
 <div class="step" id="s-2-1">
   <div class="step-head"><span class="num">2.1</span><h3>认识 mock 输入数据：需求反馈 + 平台能力目录</h3><span class="time">5 分钟</span></div>
   <p class="why">看一眼 60 条合成需求反馈和平台能力目录，知道 Agent 要处理什么。</p>
@@ -131,6 +183,7 @@ CAP-008 已支持 自定义函数</pre></div>
 <div class="step" id="s-2-5">
   <div class="step-head"><span class="num">2.5</span><h3>按讨论反馈修改黄金集</h3><span class="time">15 分钟</span></div>
   <p class="why">把现场确认的标注口径填进模板，再让 coding agent 按模板更新黄金集。</p>
+  <div class="note">上午已在笔记本上填好模板的组：先做 <a href="#s-2-0">2.0</a> 把两个文件拷到 EC2，下面第 1、2 条就已经完成，直接从第 3 条开始。</div>
   <ol class="clicks">
     <li>口径类结论（标签用“是/否”还是 P0/P1/P2、不可自动拒绝的规则、能力目录补充）写进 <a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a>。</li>
     <li>逐条意见写进 <a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a>：“操作”列（C 列）填 <code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code>，改标签就直接改对应列。可以先用当前黄金集预填这张表：</li>

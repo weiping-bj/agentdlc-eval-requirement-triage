@@ -36,7 +36,7 @@
   [30/30] FB-2610-004       17.3s  重要=是 紧急=否 建议=待评估
 ✅ 完成：30 条，用时 121s，失败 1 条 → results/run-B-v0-20261105T142708Z.jsonl
    run_id = B-v0-20261105T142708Z</pre>
-  <p>A 版（<code>./10-A-run-local.sh golden</code>）的输出格式相同，开头多两行“日志组 / OTel 已配置”，实测 30 条用时约 115 秒。V0 的典型表现：几乎所有需求都判“重要”，处理建议大量是“待评估”——这正是它的缺陷。</p></div>
+  <p>A 版（<code>./10-A-run-local.sh golden</code>）的输出格式相同，只是开头多几行：日志组、OTel 已配置，以及 OpenTelemetry 自己打印的几行 WARNING / INFO（例如 <code>Skipping installation of LoggingHandler</code>），属于正常现象（见 <a href="a3-instrument.html#s-a3-5">A3.5</a>）。实测 30 条用时约 115 秒。V0 的典型表现：几乎所有需求都判“重要”，处理建议大量是“待评估”——这正是它的缺陷。</p></div>
   <div class="tip">有个别 <code>❌</code>（例如 <code>RuntimeClientError</code>、超时、限流）不影响后续：脚本会对同一条自动重试 2 次，仍失败的条目评估时会跳过。失败太多就再跑一次。</div>
   <p><b>看 V0 的分诊结果（趁 7.2 开头要等的 2–3 分钟做）：</b>运行结果 JSONL 不方便直接读，EC2 上生成的 HTML 笔记本也打不开。用下面两条命令把这次运行做成分诊报告，上传到你的私有 S3 桶，再在笔记本浏览器里打开。</p>
   <p>① 生成报告：把文件名换成上面“✅ 完成”那行箭头 → 后面的路径。</p>
@@ -52,11 +52,12 @@ results/triage-report-A-v0-20261106T065342Z.html
 👉 在笔记本浏览器打开（需已登录控制台），点右上角「打开」查看：
    https://us-west-2.console.aws.amazon.com/s3/object/…</pre>
   如果桶是这次新建的，上传前会多一行“🪣 已创建 S3 桶 …”。</div>
+  <div class="warn"><b>报告标题和 9.4 共用：</b>页面顶部会显示“上月需求反馈分诊报告 · V0”，但这里的内容是 V0 跑的 <b>30 条黄金集</b>。用“条数”（30 条）和文件名 / run_id 里的 <code>v0</code> 区分这两份报告。</div>
   <ol class="clicks">
     <li>在笔记本浏览器（已登录 AWS 控制台）打开脚本打印的链接。</li>
     <li>在 S3 对象页面点右上角 <span class="ui">打开</span>（Open），报告会在新标签页显示。</li>
   </ol>
-  <div class="note">这里的 30 条是<b>黄金集</b>，不是 9.4 的 60 条上月需求。报告沿用 9.4 的版式，标题会显示“上月需求反馈分诊报告 · V0”，以“条数 30”和 run_id 里的 <code>v0</code> 为准。报告只展示 V0 怎么判，不对照黄金集答案（对错看 7.2）。</div>
+  <div class="note">这里的 30 条是<b>黄金集</b>，不是 9.4 的 60 条上月需求。报告只展示 V0 怎么判，不对照黄金集答案（对错看 7.2）。</div>
   <div class="note">这是 V0 的“优化前”视图。实测一次 A 版 V0：30 条里迭代 2、拒绝 3、待评估 24、失败 1；大模型每次运行有波动，你的数字会不同，但“待评估”通常占大多数。9.4 用 V1 生成同样版式的报告（B 版实测 60 条里迭代 15、拒绝 27、待评估 18）；两份数据不同（30 条黄金集 vs 60 条上月需求），只看比例的大致变化。想在同一批 30 条上对比：9.1 跑完 V1 黄金集后，对 <code>results/run-&lt;路线&gt;-v1-&lt;时间&gt;.jsonl</code> 再跑上面两条命令。</div>
   <div class="note">桶禁止公开访问，没有公开链接；同一实验账号里有 S3 权限的人（包括其他学员）能看到。</div>
 </div>
@@ -129,25 +130,45 @@ Builtin.Helpfulness             service=s12lab_zhang3_agent.DEFAULT   avg=0.85 n
 
 <div class="step" id="s-7-5">
   <div class="step-head"><span class="num">7.5</span><h3>找出失败用例并按五维归因</h3><span class="time">5 分钟</span></div>
-  <p class="why">列出判错的需求，按五维（认知 / 质量 / 责任 / 成本 / 性能）归因，第 8 章就改这些。</p>
-<pre><code>python3 - &lt;&lt;'EOF'
-import json, glob, os
-f = max(glob.glob('results/eval-*.json'), key=os.path.getmtime)
-d = json.load(open(f, encoding='utf-8'))
-print('评估结果文件：', f)
-for s in d['sessions']:
-    sc = s['scores'].get('label_accuracy', {})
-    if sc.get('label') != 'Pass':
-        print(s['feedback_id'], sc.get('label'), (sc.get('explanation') or s.get('error') or '')[:160])
-EOF</code></pre>
+  <p class="why">列出判错的需求，带上黄金集给它标的五维（认知 / 质量 / 责任 / 成本 / 性能）和标注理由，看清每条错在哪、该改哪里，第 8 章就改这些。</p>
+<pre><code>.venv/bin/python -m labkit.failures</code></pre>
+  <p class="where">脚本：<a data-repo="labkit/failures.py">labkit/failures.py</a>。默认读 <code>results/</code> 里最新的 <code>eval-*.json</code>；也可以指定：<code>.venv/bin/python -m labkit.failures results/eval-&lt;run_id&gt;.json</code>。每条判错的需求列出错在哪一项（期望→实际），并按需求编号从 <a data-repo="data/golden/golden_set.jsonl">data/golden/golden_set.jsonl</a> 带出它的五维标签、样例类型和标注理由（太长的截断）；格式错误、没评上分的条目单独列出，不计入统计。最后是两个统计：每个维度有几条判错（一条有多个维度时每个维度各计一次），以及三项里各错了几条。</p>
   <div class="expect"><span class="label">预期输出（A 版 V0 实测，节选）：</span>
-<pre class="out">评估结果文件： results/eval-A-v0-20261105T142551Z.json
-FB-2610-002 Fail 需求 FB-2610-002（G02）：1/3 项正确。是否重要 错（期望 否，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 错（期望 拒绝，实际 待评估）。[来源 attribute，版本 v0]
-FB-2610-003 Fail 需求 FB-2610-003（G03）：2/3 项正确。是否重要 对（期望 是，实际 是）；是否紧急 对（期望 是，实际 是）；处理建议 错（期望 迭代，实际 待评估）。[来源 attribute，版本 v0]
-FB-2610-005 Fail 需求 FB-2610-005（G04）：1/3 项正确。是否重要 错（期望 否，实际 是）；是否紧急 对（期望 否，实际 否）；处理建议 错（期望 拒绝，实际 待评估）。[来源 attribute，版本 v0]
-…</pre>
-  <p>实测 V0 最常见的两类错误：① 超出平台定位或已有能力的需求被判“待评估”而不是“拒绝”（认知：工具看不到能力状态）；② 战略客户的普通需求被判“重要”（质量：口径不对）。</p></div>
-  <p>对照黄金集里每条的 <code>dimensions</code>（五维标签）和 <code>rationale</code>（标注理由），把错误归类：</p>
+<pre class="out">▶ 失败用例归因：results/eval-A-v0-20261105T142551Z.json
+  黄金集：data/golden/golden_set.jsonl
+  run A-v0-20261105T142551Z · 共 30 条 · 判错 22 条 · 其他未通过 1 条
+
+── 判错的需求（22 条）──
+FB-2610-002（G02）  五维：认知、质量  类型：应拒绝
+  错（期望→实际）：重要 否→是；建议 拒绝→待评估
+  理由：单客户深度定制，无通用性；首页已支持按角色配置布局和网页组件嵌入外部页面…
+FB-2610-003（G03）  五维：责任  类型：简单
+  错（期望→实际）：建议 迭代→待评估
+  理由：数据丢失类线上缺陷，影响正在发生且影响结账，不可拒绝、不可降级。
+…
+FB-2610-009（G06）  五维：认知  类型：简单
+  错（期望→实际）：建议 拒绝→待评估
+  理由：查重与合并已支持（CAP-004），客户未配置，应给出配置路径而不是新开发。
+…
+FB-2610-026（G18）  五维：责任  类型：简单
+  错（期望→实际）：紧急 是→否；建议 迭代→待评估
+  理由：安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝。
+…
+
+── 其他未通过（1 条，不计入下面的统计）──
+FB-2610-014  FormatError：trace 中有 Agent 回复，但解析不出约定的 JSON（feedback_id…
+
+── 五维统计（判错 22 条；一条有多个维度时每个维度各计一次）──
+  认知 10 条 · 质量 9 条 · 责任 9 条 · 成本 4 条 · 性能 4 条
+── 错在哪一项 ──
+  重要 9 条 · 紧急 4 条 · 建议 16 条</pre>
+  <p>这次 V0 错得最多的是“处理建议”（16 条），维度上认知最多（10 条）。你的数字会和上面不同（每次运行有波动），读法一样。和 7.2 对数时注意：7.2 把格式错误的条目按三项全错算，所以 7.2 每一项的错误数 = 这里的条数 + “其他未通过”的条数（例如是否重要 9 + 1 = 10 条错，即 67%）。</p></div>
+  <p><b>怎么读：拿上面两条举例。</b></p>
+  <ul>
+    <li><code>FB-2610-009</code> 只错在“建议”（期望 拒绝，实际 待评估）。黄金集标的是 <span class="pill b">认知</span>，理由是“查重与合并已支持（CAP-004），客户未配置”：平台早就支持，客户只是没配置。V0 知道有这个功能名，但它自己写了“我只查到功能名称，没有查到细节”，看不到支持状态和配置方法，所以既没拒绝也没给配置路径。问题在<b>工具</b>：能力查询要返回支持状态和用法，改 <a data-repo="agent/s12agent/tools.py">tools.py</a>（8.1 表格里“工具输出”那一行）。</li>
+    <li><code>FB-2610-026</code> 错在“紧急”（期望 是，实际 否）和“建议”（期望 迭代，实际 待评估）。黄金集标的是 <span class="pill r">责任</span>，理由是“安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝”。V0 的推理是“客户没有明确说着急……所以按规则标‘否’”：它只看客户措辞，没有“影响正在发生就算紧急”的事实标准；处理建议也只敢给“待评估”。所以问题在<b>提示词</b>：“紧急”要按事实判断（8.1 表格里“提示词口径”那一行），处理建议要写明“必须修复的缺陷（故障、数据、安全类）判迭代”（V1 的 <a data-repo="agent/s12agent/prompts/v1.md">prompts/v1.md</a> 就是这样写的）。</li>
+  </ul>
+  <p>其余条目照这个办法，对照下表归类：</p>
   <table>
     <tr><th>维度</th><th>典型失败现象</th><th>多半是哪里的问题</th></tr>
     <tr><td><span class="pill b">认知</span></td><td>平台已支持的能力被判“迭代”；超出定位的需求没被拒绝；单客户定制被当成通用需求</td><td>工具拿不到能力状态 / 没查相似需求（V0 的工具缺陷）</td></tr>
@@ -156,7 +177,7 @@ FB-2610-005 Fail 需求 FB-2610-005（G04）：1/3 项正确。是否重要 错�
     <tr><td><span class="pill o">成本</span></td><td>价值高但难度大的需求被直接承诺“迭代”，没有“待评估”</td><td>缺少难度 / 影响面的判断口径</td></tr>
     <tr><td><span class="pill p">性能</span></td><td>超时、单条耗时过长、token 过多</td><td>模型选择、工具返回内容过长</td></tr>
   </table>
-  <div class="tip">也可以让 coding agent 帮你归因：<code>claude</code> 里输入“读最新的 results/eval-*.json 和 data/golden/golden_set.jsonl，把失败用例按五维分类并总结主要原因”。</div>
+  <div class="tip">更深入的分析和具体修改，由 Claude 在 <a href="08-optimize.html#s-8-2">8.2</a> 完成。</div>
 </div>
 
 </section>

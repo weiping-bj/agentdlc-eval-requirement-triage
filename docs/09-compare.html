@@ -24,6 +24,17 @@
 <pre><code>./10-A-run-local.sh golden</code></pre></div>
   <div class="pathbox" data-path="b"><div class="ph">B 版（先确认 8.4 已重新部署）</div>
 <pre><code>./21-B-run-golden.sh</code></pre></div>
+  <div class="pathbox" data-path="a"><div class="ph">A 版 · 自有 Agent</div>
+  上面的 <code>./10-A-run-local.sh golden</code> 跑的是 mock agent。你们自己的 Agent 这样重新评估：
+  <p><b>导出日志的路线（A4）：</b>让改好的 Agent 处理同样的 30 条黄金集，按 <a href="a4-logs.html#s-a4-2">A4.2</a> 的格式导出日志（每条都带 <code>feedback_id</code>），然后：</p>
+<pre><code>./11-A-convert-logs.sh check &lt;新日志.jsonl&gt;
+./11-A-convert-logs.sh send &lt;新日志.jsonl&gt;
+./12-A-check-telemetry.sh</code></pre>
+  <p><code>send</code> 之后先等 2–3 分钟再运行 <code>./12-A-check-telemetry.sh</code>（和 A4 一样），然后照常运行下面的 <code>./31-run-eval.sh</code>（它评估最近一次运行，也就是这次导入；不是的话用 <code>./31-run-eval.sh --run A-imported-&lt;时间&gt;</code>）。到 <a href="#s-9-2">9.2</a> 生成对比页时一定要指定前后两次导入：导入的运行都叫 <code>A-imported-&lt;时间&gt;</code>，版本统一记为 imported，<code>./32-compare.sh</code> 不带参数时按版本号（v0 / v1 / v2…）配对，导入的运行不会被选为“优化后”，配对可能不对，所以一定要指定。</p>
+<pre><code>./32-compare.sh --before A-imported-&lt;优化前那次的时间&gt; --after A-imported-&lt;优化后这次的时间&gt;</code></pre>
+  <p>run_id 在 <code>send</code> 输出里“✅ 已发送 … 个 session（run_id = …）”那一行。“优化前那次”就是 <a href="08-optimize.html#s-8-1">8.1</a> 里改 Agent 之前做的基线。对比页两边显示为 IMPORTED（前）和 IMPORTED（后）。</p>
+  <p><b>ADOT 埋点的路线（A3.4）：</b>评估脚本只评估登记在 <code>.lab-state/runs.json</code> 里的运行，本仓库的批量脚本和 A4 的导入会登记，你们自己的程序跑出来的 session 不会登记，所以 <code>./31-run-eval.sh</code> 找不到它们（第 7 章也一样）。现场的做法：让你们的 Agent 跑这 30 条时同时按 A4.2 的格式写一份日志，再走上面的导出日志路线。</p></div>
+  <p>评估自己的 V2 同理：8.3 切换到 v2、8.4 让它生效后，跑同样的命令；V1、V2 都评估过时怎么对比见 9.2。</p>
   <p>等 2–3 分钟后评估（自动评估最近一次运行，也就是 V1）：</p>
 <pre><code>./31-run-eval.sh</code></pre>
   <div class="expect"><span class="label">预期输出（B 版 V1 实测，结尾）：</span>
@@ -65,6 +76,8 @@ results/compare-B-v0-20261105T142708Z-vs-B-v1-20261105T144133Z.html
   <img class="shot" src="img/compare-matrix.png" alt="实测对比页下半部分：各评估器平均分对比，以及逐条用例的修复 / 退步 / 仍错误筛选和前后标签">
   <p class="where">上面两张是 B 版实测对比页的截图（上：三项准确率与达标；下：评估器平均分与逐条对比）。</p>
   <p>先看看对比页长什么样：<a href="compare/sample-compare.html" target="_blank" rel="noopener">示例对比页（合成数据）</a>。页面内容：三项准确率前后变化与达标标记、柱状图（含 70% 目标线）、所有评估器的平均分对比、逐条用例的“修复 / 退步 / 仍错误”筛选。</p>
+  <p>V1、V2 都评估过时，默认的“优化后”是<b>最后评估</b>的那个非 V0 版本，对比的是 V0 → 它（例如 V0 → V2）。要看 V1 → V2，指定两次评估（run_id 或 <code>results/eval-…json</code> 路径都可以）：</p>
+<pre><code>./32-compare.sh --before &lt;V1 的 run_id&gt; --after &lt;V2 的 run_id&gt;</code></pre>
   <div class="note">桶禁止公开访问，没有公开链接；同一实验账号里有 S3 权限的人（包括其他学员）能看到。</div>
 </div>
 

@@ -30,12 +30,23 @@
     <tr><td>能力目录本身缺条目、写错状态</td><td><span class="pill b">认知</span></td><td><b>数据</b>：<a data-repo="data/capability_catalog.json">capability_catalog.json</a></td><td>（V1 未改数据；现场发现目录不准时改这里，B 版需重新部署）</td></tr>
     <tr><td>太慢、太贵、偶发超时</td><td><span class="pill o">成本</span> <span class="pill p">性能</span></td><td><b>模型</b>：<a data-repo="config/lab.env">config/lab.env</a> 的 <code>AGENT_MODEL_ID</code></td><td>可用 <code>./tools/use-model.sh &lt;模型ID&gt;</code> 试更快的模型，再用同一黄金集评估比较</td></tr>
   </table>
+  <div class="pathbox" data-path="a"><div class="ph">自有 Agent 怎么对应（A 版接入你们自己的 Agent）</div>
+  上表“改哪里”一列换成你们 Agent 里对应的地方：
+  <ul>
+    <li><b>提示词</b>（<code>prompts/v1.md</code> 的判断口径、红线、话术要求）→ 你们 Agent 的<b>系统提示词</b>。</li>
+    <li><b>工具输出 / 新增工具</b>（<code>tools.py</code>）→ 你们 Agent 的<b>工具或函数</b>：能力查询要返回哪些字段（支持状态、限制、替代方案），要不要加一个“查相似需求”的工具。</li>
+    <li><b>数据</b>（<code>capability_catalog.json</code>）→ 你们的<b>知识库或能力数据源</b>。</li>
+    <li><b>模型</b>（<code>AGENT_MODEL_ID</code>）→ 你们 Agent 的<b>模型配置</b>。</li>
+  </ul>
+  同样<b>不要改黄金集和评估器</b>，只改你们的 Agent。
+  <p><b>改之前先做一次基线（优化前）：</b>用原来的 Agent 处理同样的 30 条黄金集，按 <a href="a4-logs.html#s-a4-2">A4.2</a> 的格式导出日志（每条带 <code>feedback_id</code>），然后 <code>./11-A-convert-logs.sh check</code> / <code>send</code> → <code>./12-A-check-telemetry.sh</code> → <code>./31-run-eval.sh</code>，记下 <code>send</code> 输出里的 run_id（<code>A-imported-&lt;时间&gt;</code>）。8.2 分析它，第 9 章用它当“优化前”。</p></div>
   <div class="warn">优化 Agent 时<b>不要改黄金集和评估器</b>——否则前后分数不可比。黄金集只在第 2 章按业务口径修改。</div>
 </div>
 
 <div class="step" id="s-8-2">
   <div class="step-head"><span class="num">8.2</span><h3>用 coding agent 分析失败用例并提出修改</h3><span class="time">10 分钟</span></div>
   <p class="why">把评估报告交给 coding agent，让它给出具体修改建议并写出新版本提示词（V2）。</p>
+  <div class="note">这段提示词让 coding agent 自己读 <code>results/eval-*.json</code> 和黄金集，所以只需要 7.2 的评估结果；7.5 的输出不是它的输入。时间紧的组可以 7.2 做完直接到这里。</div>
   <p>在 EC2 上运行 <code>claude</code>（或你习惯的 coding agent），把下面整段提示词粘贴进去：</p>
 <pre><code>你在仓库 ~/scenario12-lab 中工作。目标：根据最新一次评估结果，改进“需求价值评审 Agent”的系统提示词，让“是否重要 / 是否紧急 / 处理建议”三项准确率都达到 70% 以上，并提高拒绝话术质量。
 
@@ -48,6 +59,15 @@
 6. 不要修改 data/golden/、evaluators/、labkit/ 下的任何文件，也不要修改 v0.md / v1.md。
 7. 最后用中文总结：改了什么、对应哪个失败原因、预计影响哪一项指标。</code></pre>
   <div class="expect"><span class="label">预期结果：</span>coding agent 列出失败原因，生成 <code>agent/s12agent/prompts/v2.md</code>，并在 <code>tools.py</code> 里加上 <code>"v2"</code>。之后用 <code>./40-switch-version.sh v2</code> 切换，按 8.4 / 第 9 章评估它。</div>
+  <div class="pathbox" data-path="a"><div class="ph">自有 Agent：提示词要改的地方</div>
+  <ul>
+    <li>第 1 步：“results/ 下最新的 eval-*.json”换成你们基线那次的 <code>results/eval-A-imported-&lt;时间&gt;.json</code>（见 8.1）。</li>
+    <li>第 3 步：三个 <code>agent/s12agent/…</code> 路径换成你们 Agent 的系统提示词文件和工具代码路径（先征得同意再把代码放到 EC2 上，只放需要的文件，第 10 章清理时删除）。</li>
+    <li>第 4 步：改成“在你们现有的系统提示词基础上写出新版本，另存为新文件”；输出 JSON 字段那句保留（评估器按这些字段打分，见 <a data-repo="evaluators/README.md">evaluators/README.md</a> 第 1 节）。</li>
+    <li>第 5 步：删掉（<code>TOOLSETS</code> 只属于 mock agent）。</li>
+    <li>第 6 步：“也不要修改 v0.md / v1.md”改成“不要修改原来的系统提示词文件”。</li>
+  </ul>
+  第 2、7 步不变。</div>
   <div class="tip">时间紧时直接用我们准备好的 V1（8.3）。有余力的组可以 V1、V2 都评估，看看谁的分数更高。</div>
 </div>
 
@@ -62,6 +82,17 @@
 <pre class="out">✅ Agent 版本已切换为 v1
    A 版：./10-A-run-local.sh golden      B 版：./20-B-deploy-runtime.sh 然后 ./21-B-run-golden.sh</pre></div>
   <p class="where">脚本：<a data-repo="40-switch-version.sh">40-switch-version.sh</a>（写入 <code>config/local.env</code> 的 <code>AGENT_VERSION</code>）</p>
+  <div class="pathbox" data-path="a"><div class="ph">自有 Agent</div>
+  <code>40-switch-version.sh</code> 只切换本仓库 mock agent 的版本。你们的 Agent 按平时的方式把改好的版本发布到测试 / 预发环境（不要直接上生产）；第 9 章靠导入时的 run_id 区分前后两次。</div>
+  <div class="note"><b>用自己的 V2（8.2 生成的 prompts/v2.md）：</b>
+<pre><code>./40-switch-version.sh v2
+./00-config.sh | grep AGENT_VERSION</code></pre>
+  <code>40-switch-version.sh</code> 会先检查 <code>agent/s12agent/prompts/v2.md</code> 是否存在（用法提示里只写了 v0|v1，v2、v3 也可以）；第二条应显示 <code>v2</code>。<code>tools.py</code> 的 <code>TOOLSETS</code> 里没有 <code>"v2"</code> 时，V2 自动沿用 V1 的工具。之后按 8.4 让它生效、按第 9 章评估，要看的地方：
+  <ul>
+    <li>A 版 <code>./10-A-run-local.sh golden</code>：“▶ 运行 30 条需求 · 路线 A · 版本 v2 …”这一行（在日志组、OTel 和 OpenTelemetry WARNING 几行之后）。</li>
+    <li>B 版 <code>./20-B-deploy-runtime.sh</code>：第一行“▶ 部署 … · Agent 版本 v2 …”；然后 <code>./21-B-run-golden.sh</code> 的“▶ 运行 … 版本 v2 …”。</li>
+    <li>对比：<code>./32-compare.sh</code> 默认对比 V0 和最后评估的那个版本；要看 V1 → V2：<code>./32-compare.sh --before &lt;V1 的 run_id&gt; --after &lt;V2 的 run_id&gt;</code>（见 <a href="09-compare.html#s-9-2">9.2</a>）。</li>
+  </ul></div>
 </div>
 
 <div class="step" id="s-8-4">
@@ -86,6 +117,9 @@
    下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）</pre>
   实测约 1 分钟。
   再调用一次确认：<code>./20-B-deploy-runtime.sh invoke</code></div>
+  <p>V2 同理：切换到 v2 后，A 版下一次 <code>./10-A-run-local.sh golden</code> 就用 V2；B 版重新运行 <code>./20-B-deploy-runtime.sh</code>，输出里是“Agent 版本 v2”。</p>
+  <div class="pathbox" data-path="a"><div class="ph">自有 Agent</div>
+  这一步的“重新本地运行 / 重新部署 Runtime”只针对 mock agent。你们的 Agent 在 8.3 已经按自己的方式发布了新版本，这一步跳过，直接到 <a href="09-compare.html#s-9-1">9.1</a>。</div>
 </div>
 
 </section>

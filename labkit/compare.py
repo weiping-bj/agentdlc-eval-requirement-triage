@@ -31,7 +31,8 @@ from labkit import items as labitems
 
 SEED_POOL = "data/tools/seed/pool.jsonl"  # last-resort source of titles when data files are absent
 NA_LABELS = {"skipped", "不适用", "not applicable", "notapplicable", "not_applicable", "n/a", "na"}
-PATHS = {"local": ("A", "A 版 · 自有 Agent（本地运行）"), "runtime": ("B", "B 版 · AgentCore Runtime")}
+PATHS = {"local": ("A", "A 版 · mock agent（EC2 上运行，ADOT 埋点）"), "runtime": ("B", "B 版 · AgentCore Runtime"),
+         "imported": ("A", "导入的日志（11-A-convert-logs.sh）"), "own": ("A", "自带 Agent（手动登记的运行）")}
 
 FALLBACK_CSS = (
     "body{margin:0;background:#f4f6f9;color:#1f2933;font:14px/1.7 -apple-system,'PingFang SC','Microsoft YaHei',sans-serif}"

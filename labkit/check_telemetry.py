@@ -152,7 +152,7 @@ def main(argv=None) -> int:
     if crit_fail >= 2 or (results and not any(r["c_spans"] for r in results)):
         verdict = "差距大"
         print("🟥 结论：差距大 —— 数据缺少评估必需的内容。")
-        print("   建议：不要在现场硬改，切换到 B 版（mock agent 部署到 AgentCore Runtime）：打开手册 B3 章。")
+        print("   建议：先按上面的 ❌ 项补埋点（自带 Agent 见手册《自带 Agent 接入指南》G.16）；现场来不及时切换到 B 版（mock agent 部署到 AgentCore Runtime）：打开手册 B3 章。")
         code = 2
     elif crit_fail == 1:
         verdict = "有缺口"

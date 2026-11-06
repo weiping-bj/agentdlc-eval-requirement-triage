@@ -15,7 +15,7 @@
 <h1><span class="num">6</span>注册评估器 + 开启在线评估 <span class="applies common">A/B 通用</span></h1>
 <p class="lead">评估器是“打分规则”。我们事先写好并测试过自定义评估器，再加上内置评估器，一起注册到 AgentCore Evaluations；最后开启在线评估，让分数自动显示在 CloudWatch 控制台。</p>
 <div class="warn">在线评估只给<b>开启之后</b>产生的新 session 打分。所以一定要先完成本章（尤其 <a href="#s-6-5">6.5</a>），再到第 7 章跑黄金集。</div>
-<p class="where"><b>前提：</b><a href="#s-6-1">6.1</a>–<a href="#s-6-4">6.4</a> 两条路线通用，只需要完成第 2 章；从 <a href="#s-6-5">6.5</a> 开始分路线，需要先完成自己路线的 agent 部署（B 版 <a href="b3-deploy.html">B3</a> / A 版 <a href="a3-instrument.html">A3</a>：A 版的在线评估只给 A3 本地运行的 Agent 打分，A4 导入的旧日志用的是另一个服务名，不在其中）。</p>
+<p class="where"><b>前提：</b><a href="#s-6-1">6.1</a>–<a href="#s-6-4">6.4</a> 两条路线通用，只需要完成第 2 章；从 <a href="#s-6-5">6.5</a> 开始分路线，需要先完成自己路线的 agent 部署（B 版 <a href="b3-deploy.html">B3</a> / A 版 <a href="a3-instrument.html">A3</a>：A 版的在线评估只给 A3 在 EC2 上运行的 mock agent 打分，A4 导入的旧日志用的是另一个服务名，不在其中）。</p>
 </section>
 <section class="card">
 
@@ -98,7 +98,7 @@ s12lab_zhang3_reject_quality_llm             s12lab_zhang3_reject_quality_llm-UI
 <div class="step" id="s-6-5">
   <div class="step-head"><span class="num">6.5</span><h3>开启在线评估（分数显示到控制台）</h3><span class="time">3 分钟</span></div>
   <p class="why">让 Evaluations 自动给新 session 打分并写入 CloudWatch，控制台的 Evaluations 页签才有数据。</p>
-  <div class="pathbox" data-path="a"><div class="ph">A 版（本机 / 自有 Agent）</div>
+  <div class="pathbox" data-path="a"><div class="ph">A 版（EC2 上的 mock agent）</div>
 <pre><code>./33-online-eval.sh enable --path a</code></pre>
   数据源：<code>aws/spans</code> + 日志组 <code>/aws/bedrock-agentcore/s12lab-zhang3-local-agent</code>，服务名 <code>s12lab-zhang3-local-agent</code>。</div>
   <div class="pathbox" data-path="b"><div class="ph">B 版（AgentCore Runtime）</div>
@@ -110,6 +110,7 @@ s12lab_zhang3_reject_quality_llm             s12lab_zhang3_reject_quality_llm-UI
    之后每个新 session 都会自动评分，结果写入 CloudWatch：
    CloudWatch 控制台 → GenAI Observability → Bedrock AgentCore → 你的 Agent → Evaluations</pre>
   <p>A 版显示的名字是 <code>s12lab_zhang3_online_a</code>。刚建好角色时可能先出现一两行 <code>⏳ 等待 IAM 权限生效后重试（1/7）</code>，脚本会自动重试。<b>一定要在第 7 章跑黄金集之前完成这一步</b>：开启之前产生的 session 不会被在线评估打分。</p></div>
+  <p class="where">自带 Agent 的在线评估（服务名用默认名、先建日志组、先开启再跑 Agent）：见 <a href="own-agent-guide.html#s-g-6">《自带 Agent 接入指南》G.6</a>。</p>
   <div class="note">查看状态：<code>./33-online-eval.sh status</code>。在线评估和第 7 章的“按需评估”用的是同一组评估器：按需评估马上出结果（用于对比页），在线评估把分数留在控制台（用于展示和持续监控）。</div>
 </div>
 

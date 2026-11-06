@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A3: 在本机运行 Agent（扮演“客户已有 Agent”），通过 ADOT 把 trace 发到 CloudWatch。
+# A3: 在实验 EC2 上运行 mock agent（模拟不在 AgentCore Runtime 上的 Agent），通过 ADOT 把 trace 发到 CloudWatch。
 #   ./10-A-run-local.sh smoke            # 不带遥测，跑 1 条，确认 Agent 正常
 #   ./10-A-run-local.sh trace [N]        # 带遥测跑 N 条（默认 3）用于检查数据
 #   ./10-A-run-local.sh golden           # 带遥测跑完整黄金集（第 7 章 / 第 9 章）

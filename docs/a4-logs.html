@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>已有日志：转换并导入 CloudWatch · 场景 12 实验手册</title>
+<title>（可选）已有日志：转换并导入 CloudWatch · 场景 12 实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="a4-logs">
@@ -12,9 +12,9 @@
 <nav id="toc"></nav>
 <main>
 <section class="card chapter-head">
-<h1><span class="num">A4</span>已有日志：转换并导入 CloudWatch <span class="applies a">A 版</span></h1>
-<p class="lead">如果客户的 Agent 已经有自己的日志（但不是 OTel 格式），用转换脚本把日志变成 Evaluations 能读的 trace 并导入 CloudWatch。</p>
-<div class="note">适合“现场来不及改代码，但能导出最近的 Agent 调用记录”的组。仓库里带了一份样例日志，可以先用它把流程走通，再换成你们自己的日志。</div>
+<h1><span class="num">A4</span>（可选）已有日志：转换并导入 CloudWatch <span class="applies a">A 版</span></h1>
+<p class="lead">可选的现场演示：一个 Agent 没法改代码、只有自己的调用日志（不是 OTel 格式）时，用转换脚本把日志变成 Evaluations 能读的 trace，导入 CloudWatch 后照样评估。</p>
+<div class="note">现场只用仓库自带的样例日志 <a data-repo="telemetry/samples/customer-agent-logs.jsonl">telemetry/samples/customer-agent-logs.jsonl</a>（5 行，合成数据），不影响 A3 / A5 和第 6–9 章的主线；时间紧可以跳过。会后导入你们自己的日志，按 <a href="own-agent-guide.html#s-g-11">《自带 Agent 接入指南》路线二</a> 操作。</div>
 </section>
 <section class="card">
 
@@ -28,16 +28,16 @@
     <tr><td><code>timestamp</code></td><td>是</td><td>调用时间，ISO 8601，例如 <code>2026-10-15T09:30:00+08:00</code></td></tr>
     <tr><td><code>user_input</code></td><td>是</td><td>发给 Agent 的内容（需求反馈原文）</td></tr>
     <tr><td><code>agent_output</code></td><td>是</td><td>Agent 的最终输出；本场景最好是 0.5 节的 JSON（是否重要 / 是否紧急 / 处理建议…）</td></tr>
-    <tr><td><code>feedback_id</code></td><td>建议</td><td>需求编号，用来和黄金集对上；缺失时从 <code>user_input</code> 的“需求编号: …”里找</td></tr>
+    <tr><td><code>feedback_id</code></td><td>建议</td><td>需求编号，用来和黄金集对上；缺失时转换脚本取输出 JSON 里的 <code>feedback_id</code>，评估器还会从 <code>user_input</code> 的“需求编号: …”里找</td></tr>
     <tr><td><code>model</code> · <code>latency_ms</code> · <code>agent_name</code></td><td>否</td><td>模型名、耗时、Agent 名</td></tr>
     <tr><td><code>tool_calls</code></td><td>否</td><td>工具调用列表：<code>[{"name","input","output","status"}]</code></td></tr>
   </table>
 </div>
 
 <div class="step" id="s-a4-2">
-  <div class="step-head"><span class="num">A4.2</span><h3>把自有日志导出成 JSONL（按模板）</h3><span class="time">10 分钟</span></div>
-  <p class="why">按模板把每次 Agent 调用整理成一行 JSON。</p>
-  <p>先看样例：<a data-repo="telemetry/samples/customer-agent-logs.jsonl">telemetry/samples/customer-agent-logs.jsonl</a></p>
+  <div class="step-head"><span class="num">A4.2</span><h3>看一眼样例日志（JSONL 格式）</h3><span class="time">2 分钟</span></div>
+  <p class="why">样例里每次 Agent 调用是一行 JSON，字段和 A4.1 一致。</p>
+  <p>样例文件：<a data-repo="telemetry/samples/customer-agent-logs.jsonl">telemetry/samples/customer-agent-logs.jsonl</a>。看第一行：</p>
 <pre><code>python3 -c "import json;print(json.dumps(json.loads(open('telemetry/samples/customer-agent-logs.jsonl',encoding='utf-8').readline()),ensure_ascii=False,indent=2))"</code></pre>
   <div class="expect"><span class="label">预期输出（节选）：</span>
 <pre class="out">{
@@ -53,7 +53,7 @@
     {"name": "search_capabilities", "input": {"query": "列表页批量编辑自定义字段"}, ...}
   ]
 }</pre></div>
-  <div class="tip">你们的日志字段名不一样？把一两行原始日志和 <a data-repo="telemetry/LOG_FORMAT.md">LOG_FORMAT.md</a> 一起交给 coding agent：“写一个脚本把这种日志转换成 LOG_FORMAT.md 的 JSONL 格式”。把转换后的文件放在仓库里，例如 <code>mylogs.jsonl</code>。</div>
+  <div class="tip">自己的日志字段名不一样时怎么整理成这种格式，见 <a href="own-agent-guide.html#s-g-11">指南 G.11</a>。</div>
 </div>
 
 <div class="step" id="s-a4-3">
@@ -76,8 +76,8 @@
   Agent 输出可解析为“三项判断”JSON：4/5（标签准确率评估器需要）
   ℹ️  5 行时间早于 14 天；发送时所有记录都会按原顺序重排到最近几分钟内
 ✅ 字段检查通过。下一步：./11-A-convert-logs.sh send telemetry/samples/customer-agent-logs.jsonl</pre>
-  <p>样例里故意放了一行“纯文字输出”（不是 JSON），所以是 4/5：这一行导入后，标签准确率评估器会给出 <code>FormatError</code>，正好演示“客户 Agent 输出不规范”时评估能发现问题。</p></div>
-  <div class="warn">必填字段缺失（没有会话 ID、没有输出、没有时间）时不能导入。这种情况先和客户确认能否补导出；补不了就到 <a href="a5-check.html#s-a5-3">A5.3</a> 切换到 B 版。</div>
+  <p>样例里故意放了一行“纯文字输出”（不是 JSON），所以是 4/5：这一行导入后，标签准确率评估器会给出 <code>FormatError</code>，正好演示“Agent 输出不规范”时评估能发现问题。</p></div>
+  <div class="warn">必填字段缺失（没有会话 ID、没有输出、没有时间）的行不能导入：<code>send</code> 会跳过它们。</div>
 </div>
 
 <div class="step" id="s-a4-4">
@@ -109,10 +109,10 @@
   <p class="why">在控制台看到导入的会话和 trace。</p>
   <ol class="clicks">
     <li>等 2–3 分钟。CloudWatch → <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → Agents 列表找到 <code>s12lab-zhang3-imported-logs</code>。</li>
-    <li>点进去 → <span class="ui">Sessions</span>：session 名形如 <code>s12lab-zhang3-imp-&lt;日志里的 session_id&gt;-…</code>；点开看 trace 里的输入和输出。</li>
+    <li>点进去 → <span class="ui">Sessions</span>：session 名形如 <code>s12lab-zhang3-imp-&lt;发送时间&gt;-&lt;日志里的 session_id&gt;</code>（例如 <code>s12lab-zhang3-imp-20261105T144741Z-cust-sess-0001</code>）；点开看 trace 里的输入和输出。</li>
   </ol>
   <div class="expect"><span class="label">预期结果：</span>5 个 session，与日志行数一致；每个 trace 有 <code>invoke_agent customer_agent</code>（或日志里的 <code>agent_name</code>）→ <code>chat</code>，带工具调用的 2 行还有 <code>execute_tool …</code>。输入输出内容比 span 晚 1–3 分钟可查。</div>
-  <p>下一步：<a href="a5-check.html">A5 遥测检查</a>。</p>
+  <p>下一步：<a href="a5-check.html">A5 遥测检查</a>（不带 <code>--run</code> 时检查的就是这次导入）。导入的运行可以照常用 <code>./31-run-eval.sh --run A-imported-&lt;时间&gt;</code> 评估；它不在 6.5 的在线评估范围内。</p>
 </div>
 
 </section>

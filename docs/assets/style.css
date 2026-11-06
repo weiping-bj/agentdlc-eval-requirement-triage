@@ -45,8 +45,6 @@ a:hover { text-decoration: underline; }
   font-size: 12px; background: rgba(255,255,255,.06); cursor: pointer;
 }
 #topbar .btn:hover { background: rgba(255,255,255,.16); text-decoration: none; }
-#topbar .btn.active { background: #fff; color: var(--navy); font-weight: 700; }
-.path-switch { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #c9d4e3; }
 
 /* ---------- 布局 ---------- */
 .layout { display: flex; max-width: 1440px; margin: 0 auto; }
@@ -135,9 +133,7 @@ td { border-bottom: 1px solid #f0f2f5; padding: 7px 10px; vertical-align: top; }
 .flow .f span { font-size: 12px; color: var(--muted); }
 .flow .f.hl { border: 2px solid var(--blue); background: var(--blue-soft); }
 
-/* 路线切换：data-path="a"/"b" 的块在选择另一条路线时淡化 */
-body.path-a [data-path="b"], body.path-b [data-path="a"] { opacity: .35; }
-body.path-a [data-path="b"]:hover, body.path-b [data-path="a"]:hover { opacity: .8; }
+/* A / B 路线各自的命令块：紫框 = A 版，橙框 = B 版 */
 .pathbox { border-radius: 8px; padding: 10px 14px; margin: 10px 0; border: 1px solid; }
 .pathbox[data-path="a"] { border-color: #d2c6f5; background: #fbf9ff; }
 .pathbox[data-path="b"] { border-color: #f0cc9f; background: #fffaf3; }

@@ -1,6 +1,6 @@
-# data/ + evaluators/ 交接说明
+# data/ + evaluators/ 说明：交付内容与接口约定
 
-> 全部为合成数据。本文件记录接口约定的最终状态。过程记录见 test-run.log（测试日志）与 code-review.md（独立评审：23 条发现，21 条已修复，2 条说明后保留）。
+> 全部为合成数据。本文件记录数据、Agent 与评估器之间接口约定的最终状态。
 
 ## 1. 交付了什么
 
@@ -11,7 +11,7 @@
 - **黄金集**：30 条。每条自包含需求原文，标注三项标签、可接受答案、可否自动拒绝、拒绝要点与话术要点、五维、样例类型。
   - G01–G05 与 `docs/discussion.html` 的样例表一致。
   - 已冻结 v1，见 `data/golden/MANIFEST.json`。
-- **标注标准**（中文）：`data/golden/LABELING_GUIDE.md`。lead 的 V1 提示词已按它对齐。
+- **标注标准**（中文）：`data/golden/LABELING_GUIDE.md`。mock agent 的 V1 提示词已按它对齐。
 - **工具**（纯标准库，Python 3.9+）：
   - 客户数据校验与标准化：`ingest_customer_data.py`，支持 csv/xlsx/json，输出充分性报告并给个人信息打码；
   - mock 数据重新生成：`generate_mock_data.py`；
@@ -42,7 +42,7 @@
 | `evaluators/shared/` | 适配层与黄金集加载的权威副本；`sync_shared.py` 负责复制到各 Lambda |
 | `evaluators/sample_events/`、`run_local.py` | 本地调用 handler 的样例事件 |
 
-## 3. 接口约定（lead 已按此实现）
+## 3. 接口约定（mock agent 与评估器已按此实现）
 
 ### 输入条目
 
@@ -97,15 +97,15 @@
 
 ## 4. 已确认的决定
 
-- **模板放 `data/templates/`**：lead 已把文档链接改过去。脚本也兼容仓库根目录的 `templates/`。
-- **原生评审配置“不适用”档 = 0.0**：档位值必须互不重复，避免服务按值反查时把“优秀”和“不适用”弄混。lead 的对比页按 label 排除“不适用”。
-  - Supersedes：lead 起初提议“不适用 = 1.0”。改动原因：1.0 与“优秀”重复。
+- **模板放 `data/templates/`**：手册里的链接都指向这里。脚本也兼容仓库根目录的 `templates/`。
+- **原生评审配置“不适用”档 = 0.0**：档位值必须互不重复，避免服务按值反查时把“优秀”和“不适用”弄混。对比页按 label 排除“不适用”。
+  - Supersedes：起初的方案是“不适用 = 1.0”。改动原因：1.0 与“优秀”重复。
 - **Claude Sonnet 5.5 不接受 `temperature` 参数**：实测返回 ValidationException。
   - 原生配置不传 temperature；
   - 代码型评审遇到该错误会自动去掉参数后重试；
-  - lead 的 Agent 已对 Claude 模型去掉 temperature。
+  - mock agent 已对 Claude 模型去掉 temperature。
 - **用 G26（集成链路故障）替换原“导入按编码更新”样例**：让“紧急=是”有 6 条，避免“全判否”就拿到 80% 以上的假高分。批量报告同时给出各类别召回率。
-- **客户真实数据只写 `data/customer/`**：lead 已把该目录加入 .gitignore。
+- **客户真实数据只写 `data/customer/`**：该目录已加入 .gitignore。
   - `--use-as-input` 生成 `data/customer/agent_data/`，再用 `S12_DATA_DIR` 指向它（Agent 的 `data.py` 优先读这个变量），不再覆盖仓库里的 mock 文件。
   - Supersedes：之前是“覆盖 `data/feedback_last_month.jsonl` 并留 .bak”。改动原因：该文件被 git 跟踪，客户数据可能被提交到公开仓库。
 - **目标 trace 不在 session 里时，两个评估器都返回 `Skipped`**，不借用其它 trace 的输出。
@@ -116,8 +116,8 @@
   - 属性路径直接取到输出；
   - 去掉 `s12lab.triage_output` 后，仍能从 log record 的 `body.output.messages` 和 `需求编号:` 行还原。
   - `test_span_adapter.py` 有针对这份样例的测试。
+- **原生 LLM-as-judge 配置**：由 `./30-create-evaluators.sh` 注册为 `…_reject_quality_llm`（手册第 6 章）；如果服务拒绝档位或模型 ID，调整 `evaluators/s12_reject_quality/rubric.py`，运行 `python3 evaluators/sync_shared.py` 重新生成配置，再运行 `./30-create-evaluators.sh`。
 
-## 5. 待确认问题（我已按默认值处理）
+## 5. 待确认问题（已按默认值处理）
 
 - **“战略客户的任何需求”是否列为不可自动拒绝**：默认否，留到 11:00 讨论，结论填模板第 2 节。
-- **原生 LLM-as-judge 配置**：没有在 AgentCore 中实际注册过（按约束不创建 AWS 资源）。由 lead 的注册脚本首次验证；如果服务拒绝档位或模型 ID，告诉我调整 `rubric.py`。

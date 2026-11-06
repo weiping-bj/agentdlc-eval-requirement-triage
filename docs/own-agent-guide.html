@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自带 Agent 接入指南 · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="own-agent-guide">
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+<section class="card chapter-head">
+<h1><span class="num">G</span>自带 Agent 接入指南 <span class="applies common">会后自助</span></h1>
+<p class="lead">现场的 A 版和 B 版都用仓库自带的 mock agent。这份指南说明怎样把<b>你们自己的 Agent</b> 接到同一套评估流程（黄金集 + 评估器 + 对比页）：要么改几行代码、用 ADOT 埋点（路线一），要么只提供 Agent 的调用日志（路线二）。本页可以单独阅读。</p>
+<div class="note"><b>标记说明</b>（每一步标题右侧）：<span class="pill g">已实测</span> 在真实账号里按本页步骤跑通过（2026-11-05 / 11-06，us-west-2）；<span class="pill b">按代码核对</span> 对照仓库代码确认，没有单独实测；<span class="pill o">未验证</span> 来自 AWS 文档或推断，请以你们的实际结果为准。</div>
+</section>
+<section class="card">
+
+<div class="step" id="s-g-1">
+  <div class="step-head"><span class="num">G.1</span><h3>开始前：准备环境和数据</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">准备好运行脚本的机器、账号级设置和评估器，后面每一步都依赖它们。</p>
+  <ul>
+    <li><b>账号</b>：一个专用的实验账号，不要用生产账号（脚本会创建 IAM 角色、Lambda、AgentCore 资源）。</li>
+    <li><b>运行脚本的机器</b>：按 <a href="01-setup.html">第 1 章</a> 建一台实验 EC2（推荐），或在自己电脑上 clone 仓库，在仓库根目录建虚拟环境并安装依赖：<code>uv venv --python 3.12 .venv &amp;&amp; uv pip install -r requirements.txt</code>（见 <a data-repo="requirements.txt">requirements.txt</a> 第一行），再在 <code>config/local.env</code> 里写 <code>AWS_PROFILE</code>（<a href="appendix.html#s-x-1">附录 X.1</a>）。下面所有 <code>./…sh</code> 命令都在仓库根目录执行。</li>
+    <li><b>个人后缀</b>：<code>./tools/set-suffix.sh &lt;后缀&gt;</code>。本页用 <code>&lt;后缀&gt;</code> 表示它（例如 <code>zhang3</code>），资源名都由它派生。</li>
+    <li><b>Transaction Search</b>：<code>./02-enable-observability.sh</code>（<a href="01-setup.html#s-1-8">1.8</a>）。不开它，span 进不了 CloudWatch 的 <code>aws/spans</code>，评估服务就找不到数据。注意这是<b>账号 + 区域级</b>设置：它把这个区域所有 X-Ray trace 改为写入 CloudWatch Logs，并把 span 索引比例设为 100%，会产生 CloudWatch 费用；已经开着就不用再运行。要还原，只有本实验开启的情况下 <code>./99-cleanup.sh --all --account-level</code> 才会还原（第 10 章）。</li>
+    <li><b>黄金集和评估器</b>：黄金集按 <a href="02-data.html">第 2 章</a> 确认；评估器用 <code>./30-create-evaluators.sh</code> 部署和注册（<a href="06-evaluators.html#s-6-3">6.3</a>）。</li>
+  </ul>
+  <p><b>让你们的 Agent 处理哪些数据：</b>黄金集的 30 条需求在 <a data-repo="data/golden/golden_set.jsonl">data/golden/golden_set.jsonl</a>，每行的 <code>input</code> 字段就是 Agent 的输入（字段说明 <a data-repo="data/schema/feedback_item.schema.json">feedback_item.schema.json</a>），需求编号在 <code>feedback_id</code>。用同样的 30 条做“优化前”和“优化后”，分数才可比。</p>
+  <p><b>Agent 要输出什么：</b>每条需求输出一个 JSON，字段见 <a data-repo="evaluators/README.md">evaluators/README.md</a> 第 1 节：</p>
+<pre class="out">{"feedback_id": "FB-2610-001", "important": "是", "urgent": "否", "decision": "迭代",
+ "level": null, "reasoning": "…", "reject_reason": "", "customer_reply": ""}</pre>
+  <p><code>important</code> / <code>urgent</code> 取 <code>是</code> / <code>否</code>，<code>decision</code> 取 <code>迭代</code> / <code>拒绝</code> / <code>待评估</code>；判“拒绝”时 <code>reject_reason</code> 和 <code>customer_reply</code> 必填。标签准确率评估器按这些字段打分，解析不出时记 <code>FormatError</code>。</p>
+</div>
+
+<div class="step" id="s-g-2">
+  <div class="step-head"><span class="num">G.2</span><h3>选择路线：改代码接入，还是只提供日志</h3><span class="time"></span></div>
+  <p class="why">两条路线最后都用同一组评估器、同一个对比页；区别在数据怎么进 CloudWatch。</p>
+  <table>
+    <tr><th style="width:18%"></th><th>路线一：改代码接入（ADOT 埋点）</th><th>路线二：只提供日志</th></tr>
+    <tr><td>你们要做的事</td><td>安装 ADOT、设置环境变量，在每次处理请求的入口加约 15 行代码</td><td>把每次 Agent 调用导出成一行 JSON（JSONL 文件）</td></tr>
+    <tr><td>CloudWatch 里的数据</td><td>Agent 运行时产生的真实 trace（含框架自己的 span、工具调用、token 用量）</td><td>转换脚本按日志生成的 trace，时间重排到导入时刻</td></tr>
+    <tr><td>在线评估（控制台自动打分）</td><td>支持，但服务名必须用实验默认名（<a href="#s-g-4">G.4</a>）</td><td>不支持</td></tr>
+    <tr><td>按需评估 / 对比页</td><td>支持，要先手动登记一次运行（<a href="#s-g-8">G.8</a>–<a href="#s-g-9">G.9</a>）</td><td>支持，导入时自动登记</td></tr>
+    <tr><td>适合</td><td>能改 Agent 代码，想上线后持续评估</td><td>改不了代码，或想先快速看一次分数</td></tr>
+    <tr><td>步骤</td><td><a href="#s-g-3">G.3</a>–<a href="#s-g-10">G.10</a>（G.6 的在线评估可选）</td><td><a href="#s-g-11">G.11</a>–<a href="#s-g-14">G.14</a></td></tr>
+  </table>
+  <p>两条路线的优化与再评估都看 <a href="#s-g-15">G.15</a>，已知限制看 <a href="#s-g-16">G.16</a>。</p>
+</div>
+
+<div class="step" id="s-g-3">
+  <div class="step-head"><span class="num">G.3</span><h3>路线一 ① 安装 ADOT（AWS OpenTelemetry 发行版）</h3><span class="time"><span class="pill o">未验证</span></span></div>
+  <p class="why">在你们 Agent 的 Python 环境里装上负责采集和发送 trace 的组件。</p>
+<pre><code>pip install "aws-opentelemetry-distro&gt;=0.18" boto3
+pip install "strands-agents[otel]"   # 只有 Strands Agent 需要</code></pre>
+  <p>装好后有 <code>opentelemetry-instrument</code> 命令，Agent 要用它启动（<a href="#s-g-7">G.7</a>）。LangGraph / LangChain 等框架的埋点包和支持情况见 AgentCore 文档 <a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/supported-frameworks-telemetry.html" target="_blank" rel="noopener">Telemetry setup and delivery</a>。</p>
+  <div class="note">实测时用的是仓库自带的 <code>.venv</code>（依赖见 <a data-repo="agent/requirements.txt">agent/requirements.txt</a>，Strands + ADOT），没有单独实测上面这两条 pip 命令（版本下限按 AgentCore 文档；仓库自己写的是 <code>&gt;=0.12</code>）。G.5 的代码只用 OpenTelemetry 的 Python 接口，所以这条路线面向 Python Agent；评估还需要框架自己产生的 GenAI span（Agent 调用、模型输入输出）：Strands 已实测；LangChain / LangGraph、OpenInference、CrewAI 的埋点在检查器的支持列表里（<a data-repo="labkit/check_telemetry.py">labkit/check_telemetry.py</a> 的 <code>SUPPORTED_SCOPES</code>），没有实测；不用这些框架的 Agent 见 <a href="#s-g-16">G.16</a>。</div>
+</div>
+
+<div class="step" id="s-g-4">
+  <div class="step-head"><span class="num">G.4</span><h3>路线一 ② 配置环境变量：用实验默认的服务名</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">告诉 ADOT 把数据发到哪个区域、哪个日志组、服务叫什么名字。</p>
+<pre><code>source ./00-config.sh &amp;&amp; source telemetry/otel_env.sh</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">📡 OTel 已配置：service.name=s12lab-&lt;后缀&gt;-local-agent · 日志组 /aws/bedrock-agentcore/s12lab-&lt;后缀&gt;-local-agent · 区域 us-west-2</pre></div>
+  <table>
+    <tr><th>环境变量（<a data-repo="telemetry/otel_env.sh">telemetry/otel_env.sh</a>）</th><th>作用</th></tr>
+    <tr><td><code>AGENT_OBSERVABILITY_ENABLED=true</code></td><td>ADOT 的 GenAI 观测默认设置：100% 采样，并把 baggage 里的 <code>session.id</code> 写到每个 span 上</td></tr>
+    <tr><td><code>OTEL_PYTHON_DISTRO=aws_distro</code> · <code>OTEL_PYTHON_CONFIGURATOR=aws_configurator</code></td><td>使用 AWS 发行版的采集与发送配置（SigV4 签名）</td></tr>
+    <tr><td><code>OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf</code> · <code>OTEL_TRACES_EXPORTER=otlp</code></td><td>span 发到 X-Ray 的 OTLP 端点，进入 CloudWatch Logs 的 <code>aws/spans</code>（Transaction Search）</td></tr>
+    <tr><td><code>OTEL_LOGS_EXPORTER=otlp</code> · <code>OTEL_EXPORTER_OTLP_LOGS_HEADERS</code></td><td>模型输入 / 输出内容作为日志事件，写到上面的日志组（日志流 <code>runtime-logs</code>）</td></tr>
+    <tr><td><code>OTEL_RESOURCE_ATTRIBUTES</code></td><td><code>service.name</code>（控制台里的 Agent 名）和 <code>aws.log.group.names</code>（关联的日志组）</td></tr>
+  </table>
+  <div class="warn"><b>不要改服务名和日志组。</b>在线评估（<code>./33-online-eval.sh enable --path a</code>）只看 <code>LOCAL_SERVICE_NAME</code> 和 <code>LOCAL_LOG_GROUP</code> 这两个值（<a data-repo="labkit/online.py">labkit/online.py</a>），它们由 <a data-repo="labkit/config.py">labkit/config.py</a> 的 <code>derive()</code> 按前缀和后缀算出来：在 <code>config/local.env</code> 或环境变量里设置它们<b>不生效</b>（会被覆盖）。如果给 <code>otel_env.sh</code> 传自己的名字（<code>source telemetry/otel_env.sh my-agent …</code>），trace 照样进 CloudWatch、按需评估也能用，但在线评估<b>一条都不会打分</b>。实测：同一个在线评估配置、同一段时间里，默认名的 session 3/3 被打分，自定义名的 0/5。</div>
+  <p><b>代价（如实说明）：</b>控制台里你们的 Agent 显示为 <code>s12lab-&lt;后缀&gt;-local-agent</code>。如果用同一个后缀也跑过 mock agent（现场的 A3 / 第 7 章），两者的 session 会在同一个 Agent 名下。区分方法：mock agent 的 <code>session.id</code> 形如 <code>s12lab-&lt;后缀&gt;-v0-FB-2610-001-&lt;32 位十六进制&gt;</code>，G.5 的代码生成的形如 <code>s12lab-&lt;uuid&gt;</code>。想完全分开，可以用一个新后缀：在自己电脑上（没有实验权限边界）运行 <code>./tools/set-suffix.sh &lt;新后缀&gt;</code> 后重新注册评估器（<code>./30-create-evaluators.sh</code>）；在实验 EC2 上后缀和 EC2 堆栈绑定（权限边界按后缀命名，换了后缀脚本会报“找不到实验权限边界”），要按 <a href="01-setup.html">第 1 章</a> 用新后缀重新创建 EC2 堆栈 <span class="pill b">按代码核对</span>。</p>
+  <div class="tip"><b>在你们自己的 shell 脚本里使用时</b>，写成 <code>source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"</code>（效果和不带参数一样）。不带参数 <code>source</code> 时，脚本自己的 <code>$1</code> / <code>$2</code> 会被当成服务名和日志组（实测遇到过）。</div>
+  <div class="note"><b>Agent 不在这台机器上运行</b>（容器、你们自己的服务器）：把上面这些环境变量按输出里的值设到运行 Agent 的地方，再设好 <code>AWS_REGION</code> 和能写 X-Ray、CloudWatch Logs 的 AWS 凭证。需要的 IAM 权限见 AgentCore 文档 “Add observability to agents hosted outside AgentCore Runtime” <span class="pill o">未验证</span>。</div>
+</div>
+
+<div class="step" id="s-g-5">
+  <div class="step-head"><span class="num">G.5</span><h3>路线一 ③ 改代码：每条需求一个 session，最终输出写到 span 上</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">评估服务按 session 取数据，评估器要能读到 Agent 的最终输出；这段代码把两件事都做了。</p>
+  <p>把下面这段放在<b>每次处理一条需求的入口</b>（HTTP 接口的处理函数、队列的消费函数、批处理循环里的每一条），<b>不要</b>放在程序启动时。把 <code>my_agent(item)</code> 换成你们原来的 Agent 调用：它要返回一个 dict，字段见 <a href="#s-g-1">G.1</a>（返回的是 JSON 文本时先 <code>json.loads</code>）。</p>
+<pre><code>import json
+import uuid
+
+from opentelemetry import baggage, context, trace
+
+tracer = trace.get_tracer("s12lab.triage")
+
+
+def handle_one(item: dict) -&gt; dict:
+    """处理一条需求：一条需求 = 一个 session = 一个 trace。在每次处理请求的入口调用。"""
+    session_id = f"s12lab-{uuid.uuid4()}"  # 每条需求一个新的唯一 ID
+    token = context.attach(baggage.set_baggage("session.id", session_id))  # 之后产生的 span 都带上它
+    try:
+        with tracer.start_as_current_span("s12lab.triage") as span:
+            span.set_attribute("session.id", session_id)
+            fid = item.get("id") or item.get("feedback_id")  # 需求编号：按你们的字段名改
+            if fid:
+                span.set_attribute("s12lab.feedback_id", fid)
+            result = my_agent(item)  # 换成你们原来的 Agent 调用；返回 dict，字段见 evaluators/README.md 第 1 节
+            span.set_attribute("s12lab.triage_output", json.dumps(result, ensure_ascii=False, default=str))
+            return result
+    finally:
+        context.detach(token)</code></pre>
+  <p class="where">同一段代码：<a data-repo="telemetry/snippets/a34_session_wrapper.py">telemetry/snippets/a34_session_wrapper.py</a>（仓库里的测试会运行它，并检查我们的评估器能读出结果）。</p>
+  <table>
+    <tr><th style="width:26%">这段代码做了什么</th><th>为什么需要</th></tr>
+    <tr><td>每条需求生成新的 <code>session.id</code>，放进 OTel baggage</td><td>ADOT（<code>AGENT_OBSERVABILITY_ENABLED</code>）把它写到之后产生的每个 span 上；评估服务按 session 取数据，一条需求 = 一个 session = 一个 trace</td></tr>
+    <tr><td>包一个名为 <code>s12lab.triage</code> 的 span</td><td>每条需求有一个可识别的根 span：按需评估、遥测检查和 G.9 的登记查询都靠它（或 <code>invoke_agent</code> span）找到 trace（<a data-repo="labkit/spans.py">labkit/spans.py</a>）</td></tr>
+    <tr><td>写 <code>s12lab.feedback_id</code> 和 <code>s12lab.triage_output</code></td><td>需求编号用来对黄金集；最终输出 JSON 是评估器<b>首选</b>的读取位置（<a data-repo="evaluators/README.md">evaluators/README.md</a> 第 2 节），不依赖框架有没有记录消息正文</td></tr>
+  </table>
+  <ul>
+    <li>处理函数是 async 的（FastAPI 等）：把 <code>def handle_one</code> 改成 <code>async def</code>，把 <code>my_agent(item)</code> 改成 <code>await my_agent(item)</code>，其余不变。</li>
+    <li>如果 Agent 把活交给自己开的线程或进程（线程池、multiprocessing 等），那里面的 span 可能拿不到这个上下文，<code>session.id</code> 会丢：尽量在同一个线程里调用 Agent，或者把 context 显式传过去 <span class="pill o">未验证</span>。</li>
+  </ul>
+  <p class="where">实测方式：一个独立的 Strands Agent（不经过仓库的批量脚本）原样套用这段代码，跑 5 条黄金集需求；登记后 8 个评估器全部出分，A5 检查 🟩 通过（<a href="#s-g-10">G.10</a>）。</p>
+</div>
+
+<div class="step" id="s-g-6">
+  <div class="step-head"><span class="num">G.6</span><h3>路线一 ④ 先建日志组，再开启在线评估（控制台自动打分）</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">日志组要先存在；在线评估要在 Agent 运行<b>之前</b>开启，开启之前产生的 session 不会被打分。</p>
+<pre><code>.venv/bin/python -m labkit.loggroup
+./33-online-eval.sh enable --path a</code></pre>
+  <div class="expect"><span class="label">预期输出：</span>
+<pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-&lt;后缀&gt;-local-agent
+…
+✅ 已创建在线评估配置 s12lab_&lt;后缀&gt;_online_a（s12lab_&lt;后缀&gt;_online_a-…），采样 100%，session 空闲 2 分钟后打分
+   之后每个新 session 都会自动评分，结果写入 CloudWatch：
+   CloudWatch 控制台 → GenAI Observability → Bedrock AgentCore → 你的 Agent → Evaluations</pre>
+  日志组已经存在时显示 <code>✔ 日志组已存在 …</code>；在线评估配置已经创建过时显示 <code>✅ 在线评估配置 … 已启用</code>。不带参数时 <a data-repo="labkit/loggroup.py">labkit/loggroup.py</a> 创建的就是 G.4 的默认日志组（保留 7 天）。</div>
+  <ul>
+    <li>为什么先建日志组：模型输入 / 输出事件要写进去；而且日志组不存在时 <code>./33-online-eval.sh enable --path a</code> 会失败（见 <a href="#s-g-16">G.16</a>）。</li>
+    <li>前提：评估器已注册（<code>./30-create-evaluators.sh</code>）。只想做按需评估（G.8–G.10）时可以不开在线评估，但日志组照样要建。</li>
+    <li><b>先开启、再跑 Agent</b>：只有开启之后产生的 session 会被打分；开启前的、以及改配置之前的旧 session 不会补打（实测）。</li>
+    <li>在线评估没有“标准答案”输入：标签准确率评估器按需求编号到随 Lambda 打包的黄金集里找答案；不在黄金集里的需求返回 <code>Skipped</code>，不计分。</li>
+  </ul>
+</div>
+
+<div class="step" id="s-g-7">
+  <div class="step-head"><span class="num">G.7</span><h3>路线一 ⑤ 运行 Agent，到 CloudWatch 查看 trace 和分数</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">Agent 要在 <code>opentelemetry-instrument</code> 下启动，ADOT 才会工作；然后在控制台确认数据到了。</p>
+<pre><code>opentelemetry-instrument python your_agent.py</code></pre>
+  <ul>
+    <li>在 G.4 的同一个 shell 里执行（环境变量要在）。用仓库的虚拟环境时写成 <code>.venv/bin/opentelemetry-instrument .venv/bin/python your_agent.py</code>。让它处理黄金集的 30 条（<a href="#s-g-1">G.1</a>），记下开始时间（G.9 要用）。</li>
+    <li>数据怎么走：span → ADOT → X-Ray OTLP 端点 → CloudWatch Logs 的 <code>aws/spans</code>（Transaction Search）；模型输入 / 输出事件 → G.6 的日志组。进入 CloudWatch 有 <b>1–3 分钟</b>延迟。</li>
+  </ul>
+  <ol class="clicks">
+    <li>CloudWatch 控制台（区域与实验一致）→ <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → <span class="ui">Agents</span>：找到 <code>s12lab-&lt;后缀&gt;-local-agent</code>（不在 Runtime 上的 Agent 按 service.name 列出）。</li>
+    <li>点进去 → <span class="ui">Sessions</span>：每条需求一个 session（<code>s12lab-&lt;uuid&gt;</code>）→ <span class="ui">Traces</span>：根是 <code>s12lab.triage</code>，下面是框架自己的 span（Strands 是 <code>invoke_agent</code> → <code>chat</code> / <code>execute_tool …</code>）。</li>
+    <li><span class="ui">Evaluations</span> 页签：session 空闲 2 分钟后才开始打分，所以跑完约 5–10 分钟分数才陆续出现；也可以看 CloudWatch 指标命名空间 <code>Bedrock-AgentCore/Evaluations</code>（维度 <code>service.name</code>）。</li>
+    <li>（可选）CloudWatch → <span class="ui">Application Signals</span> → <span class="ui">Transaction search</span>：筛选 <code>service.name = s12lab-&lt;后缀&gt;-local-agent</code> 看原始 span。控制台菜单名称可能随版本略有不同。</li>
+  </ol>
+</div>
+
+<div class="step" id="s-g-8">
+  <div class="step-head"><span class="num">G.8</span><h3>路线一 ⑥ 按需评估之前：先弄清“运行记录”</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">按需评估（<code>./31-run-eval.sh</code>）和遥测检查（<code>./12-A-check-telemetry.sh</code>）不扫描 CloudWatch，只评估登记过的运行。</p>
+  <p>一条“运行记录”由两部分组成：</p>
+  <ol class="clicks">
+    <li><b>运行文件</b> <code>results/run-&lt;run_id&gt;.jsonl</code>：每个 session 一行，把需求编号（<code>feedback_id</code>）和 <code>session_id</code> 对应起来。</li>
+    <li><b>登记项</b>：<code>.lab-state/runs.json</code>（一个 JSON 数组）里的一个对象：run_id、运行文件路径、开始时间、日志组等。</li>
+  </ol>
+  <p>仓库的脚本只登记自己产生的运行：mock agent 的批量运行（<a data-repo="labkit/batch.py">labkit/batch.py</a>）和路线二的日志导入（<a data-repo="labkit/convert_logs.py">labkit/convert_logs.py</a>）。<b>你们的 Agent 产生的 session 不会自动登记</b>，要按 G.9 手动登记。</p>
+  <div class="danger"><b>不带 <code>--run</code> 时评估的是最后一条登记的运行，不一定是你们的。</b><code>./31-run-eval.sh</code> 和 <code>./12-A-check-telemetry.sh</code> 不带参数时取 <code>runs.json</code> 的最后一条（<a data-repo="labkit/evaluate.py">labkit/evaluate.py</a> 的 <code>pick_run()</code>）。如果这台机器之前跑过 mock agent，它会<b>悄悄评估那次 mock 运行，还可能显示 ✅ 达标</b>，看起来像是你们的 Agent 达标了（实测）。从没登记过任何运行时，31 报 <code>❌ 还没有任何运行记录</code>，12 报 <code>❌ 没有运行记录</code>。所以：先登记，之后<b>一律带 <code>--run &lt;run_id&gt;</code></b>，并核对输出第一行 <code>▶ 评估 run &lt;run_id&gt;：N 个 session</code> 里的 run_id 和条数。</div>
+  <p><code>results/</code> 和 <code>.lab-state/</code> 只在运行脚本的这台机器上（不提交到仓库），登记要在你运行 <code>./31-run-eval.sh</code> 的同一台机器上做。</p>
+</div>
+
+<div class="step" id="s-g-9">
+  <div class="step-head"><span class="num">G.9</span><h3>路线一 ⑦ 手动登记一次运行（4 步）</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">把你们这次运行的 session 写成运行文件并登记，之后 31 / 32 / 12 都能用它。</p>
+  <p><b>第 1 步：在 <code>aws/spans</code> 里找到这次运行的 session。</b>CloudWatch → <span class="ui">Logs Insights</span>，日志组选 <code>aws/spans</code>，时间范围覆盖这次运行（例如开始前 5 分钟到结束后 5 分钟），运行：</p>
+<pre><code>fields @timestamp, attributes.session.id as sid, attributes.s12lab.feedback_id as fid,
+       attributes.s12lab.triage_output as out, traceId
+| filter name = "s12lab.triage" and resource.attributes.service.name = "s12lab-&lt;后缀&gt;-local-agent"
+| sort @timestamp asc
+| limit 1000</code></pre>
+  <p>每行是一条需求：<code>sid</code> 是 session_id，<code>fid</code> 是需求编号，<code>out</code> 是最终输出 JSON。同一 session 只取一行。同一时间段也跑过 mock agent 时，去掉 <code>sid</code> 形如 <code>s12lab-&lt;后缀&gt;-v0-…</code> / <code>-v1-…</code> 的行（那是 mock agent 的）。记下<b>第一行的时间</b>（第 3 步要用）。<code>@timestamp</code> 可能按浏览器所在时区显示（例如北京时间比 UTC 早 8 小时），第 3 步要换算成 UTC。</p>
+
+  <p><b>第 2 步：写运行文件</b> <code>results/run-&lt;run_id&gt;.jsonl</code>（UTF-8，每个 session 一行）。run_id 只用字母、数字和 <code>-</code>，建议 <code>A-own-&lt;版本&gt;-&lt;开始时间&gt;</code>，例如 <code>A-own-v0-20261106T113000Z</code>：</p>
+<pre class="out">{"run_id": "A-own-v0-20261106T113000Z", "version": "v0", "mode": "own", "feedback_id": "FB-2610-001", "session_id": "s12lab-0d3a2c0b-ca5f-456e-86b8-1745339607fd", "result": {"feedback_id": "FB-2610-001", "important": "是", "urgent": "否", "decision": "迭代", …}}
+{"run_id": "A-own-v0-20261106T113000Z", "version": "v0", "mode": "own", "feedback_id": "FB-2610-002", "session_id": "s12lab-9be4edb8-…", "result": {…}}</pre>
+  <table>
+    <tr><th style="width:18%">字段</th><th style="width:10%">必填</th><th>用途（<a data-repo="labkit/evaluate.py">labkit/evaluate.py</a>）</th></tr>
+    <tr><td><code>session_id</code></td><td>是</td><td>按它到 CloudWatch 查这个 session 的 span</td></tr>
+    <tr><td><code>feedback_id</code></td><td>是</td><td>黄金集里的需求编号：评估时据此把标准答案作为参考输入传给评估器</td></tr>
+    <tr><td><code>result</code></td><td>建议</td><td>Agent 的输出 JSON（第 1 步的 <code>out</code> 解析后的对象）；对比页的“实际”标签从这里取。没有就写 <code>null</code></td></tr>
+    <tr><td><code>error</code></td><td>否</td><td>这条处理失败时写错误文字：评估时跳过这条</td></tr>
+    <tr><td><code>run_id</code> · <code>version</code> · <code>mode</code></td><td>否</td><td>只作说明；脚本用的是第 3 步登记项里的值</td></tr>
+  </table>
+
+  <p><b>第 3 步：在 <code>.lab-state/runs.json</code> 末尾加一个登记项。</b>先备份：<code>cp .lab-state/runs.json .lab-state/runs.json.bak</code>；文件不存在时新建，内容写成 <code>[ {…} ]</code>。</p>
+<pre class="out">{"run_id": "A-own-v0-20261106T113000Z",
+ "file": "results/run-A-own-v0-20261106T113000Z.jsonl",
+ "created": "20261106T113000Z",
+ "version": "v0",
+ "mode": "own",
+ "log_group": "/aws/bedrock-agentcore/s12lab-&lt;后缀&gt;-local-agent",
+ "service_name": "s12lab-&lt;后缀&gt;-local-agent",
+ "source": "aws/spans service.name=s12lab-&lt;后缀&gt;-local-agent",
+ "count": 30, "model": "-", "agentRuntimeArn": null}</pre>
+  <table>
+    <tr><th style="width:18%">字段</th><th style="width:10%">必填</th><th>说明</th></tr>
+    <tr><td><code>run_id</code></td><td>是</td><td>和第 2 步一致；<code>--run</code> 用的就是它</td></tr>
+    <tr><td><code>file</code></td><td>是</td><td>第 2 步的运行文件，路径相对仓库根目录</td></tr>
+    <tr><td><code>created</code></td><td>是</td><td><b>UTC</b> 时间，格式 <code>YYYYMMDDTHHMMSSZ</code>。写第 1 步第一行的时间（换算成 UTC）或更早：<code>./31-run-eval.sh</code> 从它往前 10 分钟开始查 span，<code>./12-A-check-telemetry.sh</code> 往前 60 分钟；写早了只是多查一段时间，写得比第一条请求晚 10 分钟以上就查不到（31 报 <code>no spans found</code>）。拿不准时区就再往前写 1 小时以上</td></tr>
+    <tr><td><code>version</code></td><td>是</td><td><code>v0</code>（优化前）、<code>v1</code>（优化后）…：评估结果和对比页用它显示 V0 / V1</td></tr>
+    <tr><td><code>mode</code></td><td>是</td><td>写 <code>own</code>（对比页显示“自带 Agent（手动登记的运行）”）。不要用 <code>local</code> / <code>runtime</code> / <code>imported</code>，那是仓库脚本自己的运行类型</td></tr>
+    <tr><td><code>log_group</code></td><td>建议</td><td>G.4 的日志组：模型输入 / 输出事件在这里。不写时只查 <code>aws/spans</code>，可能取不到输入输出内容 <span class="pill b">按代码核对</span></td></tr>
+    <tr><td>其余字段</td><td>否</td><td>只作说明</td></tr>
+  </table>
+  <p><b>第 4 步：检查文件格式。</b></p>
+<pre><code>python3 -m json.tool .lab-state/runs.json &gt; /dev/null &amp;&amp; echo runs.json OK
+python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding='utf-8') if l.strip()]; print('jsonl OK')" results/run-A-own-v0-20261106T113000Z.jsonl</code></pre>
+  <p class="where">把第二条命令里的文件名换成你的。实测：同样字段登记的 5 个 session，<code>31</code>、<code>12</code> 和对比页都能直接使用；当时第 1 步的查询是用 Logs Insights API 运行的（没有在控制台里点），服务名用的是一个自定义名，所以查询和登记项里的服务名、日志组与上面不同，其余相同。</p>
+</div>
+
+<div class="step" id="s-g-10">
+  <div class="step-head"><span class="num">G.10</span><h3>路线一 ⑧ 自检（A5 检查）并按需评估</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">先确认数据满足 Evaluations 的要求，再对照黄金集打分。</p>
+<pre><code>./12-A-check-telemetry.sh --run A-own-v0-20261106T113000Z
+./31-run-eval.sh --run A-own-v0-20261106T113000Z</code></pre>
+  <div class="expect"><span class="label">预期输出（实测：独立的 Strands Agent + G.5 的代码，5 个 session）：</span>
+<pre class="out">▶ 检查 run A-own-…（own）的 5 个 session · 日志组 /aws/bedrock-agentcore/s12lab-&lt;后缀&gt;-…
+  · s12lab-0d3a2c0b-ca5f-456e-86b8-1745339607fd  span=10 文档=17
+  …
+  ✅ [必需] 能在 CloudWatch（aws/spans）按 session.id 找到 span  (5/5)
+  ✅ [必需] 每个 span 都带 session.id  (5/5)
+  ✅ [必需] span 来自受支持的框架埋点（如 Strands: strands.telemetry.tracer）  (5/5)
+  ✅ [必需] 有 Agent 调用 span（gen_ai.operation.name = invoke_agent）  (5/5)
+  ✅ [必需] 能取到用户输入内容  (5/5)
+  ✅ [必需] 能取到 Agent 最终输出内容  (5/5)
+  …
+  埋点来源 scope：['opentelemetry.instrumentation.botocore.bedrock-runtime', 's12lab.triage', 'strands.telemetry.tracer']   service.name：['…']
+  ✅ 试评估（Builtin.Helpfulness）成功：Very Helpful 0.83
+
+🟩 结论：通过 —— 数据满足 AgentCore Evaluations 的要求。继续第 6 章。</pre>
+<pre class="out">▶ 评估 run A-own-…：5 个 session × 8 个评估器
+  …
+═══ 结果（44s）· 目标：三项各 ≥ 70% ═══
+  是否重要：80% ✅
+  是否紧急：100% ✅
+  处理建议：100% ✅
+  …
+  ✅ 达标 · 详细结果：results/eval-A-own-….json</pre></div>
+  <ul>
+    <li>检查结论的读法（🟩 通过 / 🟨 缺可选项 / 🟧 缺 1 项必需 / 🟥 差距大）见 <a href="a5-check.html#s-a5-2">A5.2</a>。最常见的 ❌ 是数据还没到（等 2–3 分钟再查）或没开 Transaction Search。</li>
+    <li>核对 <code>service.name</code> 是 <code>s12lab-&lt;后缀&gt;-local-agent</code>（实测那次用的是自定义名，所以上面省略了）。</li>
+    <li>“span 来自受支持的框架埋点”“有 Agent 调用 span”“能取到用户输入内容”看的是框架自己的 span：上面是 Strands 的结果，其它框架以你们的检查结果为准（<a href="#s-g-16">G.16</a>）。结论是 🟥 时脚本建议“切换到 B 版”，那是现场的兜底；自带 Agent 按 ❌ 项和 G.16 补埋点。</li>
+    <li>失败用例怎么归因：<code>.venv/bin/python -m labkit.failures results/eval-&lt;run_id&gt;.json</code>，读法见 <a href="07-evaluate.html#s-7-5">7.5</a>。</li>
+  </ul>
+</div>
+
+<div class="step" id="s-g-11">
+  <div class="step-head"><span class="num">G.11</span><h3>路线二 ① 日志需要哪些字段</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">转换脚本把每行日志变成一个 session / 一条 trace；缺必填字段的行不能导入。</p>
+  <p>格式是 JSONL（UTF-8）：<b>每次 Agent 调用一行</b>。完整说明：<a data-repo="telemetry/LOG_FORMAT.md">telemetry/LOG_FORMAT.md</a>；样例：<a data-repo="telemetry/samples/customer-agent-logs.jsonl">telemetry/samples/customer-agent-logs.jsonl</a>。</p>
+  <table>
+    <tr><th>字段</th><th>必填</th><th>说明</th></tr>
+    <tr><td><code>session_id</code></td><td>是</td><td>会话 ID，每条需求一个</td></tr>
+    <tr><td><code>timestamp</code></td><td>是</td><td>调用时间，ISO 8601（例如 <code>2026-10-15T09:30:00+08:00</code>）或毫秒时间戳</td></tr>
+    <tr><td><code>user_input</code></td><td>是</td><td>发给 Agent 的完整输入（需求反馈原文）</td></tr>
+    <tr><td><code>agent_output</code></td><td>是</td><td>Agent 的最终输出：最好就是 G.1 的 JSON（文本或对象都可以）；不是的话标签准确率评估器记 <code>FormatError</code>，只剩内置评估器可用</td></tr>
+    <tr><td><code>feedback_id</code></td><td>建议</td><td>黄金集里的需求编号；缺失时从输出 JSON 的 <code>feedback_id</code> 取</td></tr>
+    <tr><td><code>model</code> · <code>latency_ms</code> · <code>agent_name</code></td><td>否</td><td>模型名、耗时、Agent 名</td></tr>
+    <tr><td><code>tool_calls</code></td><td>否</td><td><code>[{"name","input","output","status"}]</code>；没有时工具类评估器不可用</td></tr>
+  </table>
+  <div class="tip">你们的日志字段名不一样：把一两行原始日志和 <a data-repo="telemetry/LOG_FORMAT.md">LOG_FORMAT.md</a> 一起交给 coding agent，让它写一个转换成这种 JSONL 的脚本。给黄金集的 30 条各导出一行（每行带 <code>feedback_id</code>），才能和黄金集对上。日志里有真实客户数据时只放在运行脚本的机器上，建议放在 <code>data/customer/</code>（已在 <code>.gitignore</code> 里），不要提交到仓库。</div>
+</div>
+
+<div class="step" id="s-g-12">
+  <div class="step-head"><span class="num">G.12</span><h3>路线二 ② 校验字段，再转换并导入 CloudWatch</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">导入前发现缺字段的问题；然后把日志转成 OTel trace 发到 CloudWatch，并自动登记成一次运行。</p>
+<pre><code>./11-A-convert-logs.sh check &lt;你的日志.jsonl&gt;
+./11-A-convert-logs.sh send  &lt;你的日志.jsonl&gt;</code></pre>
+  <p class="where">脚本：<a data-repo="11-A-convert-logs.sh">11-A-convert-logs.sh</a> → <a data-repo="labkit/convert_logs.py">labkit/convert_logs.py</a>。<code>check</code> 只读文件，不发送任何数据。</p>
+  <ul>
+    <li><code>check</code>：逐项列出字段覆盖率和“输出可解析为三项判断 JSON”的条数；出现 <code>✅ 字段检查通过</code> 才继续；如果后面还有一行 <code>⚠️ 不到一半的输出能解析成三项判断</code>，先调整 <code>agent_output</code> 的格式，否则标签准确率评估器会大量记 <code>FormatError</code>。有 <code>❌ 第 N 行缺少必填字段</code> / <code>不是合法 JSON</code> / <code>timestamp 无法解析</code> 时先修正：缺必填字段或不是合法 JSON 的行，<code>send</code> 会直接跳过。</li>
+    <li><code>send</code>：创建日志组 <code>/aws/bedrock-agentcore/s12lab-&lt;后缀&gt;-imported-logs</code>，以服务名 <code>s12lab-&lt;后缀&gt;-imported-logs</code> 发送；每行变成 <code>invoke_agent &lt;agent_name&gt;</code> → <code>chat</code>（+ 每个工具调用一个 <code>execute_tool</code>）的 trace；输出能解析成三项判断 JSON 时，写在根 span 的 <code>s12lab.triage_output</code> 上。</li>
+    <li>时间按原先后顺序重排到<b>最近几分钟内</b>（每条间隔 10 秒），因为 CloudWatch 不接收 14 天以前的 span；session_id 改写为 <code>s12lab-&lt;后缀&gt;-imp-&lt;发送时间&gt;-&lt;原 session_id&gt;</code>，同一文件重复发送也不会混在一起。</li>
+  </ul>
+  <div class="expect"><span class="label">预期输出（<code>send</code> 的结尾，实测：样例日志 5 行）：</span>
+<pre class="out">✅ 已发送 5 个 session（run_id = A-imported-20261105T144741Z）。约 2-3 分钟后可在 CloudWatch 查到。
+   下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre>
+  记下这一行的 <code>run_id</code>（<code>A-imported-&lt;发送时间&gt;</code>），后面都用它。</div>
+</div>
+
+<div class="step" id="s-g-13">
+  <div class="step-head"><span class="num">G.13</span><h3>路线二 ③ 遥测检查与按需评估</h3><span class="time"><span class="pill g">已实测</span></span></div>
+  <p class="why">确认导入的数据能被 Evaluations 使用，再对照黄金集打分。</p>
+  <p><code>send</code> 之后等 2–3 分钟：</p>
+<pre><code>./12-A-check-telemetry.sh --run A-imported-&lt;发送时间&gt;
+./31-run-eval.sh --run A-imported-&lt;发送时间&gt;</code></pre>
+  <ul>
+    <li>导入的 trace 没有 token 用量；没有 <code>tool_calls</code> 的行也没有工具调用 span，所以检查结论通常是 🟨（必需项都满足，可以评估）。实测样例日志：必需项 5/5，工具调用 2/5，token 用量 0/5，试评估成功。</li>
+    <li>导入的服务名不在 G.6 的在线评估范围内：路线二只做按需评估，控制台的 Evaluations 页签不会有这些 session 的分数。</li>
+    <li>刚 <code>send</code> 完时导入的就是最后一条登记的运行，不带 <code>--run</code> 也能评到它；但之后再跑别的运行就不是了，所以照样建议带上 <code>--run</code>。</li>
+  </ul>
+</div>
+
+<div class="step" id="s-g-14">
+  <div class="step-head"><span class="num">G.14</span><h3>路线二 ④ 前后对比：一定要指定 --before / --after</h3><span class="time"><span class="pill b">按代码核对</span></span></div>
+  <p class="why">导入的运行没有 V0 / V1 版本号，对比脚本没法自己配对。</p>
+<pre><code>./32-compare.sh --before A-imported-&lt;优化前的发送时间&gt; --after A-imported-&lt;优化后的发送时间&gt;</code></pre>
+  <ul>
+    <li>原因：导入的运行版本统一记为 <code>imported</code>。<code>./32-compare.sh</code> 不带参数时，“优化后”只从版本号形如 <code>v1</code>、<code>v2</code> 且不是导入的评估里挑，“优化前”找 <code>v0</code>；都找不到时退回“最后两次评估”（<a data-repo="labkit/compare.py">labkit/compare.py</a> 的 <code>pick_default()</code>）。所以不带参数时可能拿 mock agent 的评估来配对，或者前后顺序不对。</li>
+    <li><code>--before</code> / <code>--after</code> 要写已经用 <code>./31-run-eval.sh</code> 评估过的 run_id（或 <code>results/eval-….json</code> 路径）。两边版本相同，对比页显示为 <code>IMPORTED（前）</code> 和 <code>IMPORTED（后）</code>。</li>
+    <li>路线一手动登记的运行同理：<code>./32-compare.sh --before A-own-v0-… --after A-own-v1-…</code>。</li>
+    <li>对比页生成后会上传到你的私有 S3 桶并打印控制台链接（和 <a href="09-compare.html#s-9-2">9.2</a> 一样）。</li>
+  </ul>
+</div>
+
+<div class="step" id="s-g-15">
+  <div class="step-head"><span class="num">G.15</span><h3>优化与再评估（两条路线通用）</h3><span class="time"><span class="pill b">按代码核对</span></span></div>
+  <p class="why">按失败用例改你们的 Agent，再用同一份黄金集、同一组评估器证明改进有效。</p>
+  <ol class="clicks">
+    <li><b>先做基线（优化前）</b>：用现在的 Agent 处理黄金集 30 条，按路线一（G.7 → G.9 → G.10，<code>version</code> 写 <code>v0</code>）或路线二（G.12 → G.13）得到一次评估，记下 run_id。</li>
+    <li><b>找改哪里</b>：<code>.venv/bin/python -m labkit.failures results/eval-&lt;基线 run_id&gt;.json</code>（读法见 <a href="07-evaluate.html#s-7-5">7.5</a>），对照 <a href="08-optimize.html#s-8-1">8.1</a> 的表格，把“改哪里”换成你们 Agent 里对应的地方：
+      <table>
+        <tr><th>8.1 里 mock agent 的位置</th><th>你们 Agent 里对应的地方</th></tr>
+        <tr><td>提示词（<code>prompts/v1.md</code> 的判断口径、红线、话术要求）</td><td>系统提示词</td></tr>
+        <tr><td>工具输出 / 新增工具（<code>tools.py</code>）</td><td>工具或函数：能力查询要返回支持状态、限制、替代方案；考虑加一个“查相似需求”的工具</td></tr>
+        <tr><td>数据（<code>capability_catalog.json</code>）</td><td>知识库或能力数据源</td></tr>
+        <tr><td>模型（<code>AGENT_MODEL_ID</code>）</td><td>模型配置</td></tr>
+      </table></li>
+    <li><b>让 coding agent 帮忙改</b>：用 <a href="08-optimize.html#s-8-2">8.2</a> 的提示词，并这样调整：第 1 步的“最新的 eval-*.json”换成基线那次的 <code>results/eval-&lt;基线 run_id&gt;.json</code>；第 3 步的 <code>agent/s12agent/…</code> 换成你们的系统提示词和工具代码路径；第 4 步改成“在现有系统提示词基础上写出新版本，另存为新文件”，保留输出 JSON 字段那句；删掉第 5 步（<code>TOOLSETS</code> 只属于 mock agent）；第 6 步的“不要修改 v0.md / v1.md”改成“不要修改原来的系统提示词文件”。把你们的代码放到运行 coding agent 的机器上之前，先确认公司允许，只放需要的文件，用完删除。</li>
+    <li><b>不要改黄金集和评估器</b>，只改你们的 Agent，否则前后分数不可比。</li>
+    <li><b>发布新版本</b>：按你们平时的方式发布到测试 / 预发环境（不要直接上生产）。<code>./40-switch-version.sh</code> 和 <code>./20-B-deploy-runtime.sh</code> 只作用于 mock agent，与你们的 Agent 无关。</li>
+    <li><b>再评估</b>：同样的 30 条再跑一次，路线一登记时 <code>version</code> 写 <code>v1</code>；路线二再导出、<code>check</code>、<code>send</code>。然后 <code>./31-run-eval.sh --run &lt;新 run_id&gt;</code>。</li>
+    <li><b>对比</b>：<code>./32-compare.sh --before &lt;基线 run_id&gt; --after &lt;新 run_id&gt;</code>（G.14）。路线一开了在线评估时，控制台里按两次运行的时间段分别看平均分（<a href="09-compare.html#s-9-3">9.3</a>）。</li>
+  </ol>
+</div>
+
+<div class="step" id="s-g-16">
+  <div class="step-head"><span class="num">G.16</span><h3>已知限制</h3><span class="time"></span></div>
+  <p class="why">这些情况会让评估查不到数据或给出误导性的结果，接入前先看一遍。</p>
+  <table>
+    <tr><th style="width:30%">情况</th><th>影响与对策</th><th style="width:12%">依据</th></tr>
+    <tr><td>没有加 G.5 代码的 Agent（例如直接用 LangGraph 的默认埋点）</td><td>按需评估和遥测检查只认 <code>s12lab.triage</code> span，或 <code>gen_ai.operation.name = invoke_agent</code> / 名字以 <code>invoke_agent</code> 开头的 span（<a data-repo="labkit/spans.py">labkit/spans.py</a>）。框架没有产生这种根 span 时，即使 span 已经进了 CloudWatch，<code>./31-run-eval.sh</code> 也会报 <code>no spans found</code>，<code>./12-A-check-telemetry.sh</code> 等待后在“有 Agent 调用 span”上打 ❌；G.9 的登记查询也按 <code>s12lab.triage</code> 找 session。对策：加 G.5 的代码。LangGraph 还要写 <code>s12lab.triage_output</code>，否则评估器可能解析不了它序列化的图状态</td><td><span class="pill b">按代码核对</span></td></tr>
+    <tr><td>不用 Strands / LangChain / OpenInference / CrewAI 的 Agent（例如直接调用模型 API 的 Python 程序）</td><td>G.5 的代码只补上 session、根 span 和最终输出；没有框架的 GenAI span 时，<code>./12-A-check-telemetry.sh</code> 在“受支持的框架埋点”“有 Agent 调用 span”“能取到用户输入内容”上打 ❌，结论 🟥，不做试评估。按需评估里我们的自定义评估器（标签准确率、话术质量）仍可从 <code>s12lab.triage_output</code> 读输出，内置评估器（Helpfulness、Correctness）需要输入输出内容，可能报错。对策：用受支持框架的埋点包，或按 OTel GenAI 语义约定自己补 <code>invoke_agent</code> span 和输入输出事件</td><td><span class="pill b">按代码核对</span></td></tr>
+    <tr><td>自定义服务名 / 日志组</td><td>在线评估一条都不打分（实测 0/5）；在 <code>config/local.env</code> 或环境变量里设 <code>LOCAL_SERVICE_NAME</code> / <code>LOCAL_LOG_GROUP</code> 也无效。用 G.4 的默认名</td><td><span class="pill g">已实测</span></td></tr>
+    <tr><td>改了在线评估配置之后</td><td>不会给改配置之前产生的 session 补打分（实测：改配置后新跑的 3/3 被打分，之前的 0/5 一直没有分数）。改完要重新跑一遍 Agent</td><td><span class="pill g">已实测</span></td></tr>
+    <tr><td>日志组不存在时开启在线评估</td><td><code>./33-online-eval.sh enable --path a</code> 会先打印 7 行 <code>⏳ 等待 IAM 权限生效后重试</code>（不是权限问题），最后报 <code>ValidationException … One or more specified log groups do not exist</code>。先运行 G.6 的 <code>.venv/bin/python -m labkit.loggroup</code></td><td><span class="pill g">已实测</span></td></tr>
+    <tr><td>不带 <code>--run</code> 运行 31 / 12</td><td>评估或检查的是最后一条登记的运行，可能是 mock agent 那次，并显示 ✅ 达标（G.8）</td><td><span class="pill g">已实测</span></td></tr>
+    <tr><td>导入日志（路线二）</td><td>trace 是按日志合成的，时间重排到导入时刻，没有 token 用量；不进在线评估；版本统一为 <code>imported</code>，对比必须指定 <code>--before</code> / <code>--after</code></td><td><span class="pill b">按代码核对</span></td></tr>
+    <tr><td>一个 trace 里处理多条需求（批量模式）</td><td>评估器能解析 <code>{"results": […]}</code>，但控制台的“平均分 = 准确率”只在一条需求一个 trace 时成立（<a data-repo="evaluators/README.md">evaluators/README.md</a> 第 1 节）。按 G.5 一条需求一个 session</td><td><span class="pill b">按代码核对</span></td></tr>
+    <tr><td>Agent 在线程池 / 子进程里干活</td><td>子线程、子进程里的 span 可能拿不到 <code>session.id</code>，一条需求的 trace 会断开。在同一线程里调用 Agent，或显式传递 OTel context</td><td><span class="pill o">未验证</span></td></tr>
+    <tr><td>清理</td><td><code>./99-cleanup.sh</code> 按前缀删除实验资源：日志组 <code>/aws/bedrock-agentcore/s12lab-&lt;后缀&gt;…</code>（包括 G.6 的日志组）、在线评估配置和评估器 <code>s12lab_&lt;后缀&gt;_…</code>；你们 Agent 自己的资源不受影响。用了不带这个前缀的自定义日志组时，清理脚本会漏删它</td><td><span class="pill b">按代码核对</span></td></tr>
+  </table>
+</div>
+
+</section>
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

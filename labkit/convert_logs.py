@@ -215,9 +215,12 @@ def send(path: str) -> int:
         if hasattr(prov, "force_flush"):
             prov.force_flush(30000)
     runs = aws.load_state("runs", default=[])
+    # "created" = the earliest re-stamped span start, not the send time: 31-run-eval.sh searches spans
+    # from created - 10 min, and a long file starts more than 10 min before the send finishes
+    first = datetime.fromtimestamp(min(starts.values()), timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     runs.append({"run_id": run_id, "file": str(out.relative_to(c["LAB_ROOT"])), "mode": "imported",
                  "version": "imported", "model": "-", "source": path, "count": len(rows),
-                 "created": ts_tag, "service_name": c["CONVERTED_SERVICE_NAME"], "log_group": c["CONVERTED_LOG_GROUP"],
+                 "created": first, "service_name": c["CONVERTED_SERVICE_NAME"], "log_group": c["CONVERTED_LOG_GROUP"],
                  "agentRuntimeArn": None})
     aws.save_state("runs", runs)
     print(f"✅ 已发送 {len(rows)} 个 session（run_id = {run_id}）。约 2-3 分钟后可在 CloudWatch 查到。")

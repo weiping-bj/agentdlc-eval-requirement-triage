@@ -24,16 +24,7 @@
 <pre><code>./10-A-run-local.sh golden</code></pre></div>
   <div class="pathbox" data-path="b"><div class="ph">B 版（先确认 8.4 已重新部署）</div>
 <pre><code>./21-B-run-golden.sh</code></pre></div>
-  <div class="pathbox" data-path="a"><div class="ph">A 版 · 自有 Agent</div>
-  上面的 <code>./10-A-run-local.sh golden</code> 跑的是 mock agent。你们自己的 Agent 这样重新评估：
-  <p><b>导出日志的路线（A4）：</b>让改好的 Agent 处理同样的 30 条黄金集，按 <a href="a4-logs.html#s-a4-2">A4.2</a> 的格式导出日志（每条都带 <code>feedback_id</code>），然后：</p>
-<pre><code>./11-A-convert-logs.sh check &lt;新日志.jsonl&gt;
-./11-A-convert-logs.sh send &lt;新日志.jsonl&gt;
-./12-A-check-telemetry.sh</code></pre>
-  <p><code>send</code> 之后先等 2–3 分钟再运行 <code>./12-A-check-telemetry.sh</code>（和 A4 一样），然后照常运行下面的 <code>./31-run-eval.sh</code>（它评估最近一次运行，也就是这次导入；不是的话用 <code>./31-run-eval.sh --run A-imported-&lt;时间&gt;</code>）。到 <a href="#s-9-2">9.2</a> 生成对比页时一定要指定前后两次导入：导入的运行都叫 <code>A-imported-&lt;时间&gt;</code>，版本统一记为 imported，<code>./32-compare.sh</code> 不带参数时按版本号（v0 / v1 / v2…）配对，导入的运行不会被选为“优化后”，配对可能不对，所以一定要指定。</p>
-<pre><code>./32-compare.sh --before A-imported-&lt;优化前那次的时间&gt; --after A-imported-&lt;优化后这次的时间&gt;</code></pre>
-  <p>run_id 在 <code>send</code> 输出里“✅ 已发送 … 个 session（run_id = …）”那一行。“优化前那次”就是 <a href="08-optimize.html#s-8-1">8.1</a> 里改 Agent 之前做的基线。对比页两边显示为 IMPORTED（前）和 IMPORTED（后）。</p>
-  <p><b>ADOT 埋点的路线（A3.4）：</b>评估脚本只评估登记在 <code>.lab-state/runs.json</code> 里的运行，本仓库的批量脚本和 A4 的导入会登记，你们自己的程序跑出来的 session 不会登记，所以 <code>./31-run-eval.sh</code> 找不到它们（第 7 章也一样）。现场的做法：让你们的 Agent 跑这 30 条时同时按 A4.2 的格式写一份日志，再走上面的导出日志路线。</p></div>
+  <p class="where">会后再评估你们自己的 Agent（先登记或导入运行；导入的运行要显式 <code>--before</code> / <code>--after</code> 对比）：见 <a href="own-agent-guide.html#s-g-15">《自带 Agent 接入指南》G.15</a>。</p>
   <p>评估自己的 V2 同理：8.3 切换到 v2、8.4 让它生效后，跑同样的命令；V1、V2 都评估过时怎么对比见 9.2。</p>
   <p>等 2–3 分钟后评估（自动评估最近一次运行，也就是 V1）：</p>
 <pre><code>./31-run-eval.sh</code></pre>

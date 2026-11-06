@@ -35,7 +35,7 @@ FEEDBACK_TYPES = ("新需求", "功能缺陷", "体验优化", "咨询")
 
 
 def templates_dir() -> str:
-    """data/templates (default) or repo-root templates/ if the lead moved them there."""
+    """data/templates (default) or repo-root templates/ if the templates were moved there."""
     for d in (os.path.join(DATA, "templates"), os.path.join(REPO, "templates")):
         if os.path.exists(os.path.join(d, "discussion-feedback.md")):
             return d

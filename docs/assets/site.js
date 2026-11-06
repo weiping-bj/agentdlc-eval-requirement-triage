@@ -1,4 +1,4 @@
-/* 场景 12 实验手册 - 共享脚本：顶栏、目录、仓库链接、复制按钮、A/B 路线切换
+/* 场景 12 实验手册 - 共享脚本：顶栏、目录、仓库链接、复制按钮
  *
  * 仓库地址只在这里定义一次（占位符）。正式发布前在仓库根目录运行：
  *   ./tools/set-repo-url.sh https://github.com/<owner>/<name>
@@ -17,11 +17,11 @@ const CHAPTERS = [
   { group: "通用准备（A/B 都做）" },
   { id: "01-setup", file: "01-setup.html", no: "1", title: "准备实验环境（EC2 + Coding Agent）", path: "common" },
   { id: "02-data", file: "02-data.html", no: "2", title: "输入数据与黄金集", path: "common" },
-  { group: "A 版：接入自有 Agent" },
+  { group: "A 版：EC2 上的 mock agent（ADOT 埋点）" },
   { id: "a3-instrument", file: "a3-instrument.html", no: "A3", title: "埋点：OTel + ADOT → CloudWatch", path: "a" },
-  { id: "a4-logs", file: "a4-logs.html", no: "A4", title: "已有日志：转换并导入 CloudWatch", path: "a" },
+  { id: "a4-logs", file: "a4-logs.html", no: "A4", title: "（可选）已有日志：转换并导入 CloudWatch", path: "a" },
   { id: "a5-check", file: "a5-check.html", no: "A5", title: "遥测检查：能否被 Evaluations 使用", path: "a" },
-  { group: "B 版：mock agent 上 AgentCore Runtime" },
+  { group: "B 版：mock agent 运行在 AgentCore Runtime" },
   { id: "b3-deploy", file: "b3-deploy.html", no: "B3", title: "部署 V0 到 AgentCore Runtime", path: "b" },
   { id: "b4-invoke", file: "b4-invoke.html", no: "B4", title: "在控制台查看 Runtime 与 trace", path: "b" },
   { group: "通用评估与优化（A/B 都做）" },
@@ -32,6 +32,8 @@ const CHAPTERS = [
   { id: "10-cleanup", file: "10-cleanup.html", no: "10", title: "清理资源", path: "common" },
   { group: "附录" },
   { id: "appendix", file: "appendix.html", no: "附", title: "配置、切换区域/模型、排错、文件索引", path: "common" },
+  { group: "会后带走" },
+  { id: "own-agent-guide", file: "own-agent-guide.html", no: "G", title: "自带 Agent 接入指南", path: "common", extra: true },
 ];
 
 function repoLink(path) {
@@ -102,22 +104,7 @@ function buildTopbar() {
       <div class="subtitle">场景 12 · Strands Agent + AgentCore Observability + AgentCore Evaluations · 评估驱动的 Agent 迭代</div>
     </div>
     <div class="spacer"></div>
-    <div class="path-switch">我的路线：
-      <button class="btn" data-set-path="a">A 版 自有 Agent</button>
-      <button class="btn" data-set-path="b">B 版 mock agent</button>
-      <button class="btn" data-set-path="">全部显示</button>
-    </div>
     <a class="btn" href="${REPO_URL}" target="_blank" rel="noopener">GitHub 仓库 ↗</a>`;
-  bar.querySelectorAll("[data-set-path]").forEach((b) => {
-    b.addEventListener("click", () => setPath(b.dataset.setPath));
-  });
-}
-
-function setPath(p) {
-  try { localStorage.setItem("s12lab-path", p); } catch (e) { /* ignore */ }
-  document.body.classList.remove("path-a", "path-b");
-  if (p) document.body.classList.add("path-" + p);
-  document.querySelectorAll("[data-set-path]").forEach((b) => b.classList.toggle("active", b.dataset.setPath === p));
 }
 
 /* Text -> HTML-safe text, for anything read back from the page (textContent un-escapes it) before innerHTML. */
@@ -214,9 +201,4 @@ document.addEventListener("DOMContentLoaded", () => {
   buildPager();
   addCopyButtons();
   trackActiveStep();
-  let p = "";
-  try { p = localStorage.getItem("s12lab-path") || ""; } catch (e) { /* ignore */ }
-  const forced = new URLSearchParams(location.search).get("path");
-  if (forced !== null) p = forced;
-  setPath(p);
 });

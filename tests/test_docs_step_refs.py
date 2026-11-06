@@ -7,7 +7,7 @@ DOCS = Path(__file__).resolve().parent.parent / "docs"
 PAGES = sorted(DOCS.glob("*.html"))
 STEP_RX = re.compile(r'<span class="num">([^<]+)</span><h3')
 REF_RX = re.compile(r"(?<![\w.\-/])((?:[1-9]|10|A[3-5]|B[34]|X|D))\.(\d{1,2})(?![\d.%\w])")
-NOT_A_STEP_BEFORE = re.compile(r"(Sonnet|Haiku|Opus|Fable|Nova|Python|版本|v)\s*$")
+NOT_A_STEP_BEFORE = re.compile(r"(Sonnet|Haiku|Opus|Fable|Nova|[Pp]ython|版本|v)\s*$")
 NOT_A_STEP_AFTER = re.compile(r"^\s*(KB|MB|GB|秒|分钟|%)")
 
 

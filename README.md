@@ -13,8 +13,12 @@
 
 | 路线 | 说明 |
 |------|------|
-| A 版 | 自有 Agent（不在 AgentCore Runtime 上）：OTel + ADOT 埋点，或已有日志 → 转换 → CloudWatch → Evaluations |
-| B 版 | mock agent 部署到 AgentCore Runtime → CloudWatch → Evaluations（含在线评估） |
+| A 版 | mock agent 直接运行在实验 EC2 上（模拟不在 AWS 上的 Agent）：OTel + ADOT 埋点 → CloudWatch → Evaluations；可选：已有日志 → 转换 → CloudWatch |
+| B 版 | mock agent 部署到 AgentCore Runtime → CloudWatch → Evaluations |
+
+两条路线都做按需评估（黄金集）和在线评估（控制台持续打分）。
+
+把你们自己的 Agent 接入同一套评估：[`docs/own-agent-guide.html`](docs/own-agent-guide.html)（《自带 Agent 接入指南》：改代码用 ADOT 埋点，或只提供调用日志）。
 
 ## 发布前检查清单（维护者）
 

@@ -21,7 +21,7 @@
 <div class="step" id="s-7-1">
   <div class="step-head"><span class="num">7.1</span><h3>跑黄金集（V0）</h3><span class="time">5 分钟</span></div>
   <p class="why">每条需求一个 session，trace 进入 CloudWatch，作为评估的原始数据。</p>
-  <div class="pathbox" data-path="a"><div class="ph">A 版：本机 Agent（带 ADOT 遥测）</div>
+  <div class="pathbox" data-path="a"><div class="ph">A 版：EC2 上的 mock agent（ADOT 埋点）</div>
 <pre><code>./10-A-run-local.sh golden</code></pre></div>
   <div class="pathbox" data-path="b"><div class="ph">B 版：AgentCore Runtime</div>
 <pre><code>./21-B-run-golden.sh</code></pre></div>
@@ -67,7 +67,7 @@ results/triage-report-A-v0-20261106T065342Z.html
   <p class="why">脚本从 CloudWatch 取每个 session 的 trace，交给 Evaluations 逐个评估器打分，结果保存到本地。</p>
   <div class="warn">跑完 7.1 后先等 <b>2–3 分钟</b>（trace 写入 CloudWatch 有延迟）。脚本自己也会重试，找不到 trace 时会等待再查。</div>
 <pre><code>./31-run-eval.sh</code></pre>
-  <p class="where">脚本：<a data-repo="31-run-eval.sh">31-run-eval.sh</a> → <a data-repo="labkit/evaluate.py">labkit/evaluate.py</a>（调用 Evaluate API；把黄金集答案作为参考输入一起传入）。评估指定运行：<code>./31-run-eval.sh --run &lt;run_id&gt;</code></p>
+  <p class="where">脚本：<a data-repo="31-run-eval.sh">31-run-eval.sh</a> → <a data-repo="labkit/evaluate.py">labkit/evaluate.py</a>（调用 Evaluate API；把黄金集答案作为参考输入一起传入）。评估指定运行：<code>./31-run-eval.sh --run &lt;run_id&gt;</code>。不带 <code>--run</code> 时评估的是 <code>.lab-state/runs.json</code> 里最后一条登记的运行；会后评估自带 Agent 前要先登记，见 <a href="own-agent-guide.html#s-g-8">指南 G.8</a>。</p>
   <div class="expect"><span class="label">预期输出（B 版 V0 实测，约 2–3 分钟）：</span>
 <pre class="out">▶ 评估 run B-v0-20261105T142708Z：30 个 session × 8 个评估器
   评估器：label_accuracy, label_important, label_urgent, label_decision, reject_quality, reject_quality_llm, Builtin.Correctness, Builtin.Helpfulness
@@ -89,7 +89,7 @@ results/triage-report-A-v0-20261106T065342Z.html
   ❌ 未达标 · 详细结果：results/eval-B-v0-20261105T142708Z.json</pre>
   <table>
     <tr><th>实测 V0（30 条黄金集）</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>结论</th></tr>
-    <tr><td>A 版（本机 + ADOT）</td><td>67%</td><td>83%</td><td>43%</td><td>❌ 未达标</td></tr>
+    <tr><td>A 版（EC2 + ADOT）</td><td>67%</td><td>83%</td><td>43%</td><td>❌ 未达标</td></tr>
     <tr><td>B 版（AgentCore Runtime）</td><td>66%</td><td>86%</td><td>48%</td><td>❌ 未达标</td></tr>
   </table>
   <p>大模型每次运行的结果会有几个百分点的波动，你的数字和上表略有不同是正常的。“话术=不适用”表示这条 Agent 没有判“拒绝”，话术评估器不打分。</p></div>

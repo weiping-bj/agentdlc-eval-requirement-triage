@@ -1,4 +1,5 @@
-"""The A3.4 snippet (telemetry/snippets/a34_session_wrapper.py) works, and the guide shows exactly that file.
+"""The own-agent snippet (telemetry/snippets/a34_session_wrapper.py) works, and the own-agent guide
+(docs/own-agent-guide.html, G.5) shows exactly that file.
 
 Runs the snippet around a fake agent with an in-memory OTel exporter (no AWS). ADOT's
 AGENT_OBSERVABILITY_ENABLED=true copies the baggage entry session.id onto every span; here the
@@ -134,13 +135,17 @@ def test_our_adapter_and_label_evaluator_read_the_captured_spans(otel):
 
 
 def test_guide_shows_exactly_the_snippet_file():
-    page = (ROOT / "docs" / "a3-instrument.html").read_text(encoding="utf-8")
-    a34 = page.split('id="s-a3-4"', 1)[1].split('id="s-a3-5"', 1)[0]
-    blocks = [html.unescape(b) for b in re.findall(r"<pre><code>(.*?)</code></pre>", a34, re.S)]
+    page = (ROOT / "docs" / "own-agent-guide.html").read_text(encoding="utf-8")
+    g5 = page.split('id="s-g-5"', 1)[1].split('id="s-g-6"', 1)[0]
+    blocks = [html.unescape(b) for b in re.findall(r"<pre><code>(.*?)</code></pre>", g5, re.S)]
     shown = [b for b in blocks if "def handle_one" in b]
     assert len(shown) == 1
     assert shown[0].rstrip("\n") == SNIPPET.read_text(encoding="utf-8").rstrip("\n")
-    assert 'data-repo="telemetry/snippets/a34_session_wrapper.py"' in a34
+    assert 'data-repo="telemetry/snippets/a34_session_wrapper.py"' in g5
+    # the on-site A3.4 explains the mock agent's own code and points to the guide instead
+    a34 = (ROOT / "docs" / "a3-instrument.html").read_text(encoding="utf-8").split('id="s-a3-4"', 1)[1]
+    a34 = a34.split('id="s-a3-5"', 1)[0]
+    assert "def handle_one" not in a34 and 'href="own-agent-guide.html#s-g-5"' in a34
 
 
 def test_feedback_id_key_variants_and_the_attribute_fallback(otel):

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 第 9.4 步：用当前版本的 Agent 处理“上个月 60 条需求反馈”，生成分诊报告（场景最终输出）
-#   ./34-triage-report.sh a    # A 版：本机 Agent（带遥测）
+#   ./34-triage-report.sh a    # A 版：EC2 上的 mock agent（带遥测）
 #   ./34-triage-report.sh b    # B 版：AgentCore Runtime
 set -euo pipefail
 cd "$(dirname "$0")"

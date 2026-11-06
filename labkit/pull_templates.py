@@ -182,9 +182,13 @@ NO_CHANGE = {"基本符合", "符合", "符合实际", "基本符合实际", "�
              "ok", "-", "—", "/"}
 
 
+_NO_CHANGE_RX = re.compile(r"^(?:基本)?(?:符合|一致)(?:实际)?(?:没|无)?(?:意见|问题)?(?:无需|不用|不需要)?(?:修改|调整|改)?$"
+                           r"|^(?:暂)?(?:无|没有?)(?:意见|补充|问题|修改)?$|^(?:无需|不用|不需要)(?:修改|调整|改|补充)?$")
+
+
 def _no_change(value: str) -> bool:
     v = re.sub(r"[\s。.，,！!；;：:、]", "", PLACEHOLDER_RX.sub("", value)).lower()
-    return v == "" or v in NO_CHANGE
+    return v == "" or v in NO_CHANGE or bool(_NO_CHANGE_RX.match(v))
 
 
 def md_section(text: str, n: int):
@@ -206,27 +210,27 @@ def _split_qa(line: str):
     return (line[:m.start()].strip(), line[m.end():].strip()) if m else (None, line.strip())
 
 
-def section_answered(text: str, default_text, n: int) -> bool:
+def section_answered(text: str, default_text, n: int, older_texts=()) -> bool:
     """True when section n of discussion-feedback.md has an answer:
     - a bullet or "问题：……" line whose answer is not a placeholder / "基本符合"-type reply, or an added bullet;
     - a table data row (below the |---| line) with any non-placeholder cell;
-    - (when the repo default is known) any other line the default does not have, below the section's first
-      question, bullet or table -- intro wording above them never counts (it differs between template versions).
+    - (when the repo default is known) any other line that neither the default nor an older committed version of
+      the template (older_texts) has -- so intro wording from any template version never counts.
     Without the repo default (no git) only bullets and table rows count."""
     sec = md_section(text, n)
     if sec is None:
         return False
     dsec = md_section(default_text, n) if default_text is not None else None
     known = {line.strip() for line in (dsec or "").splitlines()}
+    old = {line.strip() for t in older_texts for line in (md_section(t, n) or "").splitlines()}
     # questions the default asks: the text before the first colon of every line that holds a placeholder
     questions = {_split_qa(k[2:] if k.startswith("- ") else k)[0] for k in known if PLACEHOLDER_RX.search(k)} - {None}
-    in_table = started = False
+    in_table = False
     for line in (x.strip() for x in sec.splitlines()):
         if not line:
             in_table = False
             continue
         if line.startswith("|"):
-            started = True
             cells = [c.strip() for c in line.strip("|").split("|")]
             if all(set(c) <= set("-: ") for c in cells):
                 in_table = True          # separator: data rows follow
@@ -237,22 +241,37 @@ def section_answered(text: str, default_text, n: int) -> bool:
         body = line[2:] if line.startswith("- ") else line
         q, a = _split_qa(body)
         if line.startswith("- ") or (q is not None and (q in questions or PLACEHOLDER_RX.search(line))):
-            started = True
             if not _no_change(a if q is not None else body):
                 return True
-        elif started and dsec is not None and line not in known and not _no_change(line):
+        elif dsec is not None and line not in known and line not in old and not _no_change(line):
             return True
     return False
 
 
-def mock_feedback_given(text: str, default_text) -> bool:
+def mock_feedback_given(text: str, default_text, older_texts=()) -> bool:
     """Section 5 (mock data) answered -> 2.4 runs before 2.5."""
-    return section_answered(text, default_text, 5)
+    return section_answered(text, default_text, 5, older_texts)
 
 
-def catalog_feedback_given(text: str, default_text) -> bool:
+def catalog_feedback_given(text: str, default_text, older_texts=()) -> bool:
     """Section 3 (capability catalog) answered -> prompt 04 runs before prompt 03."""
-    return section_answered(text, default_text, 3)
+    return section_answered(text, default_text, 3, older_texts)
+
+
+def git_history(root: Path, name: str, limit: int = 30):
+    """Every committed version of the template (newest first), [] when git is not available."""
+    try:
+        r = subprocess.run(["git", "-C", str(root), "log", f"-{limit}", "--format=%H", "--", f"data/templates/{name}"],
+                           capture_output=True, text=True, timeout=20)
+        out = []
+        for sha in r.stdout.split() if r.returncode == 0 else []:
+            v = subprocess.run(["git", "-C", str(root), "show", f"{sha}:data/templates/{name}"],
+                               capture_output=True, timeout=20)
+            if v.returncode == 0:
+                out.append(v.stdout)
+        return out
+    except (OSError, subprocess.SubprocessError):
+        return []
 
 
 def git_default(root: Path, name: str):
@@ -287,11 +306,12 @@ class _Cand:
 class Puller:
     def __init__(self, s3, bucket: str, root: Path = ROOT, templates_dir=None, now=None,
                  default_reader=git_default, dry_run: bool = False, force: bool = False,
-                 owner=None, out=print):
+                 owner=None, out=print, history_reader=git_history):
         self.s3, self.bucket, self.root = s3, bucket, root
         self.tdir = templates_dir or (root / "data" / "templates")
         self.now = now or datetime.now()
         self.default_reader, self.dry_run, self.force, self.out = default_reader, dry_run, force, out
+        self.history_reader = history_reader
         self.kw = {"ExpectedBucketOwner": owner} if owner else {}
         self.warnings = 0
         self._backup_dir = None
@@ -528,8 +548,14 @@ class Puller:
             default = decode(raw)[0] if raw is not None else None
         except (OSError, PullError):
             text, default = "", None
-        mock = mock_feedback_given(text, default)
-        catalog = catalog_feedback_given(text, default)
+        older = []
+        for raw_old in self.history_reader(self.root, "discussion-feedback.md") or []:
+            try:
+                older.append(decode(raw_old)[0])
+            except PullError:
+                pass
+        mock = mock_feedback_given(text, default, older)
+        catalog = catalog_feedback_given(text, default, older)
         p("下一步（手册第 2 章，按顺序；2.1/2.2 只读、2.3 只在客户自带数据时做）：")
         if mock:
             p("  1. 2.4 改 mock 数据（模板第 5 节有意见，必须在 2.5 之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")

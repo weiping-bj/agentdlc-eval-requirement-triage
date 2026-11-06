@@ -516,7 +516,7 @@ def test_next_steps_add_prompt_04_and_the_b_note_when_only_section_3_changed(rep
     steps = _next_steps(out)
     assert "跳过" in _step(steps, "2.4")[1]
     block = "\n".join(steps)
-    assert block.index("04-update-capability-catalog.md") < block.index("03-update-golden-set.md")
+    assert block.index("04-update-capability-catalog.md") < block.index("apply-feedback --dry-run") < block.index("03-update-golden-set.md")
     last = [line for line in steps if line.strip()][-1]
     assert last.lstrip().startswith("4.") and "./20-B-deploy-runtime.sh" in last and "能力目录" in last and "mock" not in last
 
@@ -546,3 +546,25 @@ def test_section_3_answer_on_its_own_line_counts_but_intro_edits_do_not():
     sec3 = new.split("## 3.", 1)[1].split("## 4.", 1)[0]
     intro = sec3.strip().splitlines()[0]
     assert pt.catalog_feedback_given(new.replace(intro, "（讲师改过的说明文字）"), new) is False
+
+
+def test_lines_above_the_table_count_unless_an_older_template_version_has_them():
+    new = DEFAULT_MD.decode("utf-8")
+    sec3 = new.split("## 3.", 1)[1].split("## 4.", 1)[0]
+    intro2 = [line for line in sec3.splitlines() if line.startswith("缺的能力")][0]
+    added = new.replace(intro2, intro2 + "\n缺少企业微信推送能力")
+    assert pt.catalog_feedback_given(added, new) is True
+    old = pt.git_history(ROOT, MD)
+    assert old, "repo history of the template"
+    # an older template version uploaded against the current HEAD: its intro lines are known, not answers
+    for raw in old:
+        o = raw.decode("utf-8")
+        assert pt.catalog_feedback_given(o, new, [r.decode("utf-8") for r in old]) is False
+        assert pt.mock_feedback_given(o, new, [r.decode("utf-8") for r in old]) is False
+
+
+def test_more_no_change_replies():
+    for v in ("暂无意见", "无需修改", "没有补充", "没有问题", "基本一致，无需调整", "基本符合，没意见。", "无。"):
+        assert pt._no_change(v), v
+    for v in ("基本符合，但缺移动端需求", "约 300 条", "无线网络相关需求偏少"):
+        assert not pt._no_change(v), v

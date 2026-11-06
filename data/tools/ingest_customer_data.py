@@ -250,7 +250,7 @@ def report(a, src) -> str:
     if a["label_candidates"]:
         L.append(f"- 客户数据带有历史判断 {a['label_candidates']} 条，其中三项齐全 {a['label_complete']} 条 → "
                  + ("**可以**作为对照参考（见 golden_candidates.jsonl，只留在 data/customer/，不要并入公开的 data/golden/）"
-                    if a["golden_ready"] else "不足 20 条，建议与 mock 黄金集合并，或现场补标"))
+                    if a["golden_ready"] else "不足 20 条：只作对照参考，留在 data/customer/；黄金集沿用 mock 黄金集或现场补标"))
         L.append(f"- 历史标签分布：{json.dumps(a['label_dist'], ensure_ascii=False)}")
     else:
         L.append("- 客户数据不带历史判断：黄金集需要现场标注（按 LABELING_GUIDE.md），或沿用 mock 黄金集")

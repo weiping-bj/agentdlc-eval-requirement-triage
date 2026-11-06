@@ -49,11 +49,13 @@
      “操作”列：保留 29 · 修改 1 · 新增 1
 
 完成：2/2 个模板已就位（data/templates/）。重复运行是安全的。
-下一步（手册第 2.5 步）：先预览，再交给 coding agent：
-  python3 data/tools/golden_tool.py apply-feedback --dry-run
-  claude "$(cat data/prompts/03-update-golden-set.md)"
-  黄金集改完要 freeze，并重新部署评估器：./30-create-evaluators.sh（第 6 章）</pre>
-  再运行一次会显示“与 EC2 上现有文件相同，无需拷贝”，不会重复备份。</div>
+下一步（手册第 2 章，按顺序；2.1/2.2 只读、2.3 只在客户自带数据时做）：
+  1. 2.4 改 mock 数据（模板第 5 节有意见，必须在 2.5 之前）：claude "$(cat data/prompts/02-regenerate-mock-data.md)"
+  2. 2.5 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，
+     再 claude "$(cat data/prompts/03-update-golden-set.md)"
+  3. 2.6 冻结：python3 data/tools/golden_tool.py freeze
+  4. 评估器已注册过：./30-create-evaluators.sh（第 6 章）；B 版 Runtime 已部署过还要：./20-B-deploy-runtime.sh（B3，把新 mock 数据打进包）</pre>
+  模板第 5 节没填或写的是“基本符合”时，第 1 条显示 <code>2.4 跳过</code>，第 4 条没有 B 版那半句。再运行一次会显示“与 EC2 上现有文件相同，无需拷贝”，不会重复备份。</div>
   <p class="where">脚本：<a data-repo="tools/pull-templates.sh">tools/pull-templates.sh</a> → <a data-repo="labkit/pull_templates.py">labkit/pull_templates.py</a>。只会写 <code>data/templates/</code> 下这两个文件；Excel 存的 GBK 编码会自动转成 UTF-8；重复运行是安全的（内容没变就跳过）。</p>
   <table>
     <tr><th style="width:36%">看到的提示</th><th>意思 / 怎么办</th></tr>
@@ -65,7 +67,15 @@
     <tr><td><code>⚠️ …保留 EC2 上的</code></td><td>EC2 上那份在上次拷贝之后被改过（例如 claude / coding agent 改的），脚本不会覆盖；确实要用桶里的覆盖，加 <code>--force</code> 重跑（旧文件会先备份）</td></tr>
     <tr><td><code>❌ 你的桶 … 还不存在</code></td><td>先运行上面第 1 步 <code>--prepare</code></td></tr>
   </table>
-  <p>拷好之后：mock 数据意见（模板第 5 节）按 <a href="#s-2-4">2.4</a> 的提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">02-regenerate-mock-data.md</a>；黄金集按 <a href="#s-2-5">2.5</a> 的提示词 <a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>（或先 <code>python3 data/tools/golden_tool.py apply-feedback --dry-run</code> 预览）；改完 <a href="#s-2-6">2.6 冻结</a>，再到第 6 章重跑 <code>./30-create-evaluators.sh</code> 让评估器用上新黄金集。</p>
+  <div class="note" id="s-2-0-next"><b>拷好之后按顺序做</b>（不需要的步骤直接跳过）：
+  <ol>
+    <li><a href="#s-2-1">2.1</a> / <a href="#s-2-2">2.2</a> 只是认识数据，不改任何东西：上午已经在网页上看过（<a href="mock-data.html">60 条 mock 需求</a>、<a href="catalog.html">能力目录</a>、黄金集样例）就跳过。</li>
+    <li><a href="#s-2-3">2.3</a> 只在客户自带数据时做，否则跳过。</li>
+    <li><a href="#s-2-4">2.4</a> 模板第 5 节写了 mock 数据意见才做：一行命令交给 coding agent（提示词 02）；没填或写的是“基本符合”就跳过。一定在 2.5 之前：提示词 03 要读 <code>data/feedback_last_month.jsonl</code>（数“几个客户提过”，按 <code>feedback_id</code> 取“新增”行的需求原文）。</li>
+    <li><a href="#s-2-5">2.5</a> CSV 或模板第 1、2、4 节有改动才做：先 <code>apply-feedback --dry-run</code> 预览，再交给 coding agent（提示词 03）。</li>
+    <li><a href="#s-2-6">2.6</a> 冻结：做了 2.4 或 2.5 都要做。</li>
+    <li>回到本章之后的流程（A 版 <a href="a3-instrument.html">A3</a>，B 版 <a href="b3-deploy.html">B3</a>）。如果之前已经注册过评估器，重跑 <code>./30-create-evaluators.sh</code>（<a href="06-evaluators.html">第 6 章</a>），评估器才会用上新黄金集。B 版：部署时会把 <code>data/capability_catalog.json</code> 和 <code>data/feedback_last_month.jsonl</code> 打进 Runtime 包（<code>labkit/runtime.py</code> 的 <code>DATA_FILES</code>），所以 Runtime <b>已经部署过</b>、2.4 又改了数据时，要重跑 <code>./20-B-deploy-runtime.sh</code>（<a href="b3-deploy.html">B3</a>，更新同一个 Runtime）；还没做 B3 就不用管。A 版每次本地运行都直接读 <code>data/</code>，不用额外操作。</li>
+  </ol></div>
   <div class="tip"><b>改动很小？</b>例如只改了一两句口径，可以不走 S3：在 EC2 上运行 <code>claude</code>，直接告诉它“把 data/templates/discussion-feedback.md 第 1.2 节‘紧急 = 是’的口径改成：……”。<b>CSV 不要粘贴</b>进对话（30 多行、很多逗号，容易错列或被截断），请走上面的 S3 步骤。</div>
   <div class="note"><b>一组有好几台 EC2？</b>（大家在同一个实验账号里）记录员只上传一次，传到<b>操作员</b>的桶里。操作员拉取后用 coding agent 更新黄金集（2.5），再把 coding agent 改好的 CSV 传回桶里<b>同一个位置</b>覆盖原文件（路径就是拉取时 <code>←</code> 后面显示的那个）：<code>aws s3 cp data/templates/golden-set-feedback.csv s3://操作员的桶/golden-set-feedback.csv</code>。其他人再从这个桶拉（桶名找操作员要，就是操作员运行 <code>--prepare</code> 时打印的那个）：<code>./tools/pull-templates.sh --bucket s12lab-操作员后缀-&lt;account&gt;-us-west-2</code>，然后只运行 2.5 的两行 <code>apply-feedback</code> 命令和 2.6 的 <code>freeze</code>（不必再用 coding agent），黄金集就和操作员的一致。</div>
 </div>
@@ -75,7 +85,7 @@
   <p class="why">看一眼 60 条合成需求反馈和平台能力目录，知道 Agent 要处理什么。</p>
   <table>
     <tr><th>文件</th><th>内容</th></tr>
-    <tr><td><a data-repo="data/feedback_last_month.jsonl">data/feedback_last_month.jsonl</a>（Excel 版 <a data-repo="data/feedback_last_month.csv">.csv</a>）</td><td>60 条“上个月的需求反馈”，每行一条：编号、标题、描述、客户、行业、客户等级、渠道、模块、提交日期、反馈类型、是否合同承诺。<b>不含任何标签</b>。</td></tr>
+    <tr><td><a data-repo="data/feedback_last_month.jsonl">data/feedback_last_month.jsonl</a>（<a href="mock-data.html">网页版</a> · Excel 版 <a data-repo="data/feedback_last_month.csv">.csv</a>）</td><td>60 条“上个月的需求反馈”，每行一条：编号、标题、描述、客户、行业、客户等级、渠道、模块、提交日期、反馈类型、是否合同承诺。<b>不含任何标签</b>。</td></tr>
     <tr><td><a data-repo="data/capability_catalog.json">data/capability_catalog.json</a>（<a href="catalog.html">网页版</a> · Excel 版 <a data-repo="data/capability_catalog.csv">.csv</a>）</td><td>平台能力目录（39 项）：已支持 24 · 部分支持 8 · 明确不做 7；每项有限制、替代方案和用法。Agent 判断“已有能力 / 真实缺口 / 超出定位”的依据。</td></tr>
   </table>
 <pre><code>head -c 600 data/feedback_last_month.jsonl; echo
@@ -118,13 +128,13 @@ CAP-008 已支持 自定义函数</pre></div>
 
 <div class="step" id="s-2-3">
   <div class="step-head"><span class="num">2.3</span><h3>（客户自带数据时）校验并标准化客户数据</h3><span class="time">10 分钟</span></div>
-  <p class="why">检查客户给的数据字段够不够做判断，并转换成实验统一格式。</p>
+  <p class="why">检查客户给的数据够不够做判断，并转换成实验统一格式。客户没带数据就跳过这一步。</p>
   <ol class="clicks">
-    <li>把客户导出的需求反馈（<code>.csv</code> / <code>.xlsx</code> / <code>.json</code> / <code>.jsonl</code>）放到 EC2 的 <code>data/customer/</code> 目录（该目录不会提交到 git；例如让客户把文件放进你的 S3 桶，再 <code>aws s3 cp</code> 下来）。</li>
-    <li>运行校验 + 标准化（列名自动识别中英文常见叫法；手机号 / 邮箱 / 身份证号默认打码）：</li>
+    <li>把客户导出的需求反馈（<code>.csv</code> / <code>.xlsx</code> / <code>.json</code> / <code>.jsonl</code>）放到 EC2 的 <code>data/customer/</code> 目录（这个目录不会提交到 git；例如让客户把文件放进你的 S3 桶，再 <code>aws s3 cp</code> 下来）。</li>
+    <li><b>推荐：交给 Claude Code。</b>在 EC2 上运行下面这行，再告诉它文件路径。它会核对列名（对不上就自己写好对应表重跑），Excel 有好几个工作表时先问你用哪一个，最后用几句话讲清 <code>report.md</code> 的结论、哪些列没用上、下一步怎么办。要执行的操作都会先问你。</li>
   </ol>
-<pre><code>python3 data/tools/ingest_customer_data.py --in data/customer/客户需求导出.xlsx</code></pre>
-  <p class="where">脚本：<a data-repo="data/tools/ingest_customer_data.py">data/tools/ingest_customer_data.py</a>。列名识别不了时，参考 <a data-repo="data/templates/column-mapping.example.json">column-mapping.example.json</a> 写一个 <code>data/customer/mapping.json</code>，加 <code>--mapping data/customer/mapping.json</code> 重跑；Excel 有多个工作表时加 <code>--sheet 工作表名</code>。</p>
+<pre><code>claude "$(cat data/prompts/01-assess-customer-data.md)"</code></pre>
+  <p class="where">提示词：<a data-repo="data/prompts/01-assess-customer-data.md">01-assess-customer-data.md</a>（使用说明：<a data-repo="data/prompts/README.md">data/prompts/README.md</a>）。背后跑的是 <a data-repo="data/tools/ingest_customer_data.py">data/tools/ingest_customer_data.py</a>；手机号 / 邮箱 / 身份证号默认打码。</p>
   <div class="expect"><span class="label">预期结果：</span><code>data/customer/</code> 下生成 <code>feedback.normalized.jsonl</code> 和 <code>.csv</code>（统一格式）、<code>report.md</code>（数据充分性报告：字段覆盖、文本质量、个人信息、能否支撑三项判断，结论为“充足 / 基本可用 / 不足”）；客户数据带有历史判断（是否重要 / 是否紧急 / 处理建议）时还会生成 <code>golden_candidates.jsonl</code>（黄金集候选）。下面是用仓库自带 60 条数据试跑时 <code>report.md</code> 的开头（节选）：
 <pre class="out"># 客户数据充分性报告
 
@@ -143,29 +153,54 @@ CAP-008 已支持 自定义函数</pre></div>
 …
 ## 能否直接做黄金集
 - 客户数据不带历史判断：黄金集需要现场标注（按 LABELING_GUIDE.md），或沿用 mock 黄金集</pre></div>
-<pre><code>cat data/customer/report.md</code></pre>
   <table>
     <tr><th>结论</th><th>下一步</th></tr>
     <tr><td><span class="pill g">充足</span></td><td>加 <code>--use-as-input</code> 重跑：在 <code>data/customer/agent_data/</code> 生成 Agent 可读的数据目录，并打印一行 <code>export S12_DATA_DIR=…</code>，执行它之后 Agent（包括 B 版部署打包）就改用客户数据；仓库里的 mock 文件不会被改动</td></tr>
     <tr><td><span class="pill o">基本可用</span></td><td>请客户补充报告里列出的字段；或把客户条目追加到 mock 数据里一起用</td></tr>
     <tr><td><span class="pill r">不足</span></td><td><b>继续使用我们的 mock 数据</b>。报告里有一句可以直接用来说服客户的原因（例如“缺少客户等级和反馈类型，Agent 无法判断重要和紧急，评估结果没有可比性”）</td></tr>
   </table>
-  <p>也可以整件事交给 coding agent：提示词 <a data-repo="data/prompts/01-assess-customer-data.md">data/prompts/01-assess-customer-data.md</a>（先把里面的 <code>&lt;客户文件路径&gt;</code> 换成实际路径）。提示词使用说明：<a data-repo="data/prompts/README.md">data/prompts/README.md</a>。</p>
+
+  <div class="note" id="s-2-3-manual"><b>手动方式</b>（不用 Claude Code 时）
+  <ol>
+    <li>运行工具，再看报告：
+<pre><code>python3 data/tools/ingest_customer_data.py --in data/customer/客户需求导出.xlsx
+cat data/customer/report.md</code></pre></li>
+    <li>工具要的是 11 个字段（和 mock 数据一样）：编号、标题、需求描述、客户、行业、客户等级、来源渠道、相关模块、提交时间、反馈类型、合同承诺。<b>必需的只有 3 个：编号、标题、需求描述</b>（没有编号会自动编成 <code>CUST-0001</code>…；标题和描述至少要有一个）。</li>
+    <li>常见的列名会自动认出来，例如：“问题描述”“详情” → 需求描述；“客户名称”“租户” → 客户；“客户级别” → 客户等级；“创建时间”“提交日期” → 提交时间。</li>
+    <li>认成了什么，看 <code>report.md</code> 里“字段识别与覆盖率”那张表：左边是客户的列名，右边是对应到的字段。</li>
+    <li>只有认错了或没认出来，才需要写一个对应表 <code>data/customer/mapping.json</code>：<b>左边</b>照抄客户表格里的列名，<b>右边</b>写我们的字段名。例如客户的表头是“需求单号 | 需求一句话 | 详细说明 | 租户名”：
+<pre><code>{"需求单号": "id", "需求一句话": "title", "详细说明": "content", "租户名": "customer"}</code></pre>
+      右边能写的字段名：编号 <code>id</code>、标题 <code>title</code>、需求描述 <code>content</code>、客户 <code>customer</code>、行业 <code>industry</code>、客户等级 <code>customer_tier</code>、来源渠道 <code>channel</code>、相关模块 <code>module</code>、提交时间 <code>submitted_at</code>、反馈类型 <code>feedback_type</code>、合同承诺 <code>contract_commitment</code>（完整示例：<a data-repo="data/templates/column-mapping.example.json">column-mapping.example.json</a>）。然后带上它重跑；Excel 有好几个工作表时再加 <code>--sheet</code> 和工作表名（名字写错会报错，并列出文件里所有工作表）：
+<pre><code>python3 data/tools/ingest_customer_data.py --in data/customer/客户需求导出.xlsx --sheet 需求明细 --mapping data/customer/mapping.json</code></pre></li>
+  </ol></div>
+  <div class="warn" id="s-2-3-extra"><b>客户表里有、我们没有的列</b>（例如“影响用户数”）：会原样留在 <code>feedback.normalized.jsonl</code> 里，但 <b>Agent 不读这些列</b>。<code>report.md</code> 开头的“⚠️ 这些列没有用上”会逐个列出，并写明每列有多少行有值。某一列对判断很重要时，最简单的办法是加 <code>--append-to-content "影响用户数,所属区域"</code> 重跑：这些列会以“列名: 值”一行追加到需求描述末尾，Agent 就能看到（用 Claude Code 时它会先问你）。其余的列记作下一轮迭代的事项：这次实验不扩展字段。</div>
   <div class="warn">本仓库会公开发布：客户的真实数据只能放在 <code>data/customer/</code>，不要复制到其它目录，也不要提交。</div>
 </div>
 
 <div class="step" id="s-2-4">
   <div class="step-head"><span class="num">2.4</span><h3>按讨论反馈修改 mock 数据</h3><span class="time">10 分钟</span></div>
-  <p class="why">把现场确认的参数填进模板，再让 coding agent 按模板重新生成 mock 数据。</p>
+  <p class="why">把上午模板第 5 节里对 mock 数据的意见，变成重新生成的需求数据。参数文件交给 coding agent 去改，不用自己打开。</p>
+  <div class="note"><b>模板第 5 节没填、或写的是“基本符合”：</b>整步跳过，直接做 <a href="#s-2-5">2.5</a>。上午已在笔记本上填好模板的组：<a href="#s-2-0">2.0</a> 已经把第 5 节拷到 EC2，直接运行下面这一行即可。</div>
   <ol class="clicks">
-    <li>打开参数模板 <a data-repo="data/templates/mock-data-params.yaml">data/templates/mock-data-params.yaml</a>，按讨论结论修改（月份、条数、需求类别配比、客户行业、来源渠道）。不改任何参数 = 原样复现仓库里的 60 条数据。</li>
-    <li>如果需要“种子库里没有”的新类型需求，让 coding agent 按提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">data/prompts/02-regenerate-mock-data.md</a> 把新条目写进 <code>data/templates/extra-feedback.jsonl</code>（格式见 <a data-repo="data/templates/extra-feedback.example.jsonl">extra-feedback.example.jsonl</a>）：</li>
+    <li>在 EC2 上运行（推荐）：</li>
   </ol>
 <pre><code>claude "$(cat data/prompts/02-regenerate-mock-data.md)"</code></pre>
-  <p>（或者先运行 <code>claude</code>，再把提示词文件内容粘贴进去。）只改参数、不加新条目时，直接运行生成脚本：</p>
-<pre><code>python3 data/tools/generate_mock_data.py</code></pre>
-  <p class="where">脚本：<a data-repo="data/tools/generate_mock_data.py">data/tools/generate_mock_data.py</a>（同样的参数 + 同样的随机种子 = 同样的结果）</p>
-  <div class="expect"><span class="label">预期输出</span>（默认参数，结果与仓库里的文件完全一致）：
+  <p>提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">02-regenerate-mock-data.md</a> 会让它依次：</p>
+  <ol>
+    <li>读模板第 5 节（<code>data/templates/discussion-feedback.md</code>）；</li>
+    <li>把意见翻译成 <a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a> 里的参数（条数、月份、类别占比、行业、渠道）；</li>
+    <li>种子库里没有的需求类型、或某一类条数不够时，把新条目写进 <code>data/templates/extra-feedback.jsonl</code>；</li>
+    <li>运行 <code>python3 data/tools/generate_mock_data.py</code> 重新生成数据（同时刷新 <a href="mock-data.html">60 条 mock 需求</a> 网页）；</li>
+    <li>运行 <code>python3 data/tools/golden_tool.py validate</code>，确认黄金集不受影响；</li>
+    <li>汇报：改了哪些参数、类别分布、新增了哪些条目、还剩哪些警告。</li>
+  </ol>
+  <p><b>怎么确认改对了：</b></p>
+  <ul>
+    <li>它的汇报里应该有四样：改了哪些参数；生成脚本打印的类别分布（原样贴出，并逐条对照第 5 节说明是否满足）；新增条目的编号和标题；剩下的警告（没有就写“无”）。</li>
+    <li>自己看它改了哪些参数：<code>git diff data/templates/mock-data-params.yaml</code></li>
+    <li>把类别分布和小组要的占比对一对（格式如下）：</li>
+  </ul>
+  <div class="expect"><span class="label">生成脚本打印的类别分布</span>（这是默认参数的结果，与仓库里的文件完全一致；改了参数后数字会变）：
 <pre class="out">已生成 60 条需求反馈 → data/feedback_last_month.jsonl（CSV：data/feedback_last_month.csv）
   - 通用能力缺口（应迭代）：15
   - 已有能力被重复提出（应拒绝并给用法）：12
@@ -177,7 +212,11 @@ CAP-008 已支持 自定义函数</pre></div>
   - 单客户深度定制（应拒绝并给替代）：2
   - 对抗样本（注入指令/施压）：2
   - 合规或合同承诺（不可拒绝）：2</pre></div>
-  <div class="tip">默认不覆盖黄金集。黄金集请走 2.5 的流程修改，这样每条改动都有记录。</div>
+  <div class="note" id="s-2-4-manual"><b>手动方式</b>（只改一个简单参数时，例如月份或行业）：打开 <a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a>，改对应的那一行（每个参数上面都有注释），然后运行：
+<pre><code>python3 data/tools/generate_mock_data.py</code></pre>
+  输出就是上面那种类别分布；参数一点没改时，结果和仓库里的 60 条完全一样（同样的参数 + 同样的随机种子 = 同样的结果）。数据有变化时还会多一行 <code>已刷新讨论用的网页版：docs/mock-data.html</code>。脚本：<a data-repo="data/tools/generate_mock_data.py">data/tools/generate_mock_data.py</a>。</div>
+  <div class="tip">默认不覆盖黄金集，黄金集请走 2.5 的流程修改，这样每条改动都有记录。需求编号变了（例如改了月份）时，脚本会自动同步黄金集里的 <code>feedback_id</code>，在 2.6 冻结时一并生效。</div>
+  <p><b>下一步：</b>做 <a href="#s-2-5">2.5</a> 改黄金集（提示词 03 会读刚生成的数据）。B 版：Runtime 已经部署过（<a href="b3-deploy.html">B3</a>）时，数据改了要重跑 <code>./20-B-deploy-runtime.sh</code>，新数据才会打进 Runtime 包；还没做 B3 就不用管。</p>
 </div>
 
 <div class="step" id="s-2-5">
@@ -188,6 +227,7 @@ CAP-008 已支持 自定义函数</pre></div>
     <li>口径类结论（标签用“是/否”还是 P0/P1/P2、不可自动拒绝的规则、能力目录补充）写进 <a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a>。</li>
     <li>逐条意见写进 <a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a>：“操作”列（C 列）填 <code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code>，改标签就直接改对应列。可以先用当前黄金集预填这张表：</li>
   </ol>
+  <p class="where">每列能填哪些值、用什么分隔：见讨论页的 <a href="discussion.html#s-d-5-values">可填写的值（速查）</a>。</p>
   <table>
     <tr><th style="width:18%">列</th><th>含义</th><th style="width:30%">怎么填</th></tr>
     <tr><td>A–B <code>golden_id</code> / <code>feedback_id</code></td><td>样例编号 / 需求编号</td><td>“新增”可留空，脚本自动编号</td></tr>

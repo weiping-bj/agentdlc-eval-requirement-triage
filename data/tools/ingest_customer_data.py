@@ -4,8 +4,10 @@
     python3 data/tools/ingest_customer_data.py --in 客户需求导出.xlsx
     python3 data/tools/ingest_customer_data.py --in feedback.csv --mapping data/templates/column-mapping.example.json
     python3 data/tools/ingest_customer_data.py --in feedback.json --out-dir data/customer --use-as-input
+    python3 data/tools/ingest_customer_data.py --in 导出.xlsx --sheet 需求明细 --append-to-content "影响用户数,所属区域"
 
 支持 .csv / .xlsx / .json / .jsonl。列名自动识别（中英文常见叫法），识别不了的用 --mapping 指定。
+对应不上的列留在 extra 里（Agent 不读），report.md 逐个列出；要让 Agent 看到，用 --append-to-content 追加到需求描述。
 输出（默认 data/customer/，请勿提交到公开仓库）：
   feedback.normalized.jsonl   统一格式的需求反馈（字段同 data/feedback_last_month.jsonl）
   golden_candidates.jsonl     如果客户数据里带有历史判断（是否重要/是否紧急/处理建议），可作为黄金集候选
@@ -117,12 +119,13 @@ def norm_type(v):
     return str(v).strip()
 
 
-def normalize(rows, mapping, do_mask=True):
+def normalize(rows, mapping, do_mask=True, append_cols=()):
+    """append_cols: unmapped customer columns to append to content as "列名: 值" lines (so the agent reads them)."""
     out, cands, pii = [], [], Counter()
     seen = Counter()
     for i, raw in enumerate(rows, 1):
         r = {mapping[k]: v for k, v in raw.items() if k in mapping and v not in (None, "")}
-        extra = {k: v for k, v in raw.items() if k not in mapping and v not in (None, "")}
+        extra = {k: v for k, v in raw.items() if k not in mapping and k not in append_cols and v not in (None, "")}
         item = {}
         for f in C.INPUT_FIELDS:
             v = r.get(f)
@@ -141,6 +144,10 @@ def normalize(rows, mapping, do_mask=True):
             item["title"] = item["content"][:30]
         if not item.get("content") and item.get("title"):
             item["content"] = item["title"]
+        for col in append_cols:
+            v = str(raw.get(col) if raw.get(col) is not None else "").strip()
+            if v:
+                item["content"] = (item.get("content") or "") + f"\n{col}: {mask(v, pii) if do_mask else v}"
         if "submitted_at" in item:
             item["submitted_at"] = C.norm_date(item["submitted_at"]) or item["submitted_at"]
         if "customer_tier" in item:
@@ -201,6 +208,18 @@ def report(a, src) -> str:
          "| 检查项 | 结果 | 要求 | 不满足时怎么办 |", "|---|---|---|---|"]
     for name, ok, need, fix in a["checks"]:
         L.append(f"| {name} | {'✅' if ok else '⚠️'} | {need} | {'' if ok else fix} |")
+    L += [""]
+    if a.get("appended"):
+        L.append(f"- 已追加到需求描述：{'、'.join(a['appended'])}（每条末尾一行“列名: 值”，Agent 能看到）")
+    unused = a.get("unused") or []
+    if unused:
+        L += [f"## ⚠️ 这些列没有用上：{'、'.join(c for c, _ in unused)}", "",
+              "这些列原样留在 feedback.normalized.jsonl 的 extra 里，但 **Agent 不会读**，判断时用不上。"
+              "某列对判断很重要时（例如影响人数、截止日期这类），加 `--append-to-content \"列名1,列名2\"` 重跑，"
+              "把它以“列名: 值”一行追加到需求描述末尾；其余的记作下一轮迭代再考虑。", "",
+              "| 列名 | 有值的行数 |", "|---|---|"] + [f"| {c} | {n} |" for c, n in unused]
+    else:
+        L.append("- 所有列都用上了。")
     L += ["", "## 字段识别与覆盖率", "", "| 源列名 | 映射到 |", "|---|---|"]
     for k, v in a["mapping"].items():
         L.append(f"| {k} | {v} |")
@@ -231,8 +250,14 @@ def main(argv=None) -> int:
     ap.add_argument("--no-mask", action="store_true")
     ap.add_argument("--use-as-input", action="store_true", help="生成 data/customer/agent_data/（需求池 + 能力目录副本），并提示 export S12_DATA_DIR=… 让 Agent 与批量脚本改用客户数据")
     ap.add_argument("--strict", action="store_true", help="结论不是“充足”时退出码 1")
+    ap.add_argument("--append-to-content", default="", metavar="列名1,列名2",
+                    help="把这些没对应上的列以“列名: 值”一行追加到需求描述末尾，让 Agent 能读到（逗号分隔）")
     a = ap.parse_args(argv)
-    rows = C.read_any(a.src, a.sheet)
+    try:
+        rows = C.read_any(a.src, a.sheet)
+    except ValueError as e:
+        print(f"错误：{e}")
+        return 2
     if not rows:
         print("错误：文件里没有读到数据行")
         return 2
@@ -245,9 +270,20 @@ def main(argv=None) -> int:
     if not any(v in ("title", "content") for v in mapping.values()):
         print("错误：找不到“标题/需求描述”列。请用 --mapping 指定，例如 {\"反馈正文\": \"content\"}。识别到的列：" + ", ".join(cols))
         return 2
-    items, cands, pii = normalize(rows, mapping, not a.no_mask)
+    append_cols = [c.strip() for c in re.split(r"[,，、]", a.append_to_content) if c.strip()]
+    for c in append_cols:
+        if c not in cols:
+            print(f"错误：--append-to-content 里的列“{c}”在文件里没有。文件里的列：" + ", ".join(cols))
+            return 2
+        if c in mapping:
+            print(f"错误：列“{c}”已经对应到 {mapping[c]}，Agent 已经能读到，不用再追加")
+            return 2
+    items, cands, pii = normalize(rows, mapping, not a.no_mask, append_cols)
     res = assess(items, mapping, cands, pii, len(rows))
     res["masked"] = not a.no_mask
+    res["appended"] = append_cols
+    res["unused"] = [(c, sum(1 for r in rows if r.get(c) not in (None, "") and str(r.get(c)).strip()))
+                     for c in cols if c not in mapping and c not in append_cols]
     os.makedirs(a.out_dir, exist_ok=True)
     C.write_jsonl(os.path.join(a.out_dir, "feedback.normalized.jsonl"), items)
     C.write_csv(os.path.join(a.out_dir, "feedback.normalized.csv"), items, C.INPUT_FIELDS)

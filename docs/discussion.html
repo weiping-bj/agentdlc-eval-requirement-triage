@@ -78,9 +78,26 @@
     <table>
       <tr><th>模板</th><th>内容</th><th>谁来填</th></tr>
       <tr><td><a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a></td><td>标签口径（含 D.3 选择）、不可自动拒绝的规则、能力目录补充、五维要点</td><td>组长 / 记录员</td></tr>
-      <tr><td><a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条填“操作”列：保留 / 修改 / 删除 / 新增；O–U 列是需求原文（对照判断用），V 列“备注”可自由填写</td><td>产品 + 研发代表</td></tr>
-      <tr><td><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>上午把意见写进 discussion-feedback.md 第 5 节；下午在 EC2 上改（第 2.4 步）</td></tr>
+      <tr><td><a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条填“操作”列：保留 / 修改 / 删除 / 新增（每列可填的值见下面的 <a href="#s-d-5-values">速查表</a>）；O–U 列是需求原文（对照判断用），V 列“备注”可自由填写</td><td>产品 + 研发代表</td></tr>
+      <tr><td><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>不用看：上午看 <a href="mock-data.html">60 条 mock 需求</a>，把意见用大白话写进 discussion-feedback.md 第 5 节；下午 coding agent 在 EC2 上改（第 2.4 步）</td></tr>
     </table>
+    <div id="s-d-5-values">
+    <p><b>golden-set-feedback.csv 可填写的值（速查）</b>：只在“操作”是 <code>修改</code> / <code>新增</code> 的行里改 D–N 列；没列出的写法多半会报错或被忽略。</p>
+    <table>
+      <tr><th style="width:13%">列</th><th>可填的值</th><th style="width:34%">分隔 / 规则</th><th style="width:10%">标注标准</th></tr>
+      <tr><td>C 操作</td><td><code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code></td><td>留空 = 保留；“修改标签”“新增样例”也认。写别的：这一行不生效，脚本最后用 ❌ 列出并且不写入</td><td><a href="02-data.html#s-2-5">2.5 步</a></td></tr>
+      <tr><td>D 是否重要</td><td><code>是</code> / <code>否</code></td><td>写别的会报错</td><td><a data-repo="data/golden/LABELING_GUIDE.md#1-是否重要">§1</a></td></tr>
+      <tr><td>E 是否紧急</td><td><code>是</code> / <code>否</code></td><td>写别的会报错</td><td><a data-repo="data/golden/LABELING_GUIDE.md#2-是否紧急">§2</a></td></tr>
+      <tr><td>F 处理建议</td><td><code>迭代</code> / <code>拒绝</code> / <code>待评估</code></td><td><b>只填一个</b>：写了多个时脚本会按 待评估 &gt; 拒绝 &gt; 迭代 只取一个（不提示）；允许多个答案请写在 G 列</td><td><a data-repo="data/golden/LABELING_GUIDE.md#3-处理建议">§3</a></td></tr>
+      <tr><td>G 可接受建议</td><td>上面三个里的一个或多个</td><td>用 <code>/</code> 分隔（、，；也认）。<b>必须包含 F 列的值</b>：不包含时脚本会改成只接受 F 列的值，并在最后用 ⚠️ 列出这一行</td><td><a data-repo="data/golden/LABELING_GUIDE.md#3-处理建议">§3</a></td></tr>
+      <tr><td>H 优先级</td><td><code>P0</code> / <code>P1</code> / <code>P2</code></td><td>只在“分级”方案（模板 1.1 选 B）时用，“是/否”方案留空即可</td><td><a data-repo="data/golden/LABELING_GUIDE.md#6-优先级分级模式可选">§6</a></td></tr>
+      <tr><td>I 可自动拒绝</td><td><code>是</code> / <code>否</code></td><td><code>否</code> = 不能让 AI 自动拒绝：这时 F、G 列都不能有“拒绝”，否则报错</td><td><a data-repo="data/golden/LABELING_GUIDE.md#4-不可自动拒绝can_auto_reject--false">§4</a></td></tr>
+      <tr><td>J 五维</td><td><code>认知</code> / <code>质量</code> / <code>责任</code> / <code>成本</code> / <code>性能</code> 里 1~3 个</td><td>用 <code>/</code> 分隔；写这五个以外的词会报错</td><td><a data-repo="data/golden/LABELING_GUIDE.md#7-五维标签每条-13-个">§7</a></td></tr>
+      <tr><td>K 样例类型</td><td><code>简单</code>：口径明确，应稳定答对<br><code>模糊</code>：信息不全或边界情况，允许多答案<br><code>对抗</code>：注入伪造指令、施压、情绪化描述下隐藏真实故障、规避审计<br><code>应拒绝</code>：明确应拒绝，并考验拒绝话术</td><td>只填一个；写别的只给警告、不报错</td><td><a data-repo="data/golden/LABELING_GUIDE.md#8-样例类型case_type">§8</a></td></tr>
+      <tr><td>L 拒绝要点<br>M 话术要点</td><td>自由文字</td><td>多条用 <code>；</code> 分隔（<code>;</code> 也认，<b>不要用 /</b>）。只给 F = 拒绝 的行填：拒绝时 L 必填（否则报错），M 缺了给警告</td><td><a data-repo="data/golden/LABELING_GUIDE.md#5-拒绝要点与话术要点仅拒绝样例">§5</a></td></tr>
+      <tr><td>N 标注理由</td><td>自由文字，一句话</td><td>操作 = 修改 时写明依据哪条新口径（下午提示词 03 要用；脚本不检查，漏写不报错）</td><td><a data-repo="data/golden/LABELING_GUIDE.md#9-标注流程">§9</a></td></tr>
+    </table>
+    </div>
     <div class="note"><b>想新增样例？</b>新增的样例不必来自那 60 条 mock 需求：在 <a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a> 里“操作”填 <code>新增</code>、<code>feedback_id</code> 留空，写上需求原文（O–U 列）和期望标签（D–N 列）；脚本自动编号为 <code>FB-NEW-9xx</code>，跑黄金集时直接用这一行的需求原文作为 Agent 输入。</div>
     <div class="warn">如果新样例的期望标签依赖“很多客户都提过”（通用性），还要把它和相似需求加进上个月的需求池 <code>data/feedback_last_month.jsonl</code>（Agent 的 <code>find_similar_requests</code> 工具只在这里找相似需求）：用提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">02-regenerate-mock-data.md</a>，按 <a data-repo="data/templates/extra-feedback.example.jsonl">extra-feedback.example.jsonl</a> 的格式写进 <code>data/templates/extra-feedback.jsonl</code>（现场新建）再重新生成，否则 Agent 看不到证据，会被判错。详见 <a href="02-data.html#s-2-5">第 2.5 步</a>。</div>
     <p><b>填写示例</b>（<a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a> 第 1.1、2 节节选：只填 <code>【填写】</code> 处、表格里的空白格和勾选框，没讨论到的保留默认值）：</p>
@@ -107,12 +124,13 @@
     <ol class="clicks">
       <li>点击下载（文件会存到浏览器的“下载”文件夹）：<a data-download="data/templates/discussion-feedback.md"></a> 和 <a data-download="data/templates/golden-set-feedback.csv"></a>。<br>
         第 3 节要对照的平台能力目录（只看不改）：<a href="catalog.html">网页版</a> · Excel 版 <a data-download="data/capability_catalog.csv"></a>。<br>
+        第 5 节要对照的 60 条 mock 需求（只看不改）：<a href="mock-data.html">网页版（含类别分布）</a> · Excel 版 <a data-download="data/feedback_last_month.csv"></a>。<br>
         <small>点了只打开一页文字、没有下载时：打开 <a data-repo="data/templates/discussion-feedback.md">GitHub 上的 .md</a> / <a data-repo="data/templates/golden-set-feedback.csv">GitHub 上的 .csv</a>，点右上角的下载图标（Download raw file）。会场网络打不开 GitHub 时，找讲师要这两个文件。</small></li>
       <li><code>discussion-feedback.md</code>：用任意文本编辑器打开（Windows 记事本、Mac 文本编辑、VS Code 都可以；<b>不要用 Word</b>），只填 <code>【填写】</code> 处、表格里的空白格和勾选框，直接保存。勾选框在 GitHub 页面上显示为 ☑ / ☐，在文本里是 <code>[x]</code> / <code>[ ]</code>：<code>[x]</code> = 采用；要取消就把 <code>[x]</code> 改成 <code>[ ]</code>，要选中就把 <code>[ ]</code> 改成 <code>[x]</code>，不要删行。</li>
-      <li><code>golden-set-feedback.csv</code>：用 Excel 打开，按 D.5 填“操作”等列。<b>Windows</b>：直接按 <span class="ui">Ctrl+S</span> 保存，提示“某些功能可能丢失 / 是否保持此格式”时选 <span class="ui">是 / 保留</span>（Excel 存成 GBK 编码也没关系，下午的脚本会自动转换）。<b>Mac</b>：用 <span class="ui">文件 → 另存为</span>，格式选 <span class="ui">CSV UTF-8（逗号分隔）</span>，文件名不变；用 Numbers 时选 <span class="ui">文件 → 导出为 → CSV</span>，文本编码选 Unicode（UTF-8）。</li>
+      <li><code>golden-set-feedback.csv</code>：用 Excel 打开，按 D.5 填“操作”等列（每列可填的值见 <a href="#s-d-5-values">速查表</a>）。<b>Windows</b>：直接按 <span class="ui">Ctrl+S</span> 保存，提示“某些功能可能丢失 / 是否保持此格式”时选 <span class="ui">是 / 保留</span>（Excel 存成 GBK 编码也没关系，下午的脚本会自动转换）。<b>Mac</b>：用 <span class="ui">文件 → 另存为</span>，格式选 <span class="ui">CSV UTF-8（逗号分隔）</span>，文件名不变；用 Numbers 时选 <span class="ui">文件 → 导出为 → CSV</span>，文本编码选 Unicode（UTF-8）。</li>
       <li><b>不要改文件名</b>，也不要存成 <code>.xlsx</code> / <code>.docx</code> / <code>.txt</code>：下午的脚本按这两个文件名查找。只点一次下载（点两次会多出一个 “(1)” 副本）。</li>
     </ol>
-    <p class="where"><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a> 不用在笔记本上改：对 mock 数据的意见写进 <code>discussion-feedback.md</code> 第 5 节，下午第 2.4 步由 coding agent 按它改参数。</p>
+    <p class="where"><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a> 不用看也不用改：看完 <a href="mock-data.html">60 条 mock 需求</a>，把意见用大白话写进 <code>discussion-feedback.md</code> 第 5 节，下午第 2.4 步由 coding agent 按它改参数。</p>
     <div class="note"><b>下午怎么交给 EC2：</b>EC2 准备好（第 1 章）后，按 <a href="02-data.html#s-2-0">第 2.0 步</a>：在 EC2 上运行 <code>./tools/pull-templates.sh --prepare</code> 拿到你的私有桶链接 → 在笔记本的 S3 控制台把这两个文件拖进去 → 回到 EC2 运行 <code>./tools/pull-templates.sh</code>。EC2 不开任何入站端口，不能 scp，所以用 S3 中转。</div>
   </div>
 

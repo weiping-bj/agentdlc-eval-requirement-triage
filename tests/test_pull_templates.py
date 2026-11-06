@@ -1,5 +1,6 @@
 """tools/pull-templates.sh (labkit.pull_templates): bucket -> data/templates/. No AWS calls."""
 import io
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -421,3 +422,72 @@ def test_unit_tests_cannot_reach_aws():
         assert "real AWS" in str(e)
     else:
         assert rc == 1  # no LAB_SUFFIX on this machine: stopped by the config check
+
+
+# ----------------------------------------------------------------------------- next steps (2.4 before 2.5)
+def _next_steps(out):
+    lines = out.splitlines()
+    i = next(k for k, line in enumerate(lines) if line.startswith("下一步"))
+    return lines[i + 1:]
+
+
+def _step(steps, sec):
+    """(index, line) of the numbered step for manual section `sec` ("  1. 2.4 ..."), not a mere mention."""
+    return next((k, line) for k, line in enumerate(steps) if re.match(rf"\s*\d\. {re.escape(sec)} ", line))
+
+
+def test_next_steps_put_mock_data_2_4_before_golden_set_when_section_5_is_filled(repo):
+    md = DEFAULT_MD.decode("utf-8").replace("上个月大概有多少条需求反馈：【填写】", "上个月大概有多少条需求反馈：约 300 条")
+    rc, out = run(repo, FakeS3({MD: (md.encode("utf-8"), t(6)), CSV: (edited_csv_gbk(), t(6))}))
+    assert rc == 0, out
+    steps = _next_steps(out)
+    k24, l24 = _step(steps, "2.4")
+    k25, l25 = _step(steps, "2.5")
+    assert k24 < k25 < _step(steps, "2.6")[0]
+    assert "02-regenerate-mock-data.md" in l24 and "跳过" not in l24
+    assert "03-update-golden-set.md" in "\n".join(steps[k25:k25 + 2]) and "apply-feedback --dry-run" in "\n".join(steps)
+
+
+def test_next_steps_mark_2_4_skipped_when_section_5_is_untouched(repo):
+    md = DEFAULT_MD.decode("utf-8").replace("小组：【填写】", "小组：第 3 组")
+    rc, out = run(repo, FakeS3({MD: (md.encode("utf-8"), t(6)), CSV: (edited_csv_gbk(), t(6))}))
+    assert rc == 0, out
+    steps = _next_steps(out)
+    k24, l24 = _step(steps, "2.4")
+    assert "跳过" in l24 and "02-regenerate-mock-data.md" not in l24
+    assert k24 < _step(steps, "2.5")[0] < _step(steps, "2.6")[0]      # same numbered order either way
+    assert [s.split(".", 1)[0].strip() for s in steps if s.strip()[:2] in ("1.", "2.", "3.", "4.")][:4] == ["1", "2", "3", "4"]
+
+
+def test_section_5_detection():
+    new = DEFAULT_MD.decode("utf-8")
+    f = pt.mock_feedback_given
+    assert f(new, new) is False
+    assert f(new.replace("实际占多少）：【填写】", "实际占多少）：已有能力被重复提出大约占三成"), new) is True
+    assert f(new + "\n- 希望多一些移动端离线的需求\n", new) is True                 # added bullet
+    assert f(new + "\n另外：渠道里工单系统占比偏低。\n", new) is True               # added free text
+    assert f(new.replace("：【填写】\n- 主要客户行业", "：【填写】 约 40%\n- 主要客户行业"), new) is True
+    # an older copy of the template (different intro wording, placeholders untouched) is not "filled"
+    sec5 = new.split("## 5.", 1)[1]
+    old = new.split("## 5.", 1)[0] + "## 5. 对 mock 数据的意见（旧标题）\n\n" + "\n".join(
+        line for line in sec5.splitlines() if line.startswith("- ")) + "\n"
+    assert f(old, new) is False
+    # "基本符合" / "无" answers mean no change: 2.4 is skipped
+    ok = new.replace("实际占多少）：【填写】", "实际占多少）：基本符合").replace("举 1~2 个例子）：【填写】", "举 1~2 个例子）：无。")
+    assert f(ok, new) is False
+    assert f(ok.replace("上个月大概有多少条需求反馈：【填写】", "上个月大概有多少条需求反馈：基本符合，约 80 条"), new) is True
+    # without a repo default only the placeholders count
+    assert f(new, None) is False
+    assert f(new.replace("实际占多少）：【填写】", "实际占多少）：三成"), None) is True
+
+
+def test_guide_expected_output_matches_the_next_steps_printed(repo):
+    md = DEFAULT_MD.decode("utf-8").replace("上个月大概有多少条需求反馈：【填写】", "上个月大概有多少条需求反馈：约 300 条")
+    rc, out = run(repo, FakeS3({MD: (md.encode("utf-8"), t(6)), CSV: (edited_csv_gbk(), t(6))}))
+    lines = out.splitlines()
+    block = lines[next(k for k, line in enumerate(lines) if line.startswith("下一步")):]
+    guide = (ROOT / "docs" / "02-data.html").read_text(encoding="utf-8")
+    s20 = guide.split('id="s-2-0"', 1)[1].split('id="s-2-1"', 1)[0]
+    for line in block:
+        assert line in s20, line
+    assert 'id="s-2-0-next"' in s20 and all(f'href="#s-2-{k}"' in s20 for k in range(1, 7))

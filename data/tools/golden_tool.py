@@ -151,16 +151,31 @@ def cmd_apply(a) -> int:
         print(f"   “操作”列只能填：{G.OP_CHOICES}（也接受 修改标签 / 新增样例 等写法）")
         print("!" * 66)
 
+    acc_warns = [line for line in log if G.ACC_WARN in line]
+
+    def acceptable_summary():
+        if not acc_warns:
+            return
+        print("")
+        print("!" * 66)
+        print(f"⚠️ 有 {len(acc_warns)} 行的“可接受建议”没有包含“处理建议”，已被改成只接受处理建议（多答案丢了）：")
+        for line in acc_warns:
+            print("   - " + line.replace("警告：", "", 1))
+        print("   确实只要一个答案可以不管；否则在可接受建议里加上处理建议（用 / 分隔）后重跑")
+        print("!" * 66)
+
     if (errors or bad_ops) and not a.allow_errors:
         for e in errors:
             print("错误：" + e)
         unknown_summary()
+        acceptable_summary()
         print("未写入：请修正模板后重试（或加 --allow-errors 先写入草稿）")
         return 1
     if a.dry_run:
         unknown_summary()
         print("（dry-run，未写入）")
         print(G.stats_markdown(new_rows))
+        acceptable_summary()
         return 0
     bk = _backup(a.golden)
     C.write_jsonl(a.golden, new_rows)
@@ -172,6 +187,7 @@ def cmd_apply(a) -> int:
     print(G.stats_markdown(new_rows))
     for w in warns:
         print("警告：" + w)
+    acceptable_summary()
     print("下一步：python3 data/tools/golden_tool.py freeze")
     return 0
 

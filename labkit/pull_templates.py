@@ -174,6 +174,45 @@ def safe_dest(templates_dir: Path, root: Path, name: str) -> Path:
     return dest
 
 
+PLACEHOLDER = "【填写】"
+# answers that mean "no change wanted" (section 5 then needs no 2.4); compared after dropping spaces/punctuation
+NO_CHANGE = {"基本符合", "符合", "符合实际", "基本符合实际", "无", "没有", "无意见", "没意见", "不用改", "不需要", "不需要改",
+             "同意", "可以", "ok", "-", "—", "/"}
+
+
+def _no_change(value: str) -> bool:
+    v = re.sub(r"[\s。.，,！!；;：:]", "", value.replace(PLACEHOLDER, "")).lower()
+    return v == "" or v in NO_CHANGE
+
+
+def md_section(text: str, n: int):
+    """Body of '## <n>.' (title line excluded) up to the next '## ' heading, or None."""
+    m = re.search(rf"^## {n}\.[^\n]*\n(.*?)(?=^## |\Z)", text.replace("\r\n", "\n"), re.S | re.M)
+    return m.group(1) if m else None
+
+
+def mock_feedback_given(text: str, default_text) -> bool:
+    """True when section 5 (mock-data feedback) of discussion-feedback.md has an answer: a bullet whose value is
+    no longer the bare placeholder, an added bullet, or (when the repo default is known) any other added line.
+    Intro wording that differs between template versions does not count."""
+    sec = md_section(text, 5)
+    if sec is None:
+        return False
+    known = set()
+    if default_text is not None:
+        known = {line.strip() for line in (md_section(default_text, 5) or "").splitlines()}
+    for line in (x.strip() for x in sec.splitlines()):
+        if not line:
+            continue
+        if line.startswith("- "):
+            value = re.split(r"[：:]", line, maxsplit=1)[-1].strip() if re.search(r"[：:]", line) else line[2:].strip()
+            if not _no_change(value):
+                return True
+        elif default_text is not None and line not in known and PLACEHOLDER not in line and not _no_change(line):
+            return True
+    return False
+
+
 def git_default(root: Path, name: str):
     """The template as committed in the repo (HEAD), or None when git is not available."""
     try:
@@ -435,11 +474,29 @@ class Puller:
         else:
             p(f"完成：{len(ok)}/{len(TEMPLATES)} 个模板已就位（data/templates/）。重复运行是安全的。")
         if not self.dry_run:
-            p("下一步（手册第 2.5 步）：先预览，再交给 coding agent：")
-            p("  python3 data/tools/golden_tool.py apply-feedback --dry-run")
-            p("  claude \"$(cat data/prompts/03-update-golden-set.md)\"")
-            p("  黄金集改完要 freeze，并重新部署评估器：./30-create-evaluators.sh（第 6 章）")
+            self.next_steps()
         return 0
+
+    def next_steps(self):
+        """Same numbered order every time; 2.4 (mock data) is marked to do only when section 5 was answered."""
+        p, md = self.out, self.tdir / "discussion-feedback.md"
+        try:
+            text = decode(md.read_bytes())[0] if md.is_file() else ""
+            raw = self.default_reader(self.root, "discussion-feedback.md")
+            default = decode(raw)[0] if raw is not None else None
+        except (OSError, PullError):
+            text, default = "", None
+        mock = mock_feedback_given(text, default)
+        p("下一步（手册第 2 章，按顺序；2.1/2.2 只读、2.3 只在客户自带数据时做）：")
+        if mock:
+            p("  1. 2.4 改 mock 数据（模板第 5 节有意见，必须在 2.5 之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")
+        else:
+            p("  1. 2.4 跳过：模板第 5 节没填，或写的是“基本符合”")
+        p("  2. 2.5 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
+        p("     再 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
+        p("  3. 2.6 冻结：python3 data/tools/golden_tool.py freeze")
+        p("  4. 评估器已注册过：./30-create-evaluators.sh（第 6 章）" + (
+            "；B 版 Runtime 已部署过还要：./20-B-deploy-runtime.sh（B3，把新 mock 数据打进包）" if mock else ""))
 
 
 # ----------------------------------------------------------------------------- AWS glue

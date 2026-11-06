@@ -13,6 +13,7 @@ const CHAPTERS = [
   { id: "index", file: "index.html", no: "0", title: "导读与路线选择", path: "common" },
   { id: "discussion", file: "discussion.html", no: "讨", title: "11:00 分组讨论材料", path: "common" },
   { id: "catalog", file: "catalog.html", no: "录", title: "平台能力目录（讨论时看）", path: "common", extra: true },
+  { id: "mock-data", file: "mock-data.html", no: "数", title: "60 条 mock 需求（讨论时看）", path: "common", extra: true },
   { group: "通用准备（A/B 都做）" },
   { id: "01-setup", file: "01-setup.html", no: "1", title: "准备实验环境（EC2 + Coding Agent）", path: "common" },
   { id: "02-data", file: "02-data.html", no: "2", title: "输入数据与黄金集", path: "common" },

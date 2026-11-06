@@ -12,6 +12,7 @@ Copies:
   rubric.py                     -> evaluators/llm_judge_config/s12_reject_quality.json
   data/capability_catalog.json  -> docs/catalog.html, data/capability_catalog.csv   (data/tools/catalog_views.py;
                                    always the repo catalog, never --catalog: these two files are published)
+  data/feedback_last_month.jsonl -> docs/mock-data.html  (data/tools/mock_views.py; categories from seed/pool.jsonl)
 """
 from __future__ import annotations
 
@@ -64,6 +65,8 @@ def planned(golden_path: str, catalog_path: str) -> dict:
     files[os.path.join(EV, "llm_judge_config", "s12_reject_quality.json")] = _judge_config()
     files = {p: c.encode("utf-8") for p, c in files.items()}
     files.update(_catalog_views().planned())  # repo catalog only: a --catalog (e.g. customer data) must not reach docs/
+    import mock_views  # noqa: E402  (data/tools is on sys.path now)
+    files.update(mock_views.planned())
     return files
 
 
@@ -86,7 +89,7 @@ def main(argv=None) -> int:
         if stale:
             print("过期的副本（请运行 python3 evaluators/sync_shared.py）：\n  " + "\n  ".join(stale))
             return 1
-        print("评估器副本与能力目录视图已同步。")
+        print("评估器副本与网页版视图（能力目录、mock 数据）已同步。")
         return 0
     print("已更新：" + (", ".join(stale) if stale else "无（已是最新）"))
     return 0

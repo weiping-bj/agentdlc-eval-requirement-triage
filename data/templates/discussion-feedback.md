@@ -80,9 +80,13 @@
 
 我们最担心的一维：【填写】　下午用哪个评估器盯住它：【填写】
 
-## 5. 对 mock 数据的意见（填写后改 `mock-data-params.yaml`）
+## 5. 对 mock 数据的意见
+
+先把现在的 60 条 mock 需求**看一遍**：网页版：[60 条 mock 需求](https://weiping-bj.github.io/agentdlc-eval-requirement-triage/mock-data.html)（顶部是各种分布，下面是每一条，可搜索）；Excel 版：[feedback_last_month.csv](https://github.com/weiping-bj/agentdlc-eval-requirement-triage/blob/main/data/feedback_last_month.csv)（打开后点右上角下载图标）。
+
+用大白话回答下面几条即可。下午 coding agent 会按提示词把回答改成 mock 数据参数和新增条目，你们不用打开参数文件（yaml）。
 
 - 上个月大概有多少条需求反馈：【填写】
-- 需求类别占比是否符合实际（例如“已有能力被重复提出”实际占多少）：【填写】
+- 需求类别占比是否符合实际（对照网页版的[需求类别分布](https://weiping-bj.github.io/agentdlc-eval-requirement-triage/mock-data.html#dist-category)，例如“已有能力被重复提出”实际占多少）：【填写】
 - 主要客户行业、来源渠道：【填写】
 - 缺了哪类真实常见的需求（举 1~2 个例子）：【填写】

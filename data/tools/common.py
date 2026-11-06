@@ -147,9 +147,10 @@ def read_xlsx(path: str, sheet: Optional[str] = None) -> List[Dict[str, str]]:
         return []
     chosen = sheets[0]
     if sheet:
-        for s in sheets:
-            if s[0] == sheet:
-                chosen = s
+        match = [s for s in sheets if s[0] == sheet]
+        if not match:  # never fall back to the first sheet silently: that reads the wrong table
+            raise ValueError(f"找不到工作表“{sheet}”。文件里的工作表：{'、'.join(str(s[0]) for s in sheets)}")
+        chosen = match[0]
     target = rid_target.get(chosen[1], "worksheets/sheet1.xml").lstrip("/")
     target = target if target.startswith("xl/") else "xl/" + target
     root = ET.fromstring(z.read(target))

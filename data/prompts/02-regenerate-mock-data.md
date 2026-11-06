@@ -10,6 +10,7 @@
 5. `data/golden/LABELING_GUIDE.md`：给新条目打 `_meta` 标签时按它来。
 
 ## 步骤
+0. 如果第 5 节没填（还是 `【填写】`），或者写的都是“基本符合 / 无”这类意思：**不要改任何文件**，直接告诉我“第 5 节没有意见，可以跳过 2.4”，到此结束。
 1. 把第 5 节的意见翻译成 `mock-data-params.yaml` 里的参数，并在回复里列出改了哪些参数：
    - 条数 → `count`；
    - 月份 → `month`；
@@ -27,9 +28,13 @@
       - `_meta` 的标签按 LABELING_GUIDE 判断，`rationale` 写一句理由；
       - `_meta.golden_id` 填 null（新条目默认不进黄金集）；
       - 需要支撑“通用性”判断时，给同一诉求写 ≥3 个不同客户的条目。
-3. 运行 `python3 data/tools/generate_mock_data.py`。看输出里的类别分布和“警告”，有缺口就回到第 2 步补写。
+3. 运行 `python3 data/tools/generate_mock_data.py`。看输出里的类别分布和“警告”，有缺口就回到第 2 步补写。它会同时刷新讨论用的网页版 `docs/mock-data.html`（生成文件，不要手改）。
 4. 运行 `python3 data/tools/golden_tool.py validate`，确认黄金集不受影响。默认会保留全部黄金集样本。
-5. 汇报：总条数、各类别条数、新增了哪些条目（编号 + 标题）、还剩哪些警告。
+5. 汇报（按这个顺序）：
+   1. 改了哪些参数（`git diff data/templates/mock-data-params.yaml` 能看到的那些）；
+   2. 把第 3 步 `generate_mock_data.py` 打印的类别分布**原样贴出来**，并逐条对照第 5 节的要求说明是否满足；
+   3. 新增了哪些条目（编号 + 标题），没有就写“无”；
+   4. 还剩哪些警告，没有就写“无”。
 
 ## 约束
 - 不要修改种子库 `pool.jsonl` 和 `data/tools/` 下的脚本，新增内容只写进 `extra-feedback.jsonl`。

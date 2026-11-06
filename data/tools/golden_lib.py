@@ -21,6 +21,7 @@ OPS = {"保留": "keep", "keep": "keep", "": "keep", "不变": "keep",
        "删除": "delete", "delete": "delete", "删": "delete", "删除样例": "delete", "remove": "delete",
        "新增": "add", "add": "add", "新增样例": "add", "新增用例": "add", "添加": "add", "增加": "add"}
 OP_CHOICES = "保留 / 修改 / 删除 / 新增"
+ACC_WARN = "可接受建议不含处理建议"  # marker of the warning golden_tool.py apply-feedback repeats loudly at the end
 
 
 def normalize_op(text) -> Optional[str]:
@@ -247,7 +248,9 @@ def to_agentcore_dataset(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------- apply feedback CSV
-def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> None:
+def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> List[str]:
+    """Apply one CSV row to golden item g; return warnings about values that were changed on the way."""
+    warns: List[str] = []
     e = g.setdefault("expected", {})
     if row.get("是否重要"):
         e["important"] = C.norm_yes_no(row["是否重要"]) or row["是否重要"]
@@ -266,6 +269,9 @@ def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> None:
     elif dec and (acc or dec not in current):
         # stale / missing 可接受建议 (e.g. pre-filled list from the old decision) -> only the new decision
         g["acceptable_decisions"] = [dec]
+        if acc:
+            warns.append(f"{ACC_WARN}：可接受建议“{row.get('可接受建议', '').strip()}”里没有处理建议“{dec}”，"
+                         f"已改成只接受“{dec}”；要保留多个答案，请在可接受建议里也写上“{dec}”（用 / 分隔）后重跑")
     if row.get("可自动拒绝"):
         yn = C.norm_yes_no(row["可自动拒绝"])
         # unknown text is kept as-is so validate() fails loudly instead of silently allowing rejection
@@ -286,6 +292,7 @@ def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> None:
                      ("相关模块", "module"), ("反馈类型", "feedback_type"), ("合同承诺", "contract_commitment")):
         if row.get(col):
             inp[key] = row[col].strip()
+    return warns
 
 
 def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], version: str,
@@ -326,7 +333,8 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
             if not target:
                 log.append(f"CSV 第 {n} 行：要修改的 {gid or fid} 不存在，如需新增请把操作写成“新增”")
                 continue
-            _apply_fields(row, target)
+            for w in _apply_fields(row, target):
+                log.append(f"警告：CSV 第 {n} 行（{target['golden_id']}）：{w}")
             target["version"] = version
             log.append(f"修改 {target['golden_id']}")
             continue
@@ -358,7 +366,8 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
             fid = f"FB-NEW-{k:03d}"
             base["feedback_id"] = fid
         base["input"]["id"] = fid
-        _apply_fields(row, base)
+        for w in _apply_fields(row, base):
+            log.append(f"警告：CSV 第 {n} 行（新增 {gid}）：{w}")
         if base["expected"].get("decision") and not base["acceptable_decisions"]:
             base["acceptable_decisions"] = [base["expected"]["decision"]]
         new_rows.append(base)

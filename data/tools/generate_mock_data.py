@@ -161,6 +161,10 @@ def main(argv=None) -> int:
     cats = Counter(r["_meta"]["category"] for r in items)
     for k, v in cats.most_common():
         print(f"  - {CATEGORY_CN.get(k, k)}：{v}")
+    if os.path.abspath(a.out) == os.path.abspath(C.FEEDBACK_PATH):
+        import mock_views as MV  # noqa: E402  (lazy: mock_views imports this module)
+        if MV.CV.sync(MV.planned(), check=False):
+            print(f"已刷新讨论用的网页版：{os.path.relpath(MV.HTML_PATH, C.REPO)}")
     id_map = {r["_meta"]["source_id"]: r["id"] for r in items if r["_meta"].get("source_id") and r["_meta"]["source_id"] != r["id"]}
     if not a.write_golden and os.path.exists(a.golden_out):
         golden = C.read_jsonl(a.golden_out)

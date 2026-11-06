@@ -38,6 +38,27 @@
    run_id = B-v0-20261105T142708Z</pre>
   <p>A 版（<code>./10-A-run-local.sh golden</code>）的输出格式相同，开头多两行“日志组 / OTel 已配置”，实测 30 条用时约 115 秒。V0 的典型表现：几乎所有需求都判“重要”，处理建议大量是“待评估”——这正是它的缺陷。</p></div>
   <div class="tip">有个别 <code>❌</code>（例如 <code>RuntimeClientError</code>、超时、限流）不影响后续：脚本会对同一条自动重试 2 次，仍失败的条目评估时会跳过。失败太多就再跑一次。</div>
+  <p><b>看 V0 的分诊结果（趁 7.2 开头要等的 2–3 分钟做）：</b>运行结果 JSONL 不方便直接读，EC2 上生成的 HTML 笔记本也打不开。用下面两条命令把这次运行做成分诊报告，上传到你的私有 S3 桶，再在笔记本浏览器里打开。</p>
+  <p>① 生成报告：把文件名换成上面“✅ 完成”那行箭头 → 后面的路径。</p>
+<pre><code>.venv/bin/python -m labkit.report --run results/run-&lt;路线&gt;-v0-&lt;时间&gt;.jsonl</code></pre>
+  <p>② 上传：文件名用 ① 输出的最后一行。</p>
+<pre><code>.venv/bin/python -m labkit.publish results/triage-report-&lt;路线&gt;-v0-&lt;时间&gt;.html</code></pre>
+  <p class="where">脚本：<a data-repo="labkit/report.py">labkit/report.py</a>（生成报告，与 9.4 同一个）→ <a data-repo="labkit/publish.py">labkit/publish.py</a>（上传到私有桶的 <code>reports/</code> 下；桶还不存在时自动创建）。一定要带 <code>--run</code>：不带时它默认找 9.4 的上月需求运行，现在还没有，会报错（报错里提示的 <code>./34-triage-report.sh</code> 是 9.4 的，现在先别跑）。</p>
+  <div class="expect"><span class="label">预期输出（A 版 V0 实测）：</span>
+<pre class="out">▶ 分诊报告：A-v0-20261106T065342Z · 30 条
+✅ 分诊报告已生成（本地文件，可直接用浏览器打开）：
+results/triage-report-A-v0-20261106T065342Z.html
+☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/triage-report-A-v0-20261106T065342Z.html
+👉 在笔记本浏览器打开（需已登录控制台），点右上角「打开」查看：
+   https://us-west-2.console.aws.amazon.com/s3/object/…</pre>
+  如果桶是这次新建的，上传前会多一行“🪣 已创建 S3 桶 …”。</div>
+  <ol class="clicks">
+    <li>在笔记本浏览器（已登录 AWS 控制台）打开脚本打印的链接。</li>
+    <li>在 S3 对象页面点右上角 <span class="ui">打开</span>（Open），报告会在新标签页显示。</li>
+  </ol>
+  <div class="note">这里的 30 条是<b>黄金集</b>，不是 9.4 的 60 条上月需求。报告沿用 9.4 的版式，标题会显示“上月需求反馈分诊报告 · V0”，以“条数 30”和 run_id 里的 <code>v0</code> 为准。报告只展示 V0 怎么判，不对照黄金集答案（对错看 7.2）。</div>
+  <div class="note">这是 V0 的“优化前”视图。实测一次 A 版 V0：30 条里迭代 2、拒绝 3、待评估 24、失败 1；大模型每次运行有波动，你的数字会不同，但“待评估”通常占大多数。9.4 用 V1 生成同样版式的报告（B 版实测 60 条里迭代 15、拒绝 27、待评估 18）；两份数据不同（30 条黄金集 vs 60 条上月需求），只看比例的大致变化。想在同一批 30 条上对比：9.1 跑完 V1 黄金集后，对 <code>results/run-&lt;路线&gt;-v1-&lt;时间&gt;.jsonl</code> 再跑上面两条命令。</div>
+  <div class="note">桶禁止公开访问，没有公开链接；同一实验账号里有 S3 权限的人（包括其他学员）能看到。</div>
 </div>
 
 <div class="step" id="s-7-2">

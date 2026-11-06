@@ -526,3 +526,23 @@ def test_crlf_template_is_read_the_same():
     crlf = new.replace("\n", "\r\n")
     assert pt.mock_feedback_given(crlf, new) is False and pt.catalog_feedback_given(crlf, new) is False
     assert pt.mock_feedback_given(crlf.replace("反馈：【填写】", "反馈：约 300 条"), new) is True
+
+
+def test_colons_inside_an_answer_are_kept():
+    new = DEFAULT_MD.decode("utf-8")
+    q3 = "能力目录里写错的地方：【填写，例如“CAP-012 报表订阅其实已支持 IM 推送”】"
+    for ans in ("能力目录里写错的地方：CAP-012：其实已支持 IM 推送", "能力目录里写错的地方:CAP-012:其实已支持 IM 推送"):
+        assert pt.catalog_feedback_given(new.replace(q3, ans), new) is True, ans   # needs the repo default (git)
+    m = new.replace("- 主要客户行业、来源渠道：【填写】", "- 主要客户行业、来源渠道：行业：制造、零售；渠道：无")
+    assert pt.mock_feedback_given(m, new) is True and pt.mock_feedback_given(m, None) is True
+
+
+def test_section_3_answer_on_its_own_line_counts_but_intro_edits_do_not():
+    new = DEFAULT_MD.decode("utf-8")
+    q3 = "能力目录里写错的地方：【填写，例如“CAP-012 报表订阅其实已支持 IM 推送”】"
+    below = new.replace(q3, q3 + "\nCAP-012 其实已支持 IM 推送")
+    replaced = new.replace(q3, "CAP-012 其实已支持 IM 推送")
+    assert pt.catalog_feedback_given(below, new) is True and pt.catalog_feedback_given(replaced, new) is True
+    sec3 = new.split("## 3.", 1)[1].split("## 4.", 1)[0]
+    intro = sec3.strip().splitlines()[0]
+    assert pt.catalog_feedback_given(new.replace(intro, "（讲师改过的说明文字）"), new) is False

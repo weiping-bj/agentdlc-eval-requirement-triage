@@ -193,31 +193,40 @@ def md_section(text: str, n: int):
     return m.group(1) if m else None
 
 
-def _answer(line: str) -> str:
-    """Text after the LAST full-width colon (the question part may hold a link "https://...")."""
-    return (line.rsplit("：", 1)[-1] if "：" in line else line.rsplit(":", 1)[-1] if ":" in line else line).strip()
+_ASCII_COLON = re.compile(r":(?!//)")  # an ASCII colon that is not part of a link "https://"
 
 
-def section_answered(text: str, default_text, n: int, prose: bool) -> bool:
+def _split_qa(line: str):
+    """(question, answer): split at the FIRST full-width colon (the template puts exactly one after each question;
+    answers may contain more colons), else at the first ASCII colon that is not part of "://"."""
+    if "：" in line:
+        q, a = line.split("：", 1)
+        return q.strip(), a.strip()
+    m = _ASCII_COLON.search(line)
+    return (line[:m.start()].strip(), line[m.end():].strip()) if m else (None, line.strip())
+
+
+def section_answered(text: str, default_text, n: int) -> bool:
     """True when section n of discussion-feedback.md has an answer:
-    - a bullet whose answer is not a placeholder / "基本符合"-type reply, or an added bullet;
+    - a bullet or "问题：……" line whose answer is not a placeholder / "基本符合"-type reply, or an added bullet;
     - a table data row (below the |---| line) with any non-placeholder cell;
-    - a "问题：【填写…】" line of the repo default whose answer changed;
-    - with prose=True and a known repo default: any other non-empty line the default does not have.
-    Without the repo default only bullets and table rows count."""
+    - (when the repo default is known) any other line the default does not have, below the section's first
+      question, bullet or table -- intro wording above them never counts (it differs between template versions).
+    Without the repo default (no git) only bullets and table rows count."""
     sec = md_section(text, n)
     if sec is None:
         return False
     dsec = md_section(default_text, n) if default_text is not None else None
     known = {line.strip() for line in (dsec or "").splitlines()}
-    questions = {line.strip().rsplit("：", 1)[0] for line in (dsec or "").splitlines()
-                 if "：" in line and PLACEHOLDER_RX.search(line.rsplit("：", 1)[-1])}
-    in_table = False
+    # questions the default asks: the text before the first colon of every line that holds a placeholder
+    questions = {_split_qa(k[2:] if k.startswith("- ") else k)[0] for k in known if PLACEHOLDER_RX.search(k)} - {None}
+    in_table = started = False
     for line in (x.strip() for x in sec.splitlines()):
         if not line:
             in_table = False
             continue
         if line.startswith("|"):
+            started = True
             cells = [c.strip() for c in line.strip("|").split("|")]
             if all(set(c) <= set("-: ") for c in cells):
                 in_table = True          # separator: data rows follow
@@ -225,25 +234,25 @@ def section_answered(text: str, default_text, n: int, prose: bool) -> bool:
                 return True
             continue
         in_table = False
-        if line.startswith("- "):
-            if not _no_change(_answer(line[2:])):
+        body = line[2:] if line.startswith("- ") else line
+        q, a = _split_qa(body)
+        if line.startswith("- ") or (q is not None and (q in questions or PLACEHOLDER_RX.search(line))):
+            started = True
+            if not _no_change(a if q is not None else body):
                 return True
-        elif "：" in line and line.rsplit("：", 1)[0] in questions:
-            if not _no_change(_answer(line)):
-                return True
-        elif prose and dsec is not None and line not in known and not PLACEHOLDER_RX.search(line) and not _no_change(line):
+        elif started and dsec is not None and line not in known and not _no_change(line):
             return True
     return False
 
 
 def mock_feedback_given(text: str, default_text) -> bool:
     """Section 5 (mock data) answered -> 2.4 runs before 2.5."""
-    return section_answered(text, default_text, 5, prose=True)
+    return section_answered(text, default_text, 5)
 
 
 def catalog_feedback_given(text: str, default_text) -> bool:
     """Section 3 (capability catalog) answered -> prompt 04 runs before prompt 03."""
-    return section_answered(text, default_text, 3, prose=False)
+    return section_answered(text, default_text, 3)
 
 
 def git_default(root: Path, name: str):
@@ -526,10 +535,12 @@ class Puller:
             p("  1. 2.4 改 mock 数据（模板第 5 节有意见，必须在 2.5 之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")
         else:
             p("  1. 2.4 跳过：模板第 5 节没填，或写的是“基本符合”")
-        p("  2. 2.5 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
         if catalog:
-            p("     模板第 3 节补了能力目录：先 claude \"$(cat data/prompts/04-update-capability-catalog.md)\"，")
-        p("     再 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
+            p("  2. 2.5 模板第 3 节补了能力目录：先 claude \"$(cat data/prompts/04-update-capability-catalog.md)\"，")
+            p("     再 python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，最后 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
+        else:
+            p("  2. 2.5 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
+            p("     再 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
         p("  3. 2.6 冻结：python3 data/tools/golden_tool.py freeze")
         changed = "mock 数据" if mock and not catalog else "能力目录" if catalog and not mock else "mock 数据和能力目录"
         p("  4. 评估器已注册过：./30-create-evaluators.sh（第 6 章）" + (

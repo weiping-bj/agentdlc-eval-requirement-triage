@@ -112,8 +112,9 @@ def cmd_feedback_template(a) -> int:
             if (r.get("操作") or "保留") != "保留" or (r.get("备注") or "").strip():  # a note is an edit too
                 return True
             cur = fresh.get(r.get("golden_id"))
+            # matched by golden_id: a feedback_id renumbered by 2.4 is not an edit (same rule as apply-feedback)
             return cur is None or any((r.get(k) or "").strip() != ("" if cur.get(k) is None else str(cur.get(k))).strip()
-                                      for k in G.FEEDBACK_CSV_FIELDS if k not in ("操作", "备注"))
+                                      for k in G.FEEDBACK_CSV_FIELDS if k not in ("操作", "备注", "feedback_id"))
         if any(edited(r) for r in existing):
             print(f"{out} 里已有修改内容，未覆盖（加 --force 覆盖）")
             return 1

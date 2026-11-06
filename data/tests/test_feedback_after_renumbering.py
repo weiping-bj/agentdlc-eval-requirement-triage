@@ -28,5 +28,14 @@ def test_add_row_pointing_at_an_id_outside_the_pool_warns():
     fb = [{"golden_id": "", "feedback_id": "FB-2610-012", "操作": "新增", "是否重要": "否", "是否紧急": "否",
            "处理建议": "待评估", "五维": "质量", "样例类型": "模糊"}]
     _, log = G.apply_feedback(rows, fb, "v2", pool)
-    warn = [line for line in log if "FB-2610-012" in line and "不在" in line]
+    warn = [line for line in log if "FB-2610-012" in line and "找不到" in line]
     assert len(warn) == 1 and "第 2 行" in warn[0], log
+
+
+def test_no_warning_when_the_add_row_brings_its_own_text_or_the_pool_is_empty_but_text_given():
+    rows = C.read_jsonl(C.GOLDEN_PATH)
+    fb = [{"golden_id": "", "feedback_id": "CUST-0007", "操作": "新增", "标题": "客户条目", "需求描述": "客户自己的需求原文",
+           "是否重要": "否", "是否紧急": "否", "处理建议": "待评估", "五维": "质量", "样例类型": "模糊"}]
+    for pool in ({}, {r["id"]: r for r in C.read_jsonl(C.FEEDBACK_PATH)}):
+        _, log = G.apply_feedback(rows, fb, "v2", pool)
+        assert not [line for line in log if "找不到" in line], log

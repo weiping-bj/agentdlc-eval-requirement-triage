@@ -55,7 +55,7 @@
      再 claude "$(cat data/prompts/03-update-golden-set.md)"
   3. 2.6 冻结：python3 data/tools/golden_tool.py freeze
   4. 评估器已注册过：./30-create-evaluators.sh（第 6 章）；B 版 Runtime 已部署过还要：./20-B-deploy-runtime.sh（B3，把新的 mock 数据 打进包）</pre>
-  模板第 5 节没填或写的是“基本符合”时，第 1 条显示 <code>2.4 跳过</code>，第 4 条没有 B 版那半句。再运行一次会显示“与 EC2 上现有文件相同，无需拷贝”，不会重复备份。</div>
+  模板第 5 节没填或写的是“基本符合”时，第 1 条显示 <code>2.4 跳过</code>；第 3、5 节都没填时，第 4 条没有 B 版那半句；第 3 节补了能力目录时，第 2 条先列出提示词 04。再运行一次会显示“与 EC2 上现有文件相同，无需拷贝”，不会重复备份。</div>
   <p class="where">脚本：<a data-repo="tools/pull-templates.sh">tools/pull-templates.sh</a> → <a data-repo="labkit/pull_templates.py">labkit/pull_templates.py</a>。只会写 <code>data/templates/</code> 下这两个文件；Excel 存的 GBK 编码会自动转成 UTF-8；重复运行是安全的（内容没变就跳过）。</p>
   <table>
     <tr><th style="width:36%">看到的提示</th><th>意思 / 怎么办</th></tr>
@@ -74,7 +74,7 @@
     <li><a href="#s-2-4">2.4</a> 模板第 5 节写了 mock 数据意见才做：一行命令交给 coding agent（提示词 02）；没填或写的是“基本符合”就跳过。一定在 2.5 之前：提示词 03 要读 <code>data/feedback_last_month.jsonl</code>（数“几个客户提过”，按 <code>feedback_id</code> 取“新增”行的需求原文）。</li>
     <li><a href="#s-2-5">2.5</a> CSV 或模板第 1–4 节有改动才做：模板第 3 节补了能力目录时，先交给 coding agent 提示词 04（改能力目录）；再 <code>apply-feedback --dry-run</code> 预览，最后提示词 03。</li>
     <li><a href="#s-2-6">2.6</a> 冻结：做了 2.4 或 2.5 都要做。</li>
-    <li>回到本章之后的流程（A 版 <a href="a3-instrument.html">A3</a>，B 版 <a href="b3-deploy.html">B3</a>）。如果之前已经注册过评估器，重跑 <code>./30-create-evaluators.sh</code>（<a href="06-evaluators.html">第 6 章</a>），评估器才会用上新黄金集。B 版：部署时会把 <code>data/capability_catalog.json</code> 和 <code>data/feedback_last_month.jsonl</code> 打进 Runtime 包（<code>labkit/runtime.py</code> 的 <code>DATA_FILES</code>），所以 Runtime <b>已经部署过</b>、而 2.4 改了 mock 数据或提示词 04 改了能力目录时，要重跑 <code>./20-B-deploy-runtime.sh</code>（<a href="b3-deploy.html">B3</a>，更新同一个 Runtime）；还没做 B3 就不用管。A 版每次本地运行都直接读 <code>data/</code>，不用额外操作。</li>
+    <li>回到本章之后的流程（A 版 <a href="a3-instrument.html">A3</a>，B 版 <a href="b3-deploy.html">B3</a>）。如果之前已经注册过评估器，重跑 <code>./30-create-evaluators.sh</code>（<a href="06-evaluators.html">第 6 章</a>），评估器才会用上新黄金集。B 版：部署时会把 <code>data/capability_catalog.json</code> 和 <code>data/feedback_last_month.jsonl</code> 打进 Runtime 包（<code>labkit/runtime.py</code> 的 <code>DATA_FILES</code>），所以 Runtime <b>已经部署过</b>、而 2.4 改了 mock 数据或提示词 04 改了能力目录时，要重跑 <code>./20-B-deploy-runtime.sh</code>（<a href="b3-deploy.html">B3</a>，更新同一个 Runtime）；还没做 B3 就不用管。A 版每次本地运行都直接读 <code>data/</code>，不用额外操作。用了客户数据（设过 <code>S12_DATA_DIR</code>）时，Agent 和 Runtime 读的是 <code>data/customer/agent_data/</code> 里的副本：改了能力目录要再运行一次 2.3 的 <code>--use-as-input</code> 复制过去。</li>
   </ol></div>
   <div class="tip"><b>改动很小？</b>例如只改了一两句口径，可以不走 S3：在 EC2 上运行 <code>claude</code>，直接告诉它“把 data/templates/discussion-feedback.md 第 1.2 节‘紧急 = 是’的口径改成：……”。<b>CSV 不要粘贴</b>进对话（30 多行、很多逗号，容易错列或被截断），请走上面的 S3 步骤。</div>
   <div class="note"><b>一组有好几台 EC2？</b>（大家在同一个实验账号里）记录员只上传一次，传到<b>操作员</b>的桶里。操作员拉取后用 coding agent 更新黄金集（2.5），再把 coding agent 改好的 CSV 传回桶里<b>同一个位置</b>覆盖原文件（路径就是拉取时 <code>←</code> 后面显示的那个）：<code>aws s3 cp data/templates/golden-set-feedback.csv s3://操作员的桶/golden-set-feedback.csv</code>。其他人再从这个桶拉（桶名找操作员要，就是操作员运行 <code>--prepare</code> 时打印的那个）：<code>./tools/pull-templates.sh --bucket s12lab-操作员后缀-&lt;account&gt;-us-west-2</code>，然后只运行 2.5 的两行 <code>apply-feedback</code> 命令和 2.6 的 <code>freeze</code>（不必再用 coding agent），黄金集就和操作员的一致。</div>
@@ -135,7 +135,7 @@ CAP-008 已支持 自定义函数</pre></div>
   </ol>
 <pre><code>claude "$(cat data/prompts/01-assess-customer-data.md)"</code></pre>
   <p class="where">提示词：<a data-repo="data/prompts/01-assess-customer-data.md">01-assess-customer-data.md</a>（使用说明：<a data-repo="data/prompts/README.md">data/prompts/README.md</a>）。背后跑的是 <a data-repo="data/tools/ingest_customer_data.py">data/tools/ingest_customer_data.py</a>；手机号 / 邮箱 / 身份证号默认打码。</p>
-  <div class="expect"><span class="label">预期结果：</span><code>data/customer/</code> 下生成 <code>feedback.normalized.jsonl</code> 和 <code>.csv</code>（统一格式）、<code>report.md</code>（数据充分性报告：字段覆盖、文本质量、个人信息、能否支撑三项判断，结论为“充足 / 基本可用 / 不足”）；客户数据带有历史判断（是否重要 / 是否紧急 / 处理建议）时还会生成 <code>golden_candidates.jsonl</code>（黄金集候选）。下面是用仓库自带 60 条数据试跑时 <code>report.md</code> 的开头（节选）：
+  <div class="expect"><span class="label">预期结果：</span><code>data/customer/</code> 下生成 <code>feedback.normalized.jsonl</code> 和 <code>.csv</code>（统一格式）、<code>report.md</code>（数据充分性报告：字段覆盖、文本质量、个人信息、能否支撑三项判断，结论为“充足 / 基本可用 / 不足”）；客户数据带有历史判断（是否重要 / 是否紧急 / 处理建议）时还会生成 <code>golden_candidates.jsonl</code>（黄金集候选：只作对照参考，留在 <code>data/customer/</code>，不并入公开的黄金集）。下面是用仓库自带 60 条数据试跑时 <code>report.md</code> 的开头（节选）：
 <pre class="out"># 客户数据充分性报告
 
 - 来源文件：`feedback_last_month.csv`（60 行 → 有效 60 条）
@@ -243,7 +243,7 @@ cat data/customer/report.md</code></pre></li>
   <div class="note" id="s-2-5-template"><b>这条命令做什么、什么时候用：</b>它按<b>当前</b>黄金集重新生成 <code>data/templates/golden-set-feedback.csv</code>，每行“操作”都是 <code>保留</code>，和仓库里自带的那份一样。
   <ul>
     <li>上午的表已经在 <a href="#s-2-0">2.0</a> 拷进来了：<b>不要运行</b>，直接从下面第 3 条开始。</li>
-    <li>要用的时候：(a) 黄金集已经改完并冻结、还想再改一轮：旧表已过时，先用它重新生成；(b) 上午没填表的组（可选：仓库已经自带一份，通常不需要）。</li>
+    <li>要用的时候：(a) 黄金集已经改完并冻结、还想再改一轮：旧表已过时（里面还留着上一轮的“修改”行），加 <code>--force</code> 重新生成；(b) 上午没填表的组（可选：仓库已经自带一份，通常不需要）。</li>
     <li>不会误删：表里已经有改动（“操作”不是 <code>保留</code>，或任何一格和当前黄金集不同，包括“备注”）时，它只打印 <code>已有修改内容，未覆盖</code>；确实要覆盖才加 <code>--force</code>。</li>
   </ul></div>
   <ol class="clicks" start="3">

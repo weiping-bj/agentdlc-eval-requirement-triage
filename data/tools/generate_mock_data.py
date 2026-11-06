@@ -163,8 +163,8 @@ def main(argv=None) -> int:
         print(f"  - {CATEGORY_CN.get(k, k)}：{v}")
     if os.path.abspath(a.out) == os.path.abspath(C.FEEDBACK_PATH):
         import mock_views as MV  # noqa: E402  (lazy: mock_views imports this module)
-        used_extra = _resolve(params["extra_items_file"]) if params.get("extra_items_file") else None
-        if MV.CV.sync(MV.planned(extra_path=used_extra), check=False):
+        # default params (as sync_shared --check uses), so the page never flips between the two
+        if MV.CV.sync(MV.planned(), check=False):
             print(f"已刷新讨论用的网页版：{os.path.relpath(MV.HTML_PATH, C.REPO)}")
     id_map = {r["_meta"]["source_id"]: r["id"] for r in items if r["_meta"].get("source_id") and r["_meta"]["source_id"] != r["id"]}
     if not a.write_golden and os.path.exists(a.golden_out):

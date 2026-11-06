@@ -79,3 +79,20 @@ def test_guide_note_matches_the_command():
     assert after.lstrip().startswith('<div class="note" id="s-2-5-template">')
     note = after.split("</div>", 1)[0]
     assert "已有修改内容，未覆盖" in note and "--force" in note and "不要运行" in note and 'href="#s-2-0"' in note
+
+
+def test_untouched_sheet_is_not_an_edit_after_2_4_renumbered_the_ids(tmp_path):
+    import json
+    golden = tmp_path / "golden_set.jsonl"
+    rows = C.read_jsonl(C.GOLDEN_PATH)
+    with open(golden, "w", encoding="utf-8") as f:
+        for r in rows:
+            r = dict(r, feedback_id=r["feedback_id"].replace("FB-2610-", "FB-2611-"))
+            r["input"] = dict(r["input"], id=r["feedback_id"])
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    out = tmp_path / "fb.csv"
+    out.write_bytes(open(SHIPPED, "rb").read())          # the morning sheet, still with the old ids
+    r = subprocess.run([PY, "-I", os.path.join(C.TOOLS, "golden_tool.py"), "--golden", str(golden), "feedback-template",
+                        "--out", str(out)], capture_output=True, text=True, cwd=C.REPO)
+    assert r.returncode == 0, r.stdout
+    assert "FB-2611-" in out.read_text(encoding="utf-8-sig")

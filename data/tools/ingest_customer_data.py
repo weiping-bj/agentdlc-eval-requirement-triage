@@ -249,7 +249,7 @@ def report(a, src) -> str:
           "- 打码只覆盖常见格式（手机号、座机、邮箱、身份证号），人名、地址不会识别：请勿把输出提交到公开仓库", "", "## 能否直接做黄金集"]
     if a["label_candidates"]:
         L.append(f"- 客户数据带有历史判断 {a['label_candidates']} 条，其中三项齐全 {a['label_complete']} 条 → "
-                 + ("**可以**作为黄金集候选（见 golden_candidates.jsonl），仍需按 data/golden/LABELING_GUIDE.md 复核并补五维/拒绝要点"
+                 + ("**可以**作为对照参考（见 golden_candidates.jsonl，只留在 data/customer/，不要并入公开的 data/golden/）"
                     if a["golden_ready"] else "不足 20 条，建议与 mock 黄金集合并，或现场补标"))
         L.append(f"- 历史标签分布：{json.dumps(a['label_dist'], ensure_ascii=False)}")
     else:

@@ -175,42 +175,75 @@ def safe_dest(templates_dir: Path, root: Path, name: str) -> Path:
 
 
 PLACEHOLDER = "【填写】"
-# answers that mean "no change wanted" (section 5 then needs no 2.4); compared after dropping spaces/punctuation
-NO_CHANGE = {"基本符合", "符合", "符合实际", "基本符合实际", "无", "没有", "无意见", "没意见", "不用改", "不需要", "不需要改",
-             "同意", "可以", "ok", "-", "—", "/"}
+PLACEHOLDER_RX = re.compile(r"【填写[^】]*】")  # also "【填写，例如……】"
+# answers that mean "no change wanted"; compared after dropping spaces/punctuation
+NO_CHANGE = {"基本符合", "符合", "符合实际", "基本符合实际", "符合没意见", "基本符合没意见", "差不多", "基本一致", "一致",
+             "无", "没有", "暂无", "无意见", "没意见", "没有意见", "无补充", "不用改", "不需要", "不需要改", "同意", "可以",
+             "ok", "-", "—", "/"}
 
 
 def _no_change(value: str) -> bool:
-    v = re.sub(r"[\s。.，,！!；;：:]", "", value.replace(PLACEHOLDER, "")).lower()
+    v = re.sub(r"[\s。.，,！!；;：:、]", "", PLACEHOLDER_RX.sub("", value)).lower()
     return v == "" or v in NO_CHANGE
 
 
 def md_section(text: str, n: int):
     """Body of '## <n>.' (title line excluded) up to the next '## ' heading, or None."""
-    m = re.search(rf"^## {n}\.[^\n]*\n(.*?)(?=^## |\Z)", text.replace("\r\n", "\n"), re.S | re.M)
+    m = re.search(rf"^## {n}\.[^\n]*\n(.*?)(?=^## |\Z)", text.replace("\r\n", "\n").replace("\r", "\n"), re.S | re.M)
     return m.group(1) if m else None
 
 
-def mock_feedback_given(text: str, default_text) -> bool:
-    """True when section 5 (mock-data feedback) of discussion-feedback.md has an answer: a bullet whose value is
-    no longer the bare placeholder, an added bullet, or (when the repo default is known) any other added line.
-    Intro wording that differs between template versions does not count."""
-    sec = md_section(text, 5)
+def _answer(line: str) -> str:
+    """Text after the LAST full-width colon (the question part may hold a link "https://...")."""
+    return (line.rsplit("：", 1)[-1] if "：" in line else line.rsplit(":", 1)[-1] if ":" in line else line).strip()
+
+
+def section_answered(text: str, default_text, n: int, prose: bool) -> bool:
+    """True when section n of discussion-feedback.md has an answer:
+    - a bullet whose answer is not a placeholder / "基本符合"-type reply, or an added bullet;
+    - a table data row (below the |---| line) with any non-placeholder cell;
+    - a "问题：【填写…】" line of the repo default whose answer changed;
+    - with prose=True and a known repo default: any other non-empty line the default does not have.
+    Without the repo default only bullets and table rows count."""
+    sec = md_section(text, n)
     if sec is None:
         return False
-    known = set()
-    if default_text is not None:
-        known = {line.strip() for line in (md_section(default_text, 5) or "").splitlines()}
+    dsec = md_section(default_text, n) if default_text is not None else None
+    known = {line.strip() for line in (dsec or "").splitlines()}
+    questions = {line.strip().rsplit("：", 1)[0] for line in (dsec or "").splitlines()
+                 if "：" in line and PLACEHOLDER_RX.search(line.rsplit("：", 1)[-1])}
+    in_table = False
     for line in (x.strip() for x in sec.splitlines()):
         if not line:
+            in_table = False
             continue
-        if line.startswith("- "):
-            value = re.split(r"[：:]", line, maxsplit=1)[-1].strip() if re.search(r"[：:]", line) else line[2:].strip()
-            if not _no_change(value):
+        if line.startswith("|"):
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if all(set(c) <= set("-: ") for c in cells):
+                in_table = True          # separator: data rows follow
+            elif in_table and any(c and not _no_change(c) for c in cells):
                 return True
-        elif default_text is not None and line not in known and PLACEHOLDER not in line and not _no_change(line):
+            continue
+        in_table = False
+        if line.startswith("- "):
+            if not _no_change(_answer(line[2:])):
+                return True
+        elif "：" in line and line.rsplit("：", 1)[0] in questions:
+            if not _no_change(_answer(line)):
+                return True
+        elif prose and dsec is not None and line not in known and not PLACEHOLDER_RX.search(line) and not _no_change(line):
             return True
     return False
+
+
+def mock_feedback_given(text: str, default_text) -> bool:
+    """Section 5 (mock data) answered -> 2.4 runs before 2.5."""
+    return section_answered(text, default_text, 5, prose=True)
+
+
+def catalog_feedback_given(text: str, default_text) -> bool:
+    """Section 3 (capability catalog) answered -> prompt 04 runs before prompt 03."""
+    return section_answered(text, default_text, 3, prose=False)
 
 
 def git_default(root: Path, name: str):
@@ -487,16 +520,20 @@ class Puller:
         except (OSError, PullError):
             text, default = "", None
         mock = mock_feedback_given(text, default)
+        catalog = catalog_feedback_given(text, default)
         p("下一步（手册第 2 章，按顺序；2.1/2.2 只读、2.3 只在客户自带数据时做）：")
         if mock:
             p("  1. 2.4 改 mock 数据（模板第 5 节有意见，必须在 2.5 之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")
         else:
             p("  1. 2.4 跳过：模板第 5 节没填，或写的是“基本符合”")
         p("  2. 2.5 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
+        if catalog:
+            p("     模板第 3 节补了能力目录：先 claude \"$(cat data/prompts/04-update-capability-catalog.md)\"，")
         p("     再 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
         p("  3. 2.6 冻结：python3 data/tools/golden_tool.py freeze")
+        changed = "mock 数据" if mock and not catalog else "能力目录" if catalog and not mock else "mock 数据和能力目录"
         p("  4. 评估器已注册过：./30-create-evaluators.sh（第 6 章）" + (
-            "；B 版 Runtime 已部署过还要：./20-B-deploy-runtime.sh（B3，把新 mock 数据打进包）" if mock else ""))
+            f"；B 版 Runtime 已部署过还要：./20-B-deploy-runtime.sh（B3，把新的 {changed} 打进包）" if (mock or catalog) else ""))
 
 
 # ----------------------------------------------------------------------------- AWS glue

@@ -14,7 +14,8 @@
 <section class="card chapter-head">
 <h1><span class="num">6</span>注册评估器 + 开启在线评估 <span class="applies common">A/B 通用</span></h1>
 <p class="lead">评估器是“打分规则”。我们事先写好并测试过自定义评估器，再加上内置评估器，一起注册到 AgentCore Evaluations；最后开启在线评估，让分数自动显示在 CloudWatch 控制台。</p>
-<div class="warn">在线评估只给<b>开启之后</b>产生的新 session 打分。所以一定要先完成本章（尤其 6.6），再到第 7 章跑黄金集。</div>
+<div class="warn">在线评估只给<b>开启之后</b>产生的新 session 打分。所以一定要先完成本章（尤其 <a href="#s-6-5">6.5</a>），再到第 7 章跑黄金集。</div>
+<p class="where"><b>前提：</b><a href="#s-6-1">6.1</a>–<a href="#s-6-4">6.4</a> 两条路线通用，只需要完成第 2 章；从 <a href="#s-6-5">6.5</a> 开始分路线，需要先完成自己路线的 agent 部署（B 版 <a href="b3-deploy.html">B3</a> / A 版 <a href="a3-instrument.html">A3</a>：A 版的在线评估只给 A3 本地运行的 Agent 打分，A4 导入的旧日志用的是另一个服务名，不在其中）。</p>
 </section>
 <section class="card">
 

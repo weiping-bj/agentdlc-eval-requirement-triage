@@ -476,6 +476,10 @@ def test_section_5_detection():
     ok = new.replace("实际占多少）：【填写】", "实际占多少）：基本符合").replace("举 1~2 个例子）：【填写】", "举 1~2 个例子）：无。")
     assert f(ok, new) is False
     assert f(ok.replace("上个月大概有多少条需求反馈：【填写】", "上个月大概有多少条需求反馈：基本符合，约 80 条"), new) is True
+    # a question holding a link (https://...) is not mistaken for an answer, with or without the repo default
+    linked = new.replace("实际占多少）：【填写】", "实际占多少，见 [分布](https://example.com/mock-data.html#dist-category)）：【填写】")
+    assert f(linked, linked) is False and f(linked, None) is False
+    assert f(linked.replace("#dist-category)）：【填写】", "#dist-category)）：三成"), linked) is True
     # without a repo default only the placeholders count
     assert f(new, None) is False
     assert f(new.replace("实际占多少）：【填写】", "实际占多少）：三成"), None) is True
@@ -491,3 +495,34 @@ def test_guide_expected_output_matches_the_next_steps_printed(repo):
     for line in block:
         assert line in s20, line
     assert 'id="s-2-0-next"' in s20 and all(f'href="#s-2-{k}"' in s20 for k in range(1, 7))
+
+
+def test_section_3_catalog_detection():
+    new = DEFAULT_MD.decode("utf-8")
+    f = pt.catalog_feedback_given
+    assert f(new, new) is False and f(new, None) is False
+    row = new.replace("| 【填写】 | | | | |", "| 报表订阅推送到企业微信 | 部分支持 | 可订阅邮件 | 不能推 IM | 用开放 API |")
+    assert f(row, new) is True and f(row, None) is True                       # a table row filled in
+    fix = new.replace("能力目录里写错的地方：【填写，例如“CAP-012 报表订阅其实已支持 IM 推送”】", "能力目录里写错的地方：CAP-012 其实已支持 IM 推送")
+    assert f(fix, new) is True
+    none = new.replace("能力目录里写错的地方：【填写，例如“CAP-012 报表订阅其实已支持 IM 推送”】", "能力目录里写错的地方：无")
+    assert f(none, new) is False
+    assert pt.mock_feedback_given(row, new) is False                           # sections are independent
+
+
+def test_next_steps_add_prompt_04_and_the_b_note_when_only_section_3_changed(repo):
+    md = DEFAULT_MD.decode("utf-8").replace("| 【填写】 | | | | |", "| 报表订阅推送到企业微信 | 部分支持 | | | |")
+    rc, out = run(repo, FakeS3({MD: (md.encode("utf-8"), t(6)), CSV: (edited_csv_gbk(), t(6))}))
+    steps = _next_steps(out)
+    assert "跳过" in _step(steps, "2.4")[1]
+    block = "\n".join(steps)
+    assert block.index("04-update-capability-catalog.md") < block.index("03-update-golden-set.md")
+    last = [line for line in steps if line.strip()][-1]
+    assert last.lstrip().startswith("4.") and "./20-B-deploy-runtime.sh" in last and "能力目录" in last and "mock" not in last
+
+
+def test_crlf_template_is_read_the_same():
+    new = DEFAULT_MD.decode("utf-8")
+    crlf = new.replace("\n", "\r\n")
+    assert pt.mock_feedback_given(crlf, new) is False and pt.catalog_feedback_given(crlf, new) is False
+    assert pt.mock_feedback_given(crlf.replace("反馈：【填写】", "反馈：约 300 条"), new) is True

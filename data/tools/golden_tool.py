@@ -109,7 +109,7 @@ def cmd_feedback_template(a) -> int:
         fresh = {r["golden_id"]: r for r in G.to_feedback_rows(rows)}
 
         def edited(r):
-            if (r.get("操作") or "保留") != "保留":
+            if (r.get("操作") or "保留") != "保留" or (r.get("备注") or "").strip():  # a note is an edit too
                 return True
             cur = fresh.get(r.get("golden_id"))
             return cur is None or any((r.get(k) or "").strip() != ("" if cur.get(k) is None else str(cur.get(k))).strip()
@@ -158,7 +158,7 @@ def cmd_apply(a) -> int:
             return
         print("")
         print("!" * 66)
-        print(f"⚠️ 有 {len(acc_warns)} 行的“可接受建议”没有包含“处理建议”，已被改成只接受处理建议（多答案丢了）：")
+        print(f"⚠️ 有 {len(acc_warns)} 行的“可接受建议”没有包含“处理建议”，会被改成只接受处理建议：")
         for line in acc_warns:
             print("   - " + line.replace("警告：", "", 1))
         print("   确实只要一个答案可以不管；否则在可接受建议里加上处理建议（用 / 分隔）后重跑")
@@ -175,6 +175,8 @@ def cmd_apply(a) -> int:
         unknown_summary()
         print("（dry-run，未写入）")
         print(G.stats_markdown(new_rows))
+        for w in warns:
+            print("警告：" + w)
         acceptable_summary()
         return 0
     bk = _backup(a.golden)

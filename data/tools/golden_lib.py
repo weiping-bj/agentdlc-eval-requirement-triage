@@ -271,7 +271,7 @@ def _apply_fields(row: Dict[str, str], g: Dict[str, Any]) -> List[str]:
         g["acceptable_decisions"] = [dec]
         if acc:
             warns.append(f"{ACC_WARN}：可接受建议“{row.get('可接受建议', '').strip()}”里没有处理建议“{dec}”，"
-                         f"已改成只接受“{dec}”；要保留多个答案，请在可接受建议里也写上“{dec}”（用 / 分隔）后重跑")
+                         f"会改成只接受“{dec}”；要保留多个答案，请在可接受建议里也写上“{dec}”（用 / 分隔）后重跑")
     if row.get("可自动拒绝"):
         yn = C.norm_yes_no(row["可自动拒绝"])
         # unknown text is kept as-is so validate() fails loudly instead of silently allowing rejection
@@ -316,7 +316,9 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
         if op == "keep":
             if target:
                 cur = {k: ("" if v is None else str(v)) for k, v in to_feedback_rows([target])[0].items()}
-                changed = [c for c in FEEDBACK_CSV_FIELDS if c not in ("操作", "备注")
+                # matched by golden_id: a feedback_id renumbered by generate_mock_data (2.4) is not an edit
+                skip = ("操作", "备注", "feedback_id") if gid in idx else ("操作", "备注")
+                changed = [c for c in FEEDBACK_CSV_FIELDS if c not in skip
                            and (row.get(c) or "").strip() != cur.get(c, "").strip() and (row.get(c) or "").strip()]
                 if changed:
                     log.append(f"警告：CSV 第 {n} 行（{target['golden_id']}）的 {'、'.join(changed)} 有改动，但“操作”是“保留”，"
@@ -358,6 +360,9 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
                                 "matched_capabilities": [], "version": version, "source": "workshop"}
         if fid and feedback_pool and fid in feedback_pool:
             base["input"] = input_of(feedback_pool[fid])
+        elif fid and feedback_pool is not None:
+            log.append(f"警告：CSV 第 {n} 行：feedback_id {fid} 不在当前需求池 data/feedback_last_month.jsonl 里"
+                       f"（2.4 改了月份或编号前缀？）：改成新编号，或把 feedback_id 留空并填写标题和需求描述")
         if not fid:
             k = 901
             existing = {r["feedback_id"] for r in new_rows}

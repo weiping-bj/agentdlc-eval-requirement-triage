@@ -120,7 +120,7 @@ def norm_type(v):
 
 
 def normalize(rows, mapping, do_mask=True, append_cols=()):
-    """append_cols: unmapped customer columns to append to content as "列名: 值" lines (so the agent reads them)."""
+    """append_cols are only left out of `extra` here; append_columns() adds them to content after assess()."""
     out, cands, pii = [], [], Counter()
     seen = Counter()
     for i, raw in enumerate(rows, 1):
@@ -144,10 +144,6 @@ def normalize(rows, mapping, do_mask=True, append_cols=()):
             item["title"] = item["content"][:30]
         if not item.get("content") and item.get("title"):
             item["content"] = item["title"]
-        for col in append_cols:
-            v = str(raw.get(col) if raw.get(col) is not None else "").strip()
-            if v:
-                item["content"] = (item.get("content") or "") + f"\n{col}: {mask(v, pii) if do_mask else v}"
         if "submitted_at" in item:
             item["submitted_at"] = C.norm_date(item["submitted_at"]) or item["submitted_at"]
         if "customer_tier" in item:
@@ -168,6 +164,27 @@ def normalize(rows, mapping, do_mask=True, append_cols=()):
                           "reply_points": [mask(x, pii) if do_mask else x for x in C.split_list(r.get("label_reply"))],
                           "complete": all(lab[k] for k in ("important", "urgent", "decision")), "source": "customer"})
     return out, cands, pii
+
+
+def append_columns(items, cands, rows, cols, do_mask, pii):
+    """Append the chosen unmapped columns to content as "列名: 值" lines, so the agent reads them.
+    Runs after assess(), so the text-quality checks judge the customer's own descriptions."""
+    by_id = {c["feedback_id"]: c for c in cands}
+    for item, raw in zip(items, rows):
+        add = []
+        for col in cols:
+            v = str(raw.get(col) if raw.get(col) is not None else "").strip()
+            if v:
+                add.append(f"{col}: {mask(v, pii) if do_mask else v}")
+        if add:
+            item["content"] = "\n".join([item["content"]] + add if item.get("content") else add)
+            if item["id"] in by_id:
+                by_id[item["id"]]["input"]["content"] = item["content"]
+
+
+def _md(s) -> str:
+    """Customer text inside a markdown table cell / heading: no '|' or line breaks that would break the layout."""
+    return re.sub(r"\s*[\r\n]+\s*", " ", str(s)).replace("|", "\\|")
 
 
 def assess(items, mapping, cands, pii, n_raw):
@@ -210,19 +227,19 @@ def report(a, src) -> str:
         L.append(f"| {name} | {'✅' if ok else '⚠️'} | {need} | {'' if ok else fix} |")
     L += [""]
     if a.get("appended"):
-        L.append(f"- 已追加到需求描述：{'、'.join(a['appended'])}（每条末尾一行“列名: 值”，Agent 能看到）")
+        L.append(f"- 已追加到需求描述：{'、'.join(_md(c) for c in a['appended'])}（每条末尾一行“列名: 值”，Agent 能看到）")
     unused = a.get("unused") or []
     if unused:
-        L += [f"## ⚠️ 这些列没有用上：{'、'.join(c for c, _ in unused)}", "",
+        L += [f"## ⚠️ 这些列没有用上：{'、'.join(_md(c) for c, _ in unused)}", "",
               "这些列原样留在 feedback.normalized.jsonl 的 extra 里，但 **Agent 不会读**，判断时用不上。"
               "某列对判断很重要时（例如影响人数、截止日期这类），加 `--append-to-content \"列名1,列名2\"` 重跑，"
               "把它以“列名: 值”一行追加到需求描述末尾；其余的记作下一轮迭代再考虑。", "",
-              "| 列名 | 有值的行数 |", "|---|---|"] + [f"| {c} | {n} |" for c, n in unused]
+              "| 列名 | 有值的行数 |", "|---|---|"] + [f"| {_md(c)} | {n} |" for c, n in unused]
     else:
         L.append("- 所有列都用上了。")
     L += ["", "## 字段识别与覆盖率", "", "| 源列名 | 映射到 |", "|---|---|"]
     for k, v in a["mapping"].items():
-        L.append(f"| {k} | {v} |")
+        L.append(f"| {_md(k)} | {v} |")
     L += ["", "| 字段 | 覆盖率 | 级别 |", "|---|---|---|"]
     for f in C.INPUT_FIELDS:
         lvl = "必需" if f in C.REQUIRED_FIELDS else ("推荐" if f in C.RECOMMENDED_FIELDS else "可选")
@@ -270,16 +287,21 @@ def main(argv=None) -> int:
     if not any(v in ("title", "content") for v in mapping.values()):
         print("错误：找不到“标题/需求描述”列。请用 --mapping 指定，例如 {\"反馈正文\": \"content\"}。识别到的列：" + ", ".join(cols))
         return 2
-    append_cols = [c.strip() for c in re.split(r"[,，、]", a.append_to_content) if c.strip()]
+    append_cols = list(dict.fromkeys(c.strip() for c in re.split(r"[,，、]", a.append_to_content) if c.strip()))
     for c in append_cols:
         if c not in cols:
             print(f"错误：--append-to-content 里的列“{c}”在文件里没有。文件里的列：" + ", ".join(cols))
+            return 2
+        if c in mapping and mapping[c].startswith("label_"):
+            print(f"错误：列“{c}”是历史判断（{mapping[c]}），只用于黄金集候选；追加给 Agent 等于把答案告诉它，不能追加")
             return 2
         if c in mapping:
             print(f"错误：列“{c}”已经对应到 {mapping[c]}，Agent 已经能读到，不用再追加")
             return 2
     items, cands, pii = normalize(rows, mapping, not a.no_mask, append_cols)
     res = assess(items, mapping, cands, pii, len(rows))
+    append_columns(items, cands, rows, append_cols, not a.no_mask, pii)
+    res["pii"] = dict(pii)  # appended values are masked too
     res["masked"] = not a.no_mask
     res["appended"] = append_cols
     res["unused"] = [(c, sum(1 for r in rows if r.get(c) not in (None, "") and str(r.get(c)).strip()))

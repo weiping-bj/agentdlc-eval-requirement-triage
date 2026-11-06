@@ -6,8 +6,8 @@
 
 The page shows the aggregate distributions (需求类别 / 反馈类型 / 客户等级 / 行业 / 来源渠道) and the
 items themselves. The category of each item comes from data/tools/seed/pool.jsonl (and the extra items
-file named in mock-data-params.yaml), joined by id, falling back to title + content when
-generate_mock_data renumbered the ids. Only the aggregate category distribution is shown, never a
+file named in mock-data-params.yaml), joined by title + content first (generate_mock_data may renumber
+ids; industry/channel overrides leave the text alone), then by id. Only the aggregate category distribution is shown, never a
 per-item category, because that is the answer key. The data file itself is untouched.
 
 Generated: do not edit docs/mock-data.html by hand. generate_mock_data.py refreshes it when it writes
@@ -31,7 +31,7 @@ from generate_mock_data import CATEGORY_CN, load_params  # noqa: E402
 
 HTML_PATH = os.path.join(C.REPO, "docs", "mock-data.html")
 CSV_REPO_PATH = "data/feedback_last_month.csv"
-PARAMS_PATH = os.path.join(C.DATA, "templates", "mock-data-params.yaml")
+PARAMS_PATH = os.path.join(C.templates_dir(), "mock-data-params.yaml")  # same default as generate_mock_data
 UNKNOWN = "未能归类（不在种子库或补充条目里）"
 
 # (field, column header) — same order as C.INPUT_FIELDS
@@ -156,10 +156,10 @@ def render_html(feedback: List[dict], cats: List[str]) -> str:
   <div class="step" id="items">
     <div class="step-head"><span class="num">明细</span><h3>{total} 条需求</h3></div>
     <p><input type="search" id="mock-q" placeholder="搜索：标题、描述、客户、行业、渠道、模块……（空格分隔多个词）" style="width:60%;padding:6px 10px;font-size:14px"> <span id="mock-n" class="where"></span></p>
-    <table>
+    <div style="overflow-x:auto"><table style="min-width:1250px">
       <tr>{head}</tr>
 {chr(10).join(rows)}
-    </table>
+    </table></div>
   </div>
 </section>
 

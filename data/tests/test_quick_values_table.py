@@ -35,7 +35,12 @@ def test_values_match_the_code_constants():
     assert C.split_list("迭代/待评估", C.TAG_SEPS) == ["迭代", "待评估"] and "<code>/</code>" in _row(b, "G 可接受建议")
     assert C.split_list("a；b", C.LIST_SEPS) == ["a", "b"] and C.split_list("a/b", C.LIST_SEPS) == ["a/b"]
     assert "<code>；</code>" in _row(b, "L 拒绝要点") and "不要用 /" in _row(b, "L 拒绝要点")
-    assert "⚠️" in _row(b, "G 可接受建议") and G.ACC_WARN                          # matches the loud warning
+    assert "⚠️" in _row(b, "G 可接受建议")                                           # matches the loud warning
+    # F: several values are silently reduced to one, in this order (the table says so)
+    assert C.norm_decision("迭代/待评估") == "待评估" and C.norm_decision("拒绝、迭代") == "拒绝"
+    assert "待评估 &gt; 拒绝 &gt; 迭代" in _row(b, "F 处理建议")
+    # D/E/I: common spellings are accepted, as the table says
+    assert C.norm_yes_no("yes") == "是" and C.norm_yes_no("√") == "是" and C.norm_yes_no("0") == "否"
 
 
 def test_every_labeling_guide_link_hits_a_real_heading():

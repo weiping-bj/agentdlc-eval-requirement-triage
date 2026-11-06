@@ -111,3 +111,20 @@ def test_guide_2_3_examples_are_true():
     with open(os.path.join(C.DATA, "prompts", "01-assess-customer-data.md"), encoding="utf-8") as f:
         prompt = f.read()
     assert "mapping.json" in prompt and "--sheet" in prompt and "--append-to-content" in prompt and "这些列没有用上" in prompt
+
+
+def test_appended_text_does_not_hide_short_descriptions_and_labels_cannot_be_appended(tmp_path, capsys):
+    p = tmp_path / "c.csv"
+    _csv(p, ["需求标题", "需求描述", "影响用户数", "是否重要", "列|含竖线"],
+         [[f"t{i}", "太慢", "1200 人，覆盖全部门店的一线销售", "是", "x"] for i in range(3)])
+    out = tmp_path / "o"
+    assert ING.main(["--in", str(p), "--out-dir", str(out), "--append-to-content", "影响用户数,影响用户数"]) == 0
+    items = C.read_jsonl(str(out / "feedback.normalized.jsonl"))
+    assert items[0]["content"] == "太慢\n影响用户数: 1200 人，覆盖全部门店的一线销售"   # once, no duplicate
+    rep = (out / "report.md").read_text(encoding="utf-8")
+    assert "过短（<15 字）：3 条" in rep                       # judged on the customer's own text
+    assert "| 列\\|含竖线 | 3 |" in rep                          # a '|' in a column name does not break the table
+    cands = C.read_jsonl(str(out / "golden_candidates.jsonl"))
+    assert cands[0]["input"]["content"] == items[0]["content"]
+    assert ING.main(["--in", str(p), "--out-dir", str(out), "--append-to-content", "是否重要"]) == 2
+    assert "历史判断" in capsys.readouterr().out

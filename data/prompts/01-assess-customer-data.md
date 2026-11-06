@@ -25,7 +25,7 @@
    - 哪些列没有用上，你建议追加到需求描述的是哪几列（以及理由）。
 3. 根据结论给出建议，**等我确认后再执行**：
    - **充足**：建议加 `--use-as-input` 重跑。它会生成 `data/customer/agent_data/`（客户数据 + 能力目录副本，不进 git），并打印 `export S12_DATA_DIR=…`；设置后 Agent 就读取客户数据。仓库里的 mock 文件不会被改动。
-   - **基本可用**：列出客户需要补充的字段。也可以建议与 mock 数据合并：把客户条目追加到 mock 文件末尾，`id` 不冲突即可。
+   - **基本可用**：列出客户需要补充的字段。也可以建议与 mock 数据合并：在 `data/customer/agent_data/` 里生成合并后的 `feedback_last_month.jsonl`（mock 条目 + 客户条目，`id` 不冲突）和 `capability_catalog.json` 副本，再用 `export S12_DATA_DIR=…` 指向它。**不要**改仓库里的 `data/feedback_last_month.jsonl`：它和由它生成的 `docs/mock-data.html` 都会公开发布。
    - **不足**：建议继续使用 mock 数据。用一句话说明原因，方便我说服客户，例如“缺少客户等级和反馈类型，Agent 无法判断重要和紧急，评估结果没有可比性”。
 4. 如果客户数据带有历史判断（输出了 `data/customer/golden_candidates.jsonl`），并且三项齐全的有 ≥20 条，告诉我可以按 `data/prompts/03-update-golden-set.md` 把它们并入黄金集。只给建议，不要自动合并。
 

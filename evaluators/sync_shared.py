@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Copy shared code + bundled data into each Lambda package directory, and render the LLM-judge config.
+"""Copy shared code + bundled data into each Lambda package directory, render the LLM-judge config,
+and regenerate the readable capability-catalog views.
 
     python3 evaluators/sync_shared.py          # write copies
     python3 evaluators/sync_shared.py --check  # exit 1 if any copy is stale (used by tests)
@@ -9,6 +10,8 @@ Copies:
   data/golden/golden_set.jsonl  -> */golden_set.json   ({"version", "items": {feedback_id: gold}})
   data/capability_catalog.json  -> s12_reject_quality/capability_catalog.json
   rubric.py                     -> evaluators/llm_judge_config/s12_reject_quality.json
+  data/capability_catalog.json  -> docs/catalog.html, data/capability_catalog.csv   (data/tools/catalog_views.py;
+                                   always the repo catalog, never --catalog: these two files are published)
 """
 from __future__ import annotations
 
@@ -59,7 +62,17 @@ def planned(golden_path: str, catalog_path: str) -> dict:
     with open(catalog_path, encoding="utf-8") as f:
         files[os.path.join(EV, "s12_reject_quality", "capability_catalog.json")] = f.read()
     files[os.path.join(EV, "llm_judge_config", "s12_reject_quality.json")] = _judge_config()
+    files = {p: c.encode("utf-8") for p, c in files.items()}
+    files.update(_catalog_views().planned())  # repo catalog only: a --catalog (e.g. customer data) must not reach docs/
     return files
+
+
+def _catalog_views():
+    tools = os.path.join(REPO, "data", "tools")
+    if tools not in sys.path:
+        sys.path.insert(0, tools)
+    import catalog_views  # noqa: E402
+    return catalog_views
 
 
 def main(argv=None) -> int:
@@ -68,23 +81,12 @@ def main(argv=None) -> int:
     ap.add_argument("--golden", default=os.path.join(REPO, "data", "golden", "golden_set.jsonl"))
     ap.add_argument("--catalog", default=os.path.join(REPO, "data", "capability_catalog.json"))
     a = ap.parse_args(argv)
-    stale = []
-    for path, content in planned(a.golden, a.catalog).items():
-        cur = None
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as f:
-                cur = f.read()
-        if cur != content:
-            stale.append(os.path.relpath(path, REPO))
-            if not a.check:
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
+    stale = [os.path.relpath(p, REPO) for p in _catalog_views().sync(planned(a.golden, a.catalog), a.check)]
     if a.check:
         if stale:
             print("过期的副本（请运行 python3 evaluators/sync_shared.py）：\n  " + "\n  ".join(stale))
             return 1
-        print("评估器副本已同步。")
+        print("评估器副本与能力目录视图已同步。")
         return 0
     print("已更新：" + (", ".join(stale) if stale else "无（已是最新）"))
     return 0

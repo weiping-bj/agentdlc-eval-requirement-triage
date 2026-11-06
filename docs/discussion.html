@@ -25,7 +25,7 @@
       <tr><th>#</th><th>产出</th><th>填到哪里</th></tr>
       <tr><td>1</td><td>三项标签的判断口径（含“是/否”还是“P0/P1/P2”的选择）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 1 节</td></tr>
       <tr><td>2</td><td>对样例黄金集的修改意见（哪些标错、缺哪类需求）</td><td><a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a></td></tr>
-      <tr><td>3</td><td>平台能力目录的补充（哪些能力已有、哪些明确不做）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 3 节</td></tr>
+      <tr><td>3</td><td>平台能力目录的补充（哪些能力已有、哪些明确不做）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 3 节（先看一遍 <a href="catalog.html">平台能力目录</a>）</td></tr>
       <tr><td>4</td><td>五维鱼骨图要点（认知 / 质量 / 责任 / 成本 / 性能）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 4 节</td></tr>
     </table>
   </div>
@@ -83,8 +83,8 @@
     </table>
     <div class="note"><b>想新增样例？</b>新增的样例不必来自那 60 条 mock 需求：在 <a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a> 里“操作”填 <code>新增</code>、<code>feedback_id</code> 留空，写上需求原文（O–U 列）和期望标签（D–N 列）；脚本自动编号为 <code>FB-NEW-9xx</code>，跑黄金集时直接用这一行的需求原文作为 Agent 输入。</div>
     <div class="warn">如果新样例的期望标签依赖“很多客户都提过”（通用性），还要把它和相似需求加进上个月的需求池 <code>data/feedback_last_month.jsonl</code>（Agent 的 <code>find_similar_requests</code> 工具只在这里找相似需求）：用提示词 <a data-repo="data/prompts/02-regenerate-mock-data.md">02-regenerate-mock-data.md</a>，按 <a data-repo="data/templates/extra-feedback.example.jsonl">extra-feedback.example.jsonl</a> 的格式写进 <code>data/templates/extra-feedback.jsonl</code>（现场新建）再重新生成，否则 Agent 看不到证据，会被判错。详见 <a href="02-data.html#s-2-5">第 2.5 步</a>。</div>
-    <p><b>填写示例</b>（<a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a> 第 1.1、2 节节选：只改 <code>【填写】</code> 处，没讨论到的保留默认值）：</p>
-<pre class="out">### 1.1 标签方案（二选一，在 [ ] 里打 x）
+    <p><b>填写示例</b>（<a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a> 第 1.1、2 节节选：只填 <code>【填写】</code> 处、表格里的空白格和勾选框，没讨论到的保留默认值）：</p>
+<pre class="out">### 1.1 标签方案（二选一，只勾选一项）
 - [x] A. 二元（默认）：是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估
 - [ ] B. 分级：优先级 P0/P1/P2 + 处理建议
 
@@ -96,7 +96,7 @@
 - [x] 合规或监管要求
 - [x] 合同承诺
 - [x] 线上功能缺陷（反馈类型=功能缺陷）
-- [x] 战略客户提出的任何需求      ← 例：讨论后决定加上这一条
+- [x] 战略客户提出的任何需求      ← 例：讨论后决定加上这一条（把 [ ] 改成了 [x]）
 自动拒绝后由谁复核、客户不服怎么办：产品经理每周抽查；客户不服转人工复核</pre>
     <p>下午在 <a href="02-data.html#s-2-5">第 2.5 步</a> 把这个文件交给 coding agent（提示词 <a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>），它会据此更新黄金集。</p>
   </div>
@@ -106,8 +106,9 @@
     <p class="why">上午还没有 EC2（下午 14:00 才创建），所以每组<b>一位记录员</b>在笔记本上填好两个文件，下午再通过 S3 交给 EC2。</p>
     <ol class="clicks">
       <li>点击下载（文件会存到浏览器的“下载”文件夹）：<a data-download="data/templates/discussion-feedback.md"></a> 和 <a data-download="data/templates/golden-set-feedback.csv"></a>。<br>
+        第 3 节要对照的平台能力目录（只看不改）：<a href="catalog.html">网页版</a> · Excel 版 <a data-download="data/capability_catalog.csv"></a>。<br>
         <small>点了只打开一页文字、没有下载时：打开 <a data-repo="data/templates/discussion-feedback.md">GitHub 上的 .md</a> / <a data-repo="data/templates/golden-set-feedback.csv">GitHub 上的 .csv</a>，点右上角的下载图标（Download raw file）。会场网络打不开 GitHub 时，找讲师要这两个文件。</small></li>
-      <li><code>discussion-feedback.md</code>：用任意文本编辑器打开（Windows 记事本、Mac 文本编辑、VS Code 都可以；<b>不要用 Word</b>），只改 <code>【填写】</code> 处，直接保存。</li>
+      <li><code>discussion-feedback.md</code>：用任意文本编辑器打开（Windows 记事本、Mac 文本编辑、VS Code 都可以；<b>不要用 Word</b>），只填 <code>【填写】</code> 处、表格里的空白格和勾选框，直接保存。勾选框在 GitHub 页面上显示为 ☑ / ☐，在文本里是 <code>[x]</code> / <code>[ ]</code>：<code>[x]</code> = 采用；要取消就把 <code>[x]</code> 改成 <code>[ ]</code>，要选中就把 <code>[ ]</code> 改成 <code>[x]</code>，不要删行。</li>
       <li><code>golden-set-feedback.csv</code>：用 Excel 打开，按 D.5 填“操作”等列。<b>Windows</b>：直接按 <span class="ui">Ctrl+S</span> 保存，提示“某些功能可能丢失 / 是否保持此格式”时选 <span class="ui">是 / 保留</span>（Excel 存成 GBK 编码也没关系，下午的脚本会自动转换）。<b>Mac</b>：用 <span class="ui">文件 → 另存为</span>，格式选 <span class="ui">CSV UTF-8（逗号分隔）</span>，文件名不变；用 Numbers 时选 <span class="ui">文件 → 导出为 → CSV</span>，文本编码选 Unicode（UTF-8）。</li>
       <li><b>不要改文件名</b>，也不要存成 <code>.xlsx</code> / <code>.docx</code> / <code>.txt</code>：下午的脚本按这两个文件名查找。只点一次下载（点两次会多出一个 “(1)” 副本）。</li>
     </ol>

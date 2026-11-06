@@ -7,7 +7,7 @@
 | 路径 | 内容 |
 |------|------|
 | [`feedback_last_month.jsonl`](feedback_last_month.jsonl)（[CSV 视图](feedback_last_month.csv)） | Agent 的输入：60 条“上个月（2026-10）的平台需求反馈” |
-| [`capability_catalog.json`](capability_catalog.json) | 平台能力目录：32 项能力 + 7 项“明确不做”，以及平台定位与原则。是 Agent 判断“已有 / 不做”的依据 |
+| [`capability_catalog.json`](capability_catalog.json)（[CSV 视图](capability_catalog.csv)，[网页版](https://weiping-bj.github.io/agentdlc-eval-requirement-triage/catalog.html)） | 平台能力目录：32 项能力 + 7 项“明确不做”，以及平台定位与原则。是 Agent 判断“已有 / 不做”的依据 |
 | [`golden/golden_set.jsonl`](golden/golden_set.jsonl)（[CSV 视图](golden/golden_set.csv)） | 黄金集，30 条，带标注 |
 | [`golden/LABELING_GUIDE.md`](golden/LABELING_GUIDE.md) | **标注标准**：是否重要、是否紧急、处理建议、不可自动拒绝、话术要点、五维 |
 | [`golden/agentcore_dataset.json`](golden/agentcore_dataset.json) | 黄金集投影为 AgentCore dataset 格式（`expected_response` 是标签 JSON） |

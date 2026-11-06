@@ -1,18 +1,20 @@
 # 11:00 分组讨论反馈（场景 12：需求价值打分）
 
 > 记录员现场填写。下午 coding agent 会读取本文件，按 [`data/prompts/03-update-golden-set.md`](../prompts/03-update-golden-set.md) 更新黄金集，按 [`02-regenerate-mock-data.md`](../prompts/02-regenerate-mock-data.md) 更新 mock 数据。
-> 只改 `【填写】` 处，没讨论到的保留默认值（已按 [`LABELING_GUIDE.md`](../golden/LABELING_GUIDE.md) 预填）。
+> 要填的只有：`【填写】` 处、表格里的空白格、勾选框；没讨论到的保留默认值（已按 [`LABELING_GUIDE.md`](../golden/LABELING_GUIDE.md) 预填）。
+>
+> 列表前的勾选框：GitHub 上显示为 ☑ / ☐，文本里写作 [x] / [ ]。☑（[x]）= 采用；要取消就把 [x] 改成 [ ]，要选中就把 [ ] 改成 [x]。不要删行。
 
 小组：【填写】　记录员：【填写】（可写角色，不必写姓名）
 
 ## 1. 标签口径
 
-### 1.1 标签方案（二选一，在 [ ] 里打 x）
+### 1.1 标签方案（二选一，只勾选一项）
 
 - [x] A. 二元（默认）：是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估
 - [ ] B. 分级：优先级 P0/P1/P2 + 处理建议
 
-选 B 时等级怎么算对（二选一）：[ ] 必须完全一致　[ ] 相差不超过一级也算对
+选 B 时等级怎么算对（二选一，选中的改成 [x]）：[ ] 必须完全一致　[ ] 相差不超过一级也算对
 
 ### 1.2 每个标签的判断口径（一句话即可；默认值见右侧，可直接改）
 
@@ -33,7 +35,7 @@
 
 ## 2. 不能让 AI 自动拒绝的需求
 
-默认（保留的打 x，不同意的删掉 x）：
+已预先勾选默认项；不同意的把 [x] 改成 [ ]，要加上的把 [ ] 改成 [x]（填了“其它”也要勾选）：
 
 - [x] 数据丢失或数据错误
 - [x] 安全漏洞、权限越权、隐私泄露
@@ -45,7 +47,7 @@
 
 自动拒绝后由谁复核、客户不服怎么办：【填写】
 
-拒绝话术必须包含（默认三条，可增删）：
+拒绝话术必须包含（已预先勾选默认项，改法同上）：
 
 - [x] 理解客户诉求
 - [x] 说明平台立场与原因
@@ -56,7 +58,9 @@
 
 ## 3. 平台能力目录的补充
 
-能力目录是 Agent 判断“已有 / 不做”的唯一依据（[`data/capability_catalog.json`](../capability_catalog.json)）。逐行填写，coding agent 会按 [`04-update-capability-catalog.md`](../prompts/04-update-capability-catalog.md) 更新。
+先把现有的平台能力目录**看一遍**：Agent 判断“已有能力 / 明确不做”只看它。网页版：[平台能力目录](https://weiping-bj.github.io/agentdlc-eval-requirement-triage/catalog.html)（按状态分组，“明确不做”单独一组）；Excel 版：[capability_catalog.csv](https://github.com/weiping-bj/agentdlc-eval-requirement-triage/blob/main/data/capability_catalog.csv)（打开后点右上角下载图标）。只看不改，也不用看 JSON。
+
+缺的能力、写错的地方填在下面（表格逐行填）。下午由 coding agent 据此更新目录，它用的提示词你们不用看。
 
 | 能力名称 | 状态（已支持/部分支持/规划中/明确不做） | 说明（能做什么） | 限制（不能做什么） | 替代方案 |
 |------|------|------|------|------|

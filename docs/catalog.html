@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>平台能力目录 · 场景 12 实验手册</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="catalog">
+<!-- 由 data/tools/catalog_views.py 根据 data/capability_catalog.json 生成，不要手改；改完 JSON 运行 python3 evaluators/sync_shared.py -->
+<div id="topbar"></div>
+<div class="layout">
+<nav id="toc"></nav>
+<main>
+
+<section class="card chapter-head">
+  <h1><span class="num">录</span>平台能力目录：示例 CRM PaaS 平台（合成） <span class="applies common">A/B 通用</span></h1>
+  <p class="lead">连接型 CRM PaaS：标准 CRM 应用 + 低代码 PaaS（自定义对象/函数/组件）+ 集成平台。</p>
+  <p>Agent 判断“已有能力 / 真实缺口 / 明确不做”只看这份目录。11:00 讨论时请<b>看一遍</b>：缺了哪些能力、哪里写错了，填进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 3 节；不用改本页，也不用看 JSON。</p>
+  <p>共 39 项：<a href="#st-supported"><span class="pill g">已支持 24 项</span></a> <a href="#st-partial"><span class="pill o">部分支持 8 项</span></a> <a href="#st-oos"><span class="pill r">明确不做 7 项</span></a></p>
+  <p class="where">版本 v1 · 全部为合成数据 · 本页由 <code>data/tools/catalog_views.py</code> 根据 <a data-repo="data/capability_catalog.json">capability_catalog.json</a> 自动生成 · Excel 版：<a data-download="data/capability_catalog.csv"></a></p>
+</section>
+
+<section class="card">
+  <div class="step" id="st-principles">
+    <div class="step-head"><span class="num">原则</span><h3>平台定位与原则</h3></div>
+    <ol><li>通用性优先：上个月 ≥3 个不同客户提出，或属于多数行业客户都会用到的能力缺口，才算通用需求。</li><li>配置优先于开发：已有能力能满足的，给出用法而不是新开发。</li><li>单客户深度定制通过自定义组件、自定义函数、开放 API 或伙伴实施解决，不进平台迭代。</li><li>安全、合规、多租户隔离与平台稳定性是红线，不可为单个客户让步。</li><li>数据丢失、安全漏洞、合规与合同承诺类反馈不可自动拒绝。</li></ol>
+  </div>
+
+  <div class="step" id="st-supported">
+    <div class="step-head"><span class="num">✓</span><h3>已支持（24 项）</h3></div>
+    <table>
+      <tr><th style="width:8%">编号</th><th style="width:11%">名称</th><th style="width:9%">模块</th><th style="width:8%">状态</th><th style="width:22%">说明</th><th style="width:16%">限制</th><th style="width:13%">替代方案</th><th style="width:13%">用法</th></tr>
+      <tr id="CAP-001"><td style="white-space:nowrap"><code>CAP-001</code></td><td>自定义对象与字段</td><td style="white-space:nowrap">对象与字段</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>可新建自定义对象，字段类型含文本、数字、日期、单选/多选、查找关联、公式、统计字段。</td><td>单个对象自定义字段上限 500 个。</td><td></td><td>后台 → 对象管理 → 新建对象/字段</td></tr>
+      <tr id="CAP-003"><td style="white-space:nowrap"><code>CAP-003</code></td><td>数据导入导出</td><td style="white-space:nowrap">数据导入导出</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>Excel 导入新建或按唯一字段（如客户编码）更新已有记录；Excel 导出。</td><td>单次导入/导出上限 10 万条；导出受导出权限与字段权限控制，导出操作写入审计日志。</td><td></td><td>列表页 → 导入 → 选择“按唯一字段更新”</td></tr>
+      <tr id="CAP-004"><td style="white-space:nowrap"><code>CAP-004</code></td><td>查重与合并</td><td style="white-space:nowrap">对象与字段</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>客户、线索、联系人可配置查重规则（名称、电话、统一社会信用代码等），录入时实时提示并可合并重复记录。</td><td></td><td></td><td>后台 → 对象管理 → 查重规则</td></tr>
+      <tr id="CAP-005"><td style="white-space:nowrap"><code>CAP-005</code></td><td>离职交接与负责人批量转移</td><td style="white-space:nowrap">权限与安全</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>员工离职时可一键把名下客户、商机、合同等记录转给接手人，并保留历史负责人记录。</td><td></td><td></td><td>后台 → 员工管理 → 离职交接</td></tr>
+      <tr id="CAP-006"><td style="white-space:nowrap"><code>CAP-006</code></td><td>页面布局与首页自定义组件</td><td style="white-space:nowrap">对象与字段</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>详情页、首页布局可按角色配置；支持自定义组件与“网页组件”把外部页面（如 ERP 页面）嵌入首页或详情页。</td><td>不为单个客户修改平台首页框架或导航结构。</td><td>用网页组件嵌入外部页面 + 开放 API 取数；复杂交互可由伙伴开发自定义组件。</td><td>后台 → 页面布局 → 首页组件</td></tr>
+      <tr id="CAP-007"><td style="white-space:nowrap"><code>CAP-007</code></td><td>审批流</td><td style="white-space:nowrap">流程与审批</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>支持条件分支、会签、或签、加签、转交；支持审批超时提醒与超时自动转交上级；PC 端支持批量审批。</td><td>移动端不支持批量审批；审批节点内同步调用外部系统需通过自定义函数实现。</td><td></td><td>后台 → 流程管理 → 审批流 → 节点设置 → 超时处理</td></tr>
+      <tr id="CAP-008"><td style="white-space:nowrap"><code>CAP-008</code></td><td>自定义函数</td><td style="white-space:nowrap">平台基础</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>服务端脚本，可由触发器、按钮、定时任务调用，可调用外部 HTTP 接口并回写字段，用于实现客户特有的计算与集成逻辑。</td><td>单次执行时长上限 30 秒。</td><td></td><td>后台 → 自定义函数</td></tr>
+      <tr id="CAP-009"><td style="white-space:nowrap"><code>CAP-009</code></td><td>开放 API 与 Webhook</td><td style="white-space:nowrap">集成与开放平台</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>REST API 覆盖标准与自定义对象的增删改查；支持事件订阅 Webhook；提供批量接口（每次最多 100 条）。</td><td>每租户默认 100 QPS，可申请提升至 300 QPS；为保障多租户稳定性，不提供取消限流。</td><td>大流量场景使用批量接口、异步导入或集成平台队列削峰。</td><td>开放平台 → 应用管理</td></tr>
+      <tr id="CAP-010"><td style="white-space:nowrap"><code>CAP-010</code></td><td>集成平台与连接器</td><td style="white-space:nowrap">集成与开放平台</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>预置 ERP、财务软件、电商平台、MES、HR 系统等连接器，支持字段映射、定时/增量同步与失败重试。</td><td>增量同步最小间隔 15 分钟；不同租户之间只能通过集成平台或 API 同步数据。</td><td></td><td>集成平台 → 连接器市场</td></tr>
+      <tr id="CAP-011"><td style="white-space:nowrap"><code>CAP-011</code></td><td>报表与仪表盘</td><td style="white-space:nowrap">报表与BI</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>自定义报表、仪表盘、交叉表；报表可生成外链分享并设置有效期。</td><td>跨对象关联最多 3 层；单报表最多 10 万行；大数据量报表建议按月/区域分区。</td><td>超过 3 层关联可用集成平台把数据同步到客户自有 BI。</td><td>报表 → 新建报表</td></tr>
+      <tr id="CAP-013"><td style="white-space:nowrap"><code>CAP-013</code></td><td>权限体系</td><td style="white-space:nowrap">权限与安全</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>角色功能权限；数据权限按部门、负责人、共享规则、相关团队；字段权限按角色静态配置可见/只读。</td><td>不支持按记录上的“项目成员/相关团队”动态计算字段级权限（需改造权限引擎）。</td><td>按角色拆分字段权限 + 相关团队数据权限做近似。</td><td>后台 → 权限管理</td></tr>
+      <tr id="CAP-014"><td style="white-space:nowrap"><code>CAP-014</code></td><td>审计日志与字段变更历史</td><td style="white-space:nowrap">权限与安全</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>记录登录、导出、配置变更与字段修改历史，可按条件查询与导出。</td><td>审计日志保留 180 天，任何人（含平台与客户管理员）不可删除或修改；更长保留期需通过 API 归档到客户存储。</td><td></td><td>后台 → 安全中心 → 审计日志</td></tr>
+      <tr id="CAP-015"><td style="white-space:nowrap"><code>CAP-015</code></td><td>移动端 App</td><td style="white-space:nowrap">移动端</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>原生 App 支持客户、商机、拜访、审批等主要业务；支持离线查看最近 7 天数据与草稿暂存。</td><td>不支持完全离线录入后自动同步与冲突合并。</td><td>弱网地区先暂存草稿，联网后提交。</td><td></td></tr>
+      <tr id="CAP-016"><td style="white-space:nowrap"><code>CAP-016</code></td><td>名片识别</td><td style="white-space:nowrap">移动端</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>移动端拍摄名片自动识别并创建联系人。</td><td></td><td></td><td>App → 联系人 → 扫名片</td></tr>
+      <tr id="CAP-017"><td style="white-space:nowrap"><code>CAP-017</code></td><td>消息通知与企业 IM 集成</td><td style="white-space:nowrap">平台基础</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>审批、流程、提醒类通知可推送到 App、邮件与主流企业 IM；支持企业 IM 群机器人推送流程通知。</td><td>群机器人目前只支持流程类通知，不支持报表订阅。不提供平台自研的聊天工具。</td><td></td><td>后台 → 通知设置</td></tr>
+      <tr id="CAP-018"><td style="white-space:nowrap"><code>CAP-018</code></td><td>多币种多语言多时区</td><td style="white-space:nowrap">平台基础</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>报价、订单、合同支持多币种与汇率；界面多语言；多时区。</td><td></td><td></td><td>后台 → 公司设置 → 币种</td></tr>
+      <tr id="CAP-019"><td style="white-space:nowrap"><code>CAP-019</code></td><td>企业品牌设置</td><td style="white-space:nowrap">平台基础</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>可设置企业 Logo（含登录页 Logo）与主题色。</td><td>不支持自定义登录页背景图与欢迎语。</td><td></td><td>后台 → 公司设置 → 品牌</td></tr>
+      <tr id="CAP-020"><td style="white-space:nowrap"><code>CAP-020</code></td><td>单点登录</td><td style="white-space:nowrap">权限与安全</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>支持 SAML 2.0 / OIDC 单点登录对接企业统一身份认证。</td><td></td><td></td><td>后台 → 安全中心 → 单点登录</td></tr>
+      <tr id="CAP-021"><td style="white-space:nowrap"><code>CAP-021</code></td><td>线索分配规则</td><td style="white-space:nowrap">销售管理</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>线索按地区、行业、来源或轮询规则自动分配给销售。</td><td></td><td></td><td>后台 → 线索 → 分配规则</td></tr>
+      <tr id="CAP-022"><td style="white-space:nowrap"><code>CAP-022</code></td><td>服务工单与 SLA</td><td style="white-space:nowrap">服务管理</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>工单支持 SLA 计时、超时自动升级到主管与提醒。</td><td></td><td></td><td>后台 → 服务管理 → SLA</td></tr>
+      <tr id="CAP-024"><td style="white-space:nowrap"><code>CAP-024</code></td><td>伙伴/经销商门户</td><td style="white-space:nowrap">销售管理</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>为经销商开放门户，可自助下单、查询订单与库存、对账。</td><td></td><td></td><td>后台 → 伙伴门户</td></tr>
+      <tr id="CAP-027"><td style="white-space:nowrap"><code>CAP-027</code></td><td>多组织与租户隔离</td><td style="white-space:nowrap">权限与安全</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>同一租户内支持多组织/分子公司架构与跨组织共享；不同租户之间数据严格隔离。</td><td>不允许跨租户直接查询或修改数据（安全与合规底线）。</td><td>集团统一使用一个租户 + 多组织；或通过集成平台在租户间同步。</td><td>后台 → 组织架构</td></tr>
+      <tr id="CAP-029"><td style="white-space:nowrap"><code>CAP-029</code></td><td>打印模板</td><td style="white-space:nowrap">销售管理</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>报价单、合同等 Word/PDF 打印模板，支持水印与签章位。</td><td></td><td></td><td>后台 → 打印模板</td></tr>
+      <tr id="CAP-030"><td style="white-space:nowrap"><code>CAP-030</code></td><td>商机阶段推进器</td><td style="white-space:nowrap">销售管理</td><td style="white-space:nowrap"><span class="pill g">已支持</span></td><td>商机按阶段推进，阶段必填项与任务检查。</td><td></td><td></td><td></td></tr>
+    </table>
+  </div>
+
+  <div class="step" id="st-partial">
+    <div class="step-head"><span class="num">◐</span><h3>部分支持（8 项）</h3></div>
+    <table>
+      <tr><th style="width:8%">编号</th><th style="width:11%">名称</th><th style="width:9%">模块</th><th style="width:8%">状态</th><th style="width:22%">说明</th><th style="width:16%">限制</th><th style="width:13%">替代方案</th><th style="width:13%">用法</th></tr>
+      <tr id="CAP-002"><td style="white-space:nowrap"><code>CAP-002</code></td><td>列表页批量编辑</td><td style="white-space:nowrap">对象与字段</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>列表页勾选多条记录后可批量修改负责人、标准字段与系统单选字段。</td><td>不支持批量修改自定义字段（含自定义单选/下拉、文本、数字字段）。</td><td>导出 Excel 修改后按唯一字段导入更新；或写自定义函数批量更新。</td><td>列表页 → 勾选记录 → 批量编辑</td></tr>
+      <tr id="CAP-012"><td style="white-space:nowrap"><code>CAP-012</code></td><td>报表订阅推送</td><td style="white-space:nowrap">报表与BI</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>报表与仪表盘可按日/周/月定时订阅。</td><td>订阅目前只支持邮件推送，不支持推送到企业 IM 群机器人。</td><td></td><td>报表 → 订阅</td></tr>
+      <tr id="CAP-023"><td style="white-space:nowrap"><code>CAP-023</code></td><td>营销表单与落地页</td><td style="white-space:nowrap">营销</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>营销表单、落地页、活动报名。</td><td>表单防刷目前只支持图形验证码，不支持手机短信验证码。</td><td></td><td>营销 → 表单</td></tr>
+      <tr id="CAP-025"><td style="white-space:nowrap"><code>CAP-025</code></td><td>AI 助手</td><td style="white-space:nowrap">AI助手</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>拜访记录摘要、销售记录生成、AI 问答。</td><td>不支持基于历史拜访记录生成下次拜访建议（规划中）；不支持客户自带私有模型。</td><td></td><td></td></tr>
+      <tr id="CAP-026"><td style="white-space:nowrap"><code>CAP-026</code></td><td>电子签章集成</td><td style="white-space:nowrap">集成与开放平台</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>合同可一键发起电子签署。</td><td>签署状态自动回写目前只支持 2 家签章平台，其余需手动更新。</td><td>可用自定义函数 + 签章平台回调接口实现回写。</td><td>集成平台 → 电子签章</td></tr>
+      <tr id="CAP-028"><td style="white-space:nowrap"><code>CAP-028</code></td><td>记录锁定与数据保留</td><td style="white-space:nowrap">权限与安全</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>审批通过后可锁定记录；字段只读规则。</td><td>不支持“不可篡改”存证；记录可被有权限的人删除；无行业级 5 年保留策略。</td><td></td><td>后台 → 对象管理 → 锁定规则</td></tr>
+      <tr id="CAP-031"><td style="white-space:nowrap"><code>CAP-031</code></td><td>列表视图个性化</td><td style="white-space:nowrap">对象与字段</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>可保存个人筛选视图。</td><td>不记忆上次筛选条件与列宽。</td><td></td><td>列表页 → 保存视图</td></tr>
+      <tr id="CAP-032"><td style="white-space:nowrap"><code>CAP-032</code></td><td>看板视图</td><td style="white-space:nowrap">销售管理</td><td style="white-space:nowrap"><span class="pill o">部分支持</span></td><td>商机看板可按阶段或系统单选字段分组并拖拽。</td><td>不支持按自定义字段分组。</td><td></td><td></td></tr>
+    </table>
+  </div>
+
+  <div class="step" id="st-oos">
+    <div class="step-head"><span class="num">✕</span><h3>明确不做（7 项）</h3></div>
+    <table>
+      <tr><th style="width:8%">编号</th><th style="width:11%">名称</th><th style="width:9%">模块</th><th style="width:8%">状态</th><th style="width:22%">说明</th><th style="width:16%">限制</th><th style="width:13%">替代方案</th><th style="width:13%">用法</th></tr>
+      <tr id="OOS-001"><td style="white-space:nowrap"><code>OOS-001</code></td><td>财务总账与会计核算</td><td style="white-space:nowrap">平台定位</td><td style="white-space:nowrap"><span class="pill r">明确不做</span></td><td>总账、凭证、会计核算属于专业财务系统范畴，不在 CRM 平台范围内。</td><td></td><td>通过集成平台的财务软件连接器同步回款、开票数据。</td><td></td></tr>
+      <tr id="OOS-002"><td style="white-space:nowrap"><code>OOS-002</code></td><td>生产制造执行与排产</td><td style="white-space:nowrap">平台定位</td><td style="white-space:nowrap"><span class="pill r">明确不做</span></td><td>生产排产、车间报工属于 MES/ERP 范畴，不在 CRM 平台范围内。</td><td></td><td>通过 MES/ERP 连接器把销售订单同步给生产系统，并回写交期。</td><td></td></tr>
+      <tr id="OOS-003"><td style="white-space:nowrap"><code>OOS-003</code></td><td>自研即时通讯</td><td style="white-space:nowrap">平台定位</td><td style="white-space:nowrap"><span class="pill r">明确不做</span></td><td>平台不自研聊天工具，与主流企业 IM 集成。</td><td></td><td>使用企业 IM 集成推送通知与会话。</td><td></td></tr>
+      <tr id="OOS-004"><td style="white-space:nowrap"><code>OOS-004</code></td><td>人力资源与薪酬核算</td><td style="white-space:nowrap">平台定位</td><td style="white-space:nowrap"><span class="pill r">明确不做</span></td><td>薪酬核算、社保、考勤属于 HR 系统范畴。</td><td></td><td>通过 HR 系统连接器同步组织与人员。</td><td></td></tr>
+      <tr id="OOS-005"><td style="white-space:nowrap"><code>OOS-005</code></td><td>物联网设备控制</td><td style="white-space:nowrap">平台定位</td><td style="white-space:nowrap"><span class="pill r">明确不做</span></td><td>平台不直接控制仓储机器人、产线设备等物联网设备。</td><td></td><td>由 WMS/IoT 平台控制设备，CRM 通过 API 同步订单状态。</td><td></td></tr>
+      <tr id="OOS-006"><td style="white-space:nowrap"><code>OOS-006</code></td><td>单客户分叉版本与平台内核修改</td><td style="white-space:nowrap">平台定位</td><td style="white-space:nowrap"><span class="pill r">明确不做</span></td><td>多租户 SaaS 平台不为单个客户修改内核、分叉版本或在平台服务器安装客户软件。</td><td></td><td>通过自定义组件、自定义函数、开放 API 扩展。</td><td></td></tr>
+      <tr id="OOS-007"><td style="white-space:nowrap"><code>OOS-007</code></td><td>绕过权限与审计的数据操作</td><td style="white-space:nowrap">平台定位</td><td style="white-space:nowrap"><span class="pill r">明确不做</span></td><td>不提供绕过权限、导出与审计控制的能力：如批量导出敏感个人信息到个人渠道、删除或修改审计日志、取消接口限流。</td><td></td><td>按权限申请导出（脱敏、留痕）；审计日志可导出说明；大流量用批量接口。</td><td></td></tr>
+    </table>
+  </div>
+</section>
+
+</main>
+</div>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

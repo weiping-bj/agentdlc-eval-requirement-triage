@@ -7,11 +7,12 @@
 const REPO_URL = "https://github.com/weiping-bj/agentdlc-eval-requirement-triage";
 const REPO_BRANCH = "main";
 
-/* 章节清单：目录、上一页/下一页都由它生成。path: common / a / b */
+/* 章节清单：目录、上一页/下一页都由它生成。path: common / a / b；extra: 只进目录，不进上一页/下一页 */
 const CHAPTERS = [
   { group: "导读" },
   { id: "index", file: "index.html", no: "0", title: "导读与路线选择", path: "common" },
   { id: "discussion", file: "discussion.html", no: "讨", title: "11:00 分组讨论材料", path: "common" },
+  { id: "catalog", file: "catalog.html", no: "录", title: "平台能力目录（讨论时看）", path: "common", extra: true },
   { group: "通用准备（A/B 都做）" },
   { id: "01-setup", file: "01-setup.html", no: "1", title: "准备实验环境（EC2 + Coding Agent）", path: "common" },
   { id: "02-data", file: "02-data.html", no: "2", title: "输入数据与黄金集", path: "common" },
@@ -118,6 +119,11 @@ function setPath(p) {
   document.querySelectorAll("[data-set-path]").forEach((b) => b.classList.toggle("active", b.dataset.setPath === p));
 }
 
+/* Text -> HTML-safe text, for anything read back from the page (textContent un-escapes it) before innerHTML. */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
 function buildToc() {
   const toc = document.getElementById("toc");
   if (!toc) return;
@@ -131,7 +137,7 @@ function buildToc() {
       document.querySelectorAll("main .step[id]").forEach((s) => {
         const h = s.querySelector(".step-head h3");
         const n = s.querySelector(".step-head .num");
-        if (h) html += `<a class="sub" href="#${s.id}">${n ? n.textContent + " " : ""}${h.textContent}</a>`;
+        if (h) html += `<a class="sub" href="#${esc(s.id)}">${n ? esc(n.textContent) + " " : ""}${esc(h.textContent)}</a>`;
       });
     }
   }
@@ -141,7 +147,7 @@ function buildToc() {
 function buildPager() {
   const main = document.querySelector("main");
   const cur = document.body.dataset.page;
-  const list = CHAPTERS.filter((c) => !c.group);
+  const list = CHAPTERS.filter((c) => !c.group && !c.extra);
   const i = list.findIndex((c) => c.id === cur);
   if (i < 0 || !main) return;
   const prev = list[i - 1], next = list[i + 1];

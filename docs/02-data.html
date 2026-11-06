@@ -42,7 +42,7 @@
 <pre><code>./tools/pull-templates.sh</code></pre>
   <div class="expect"><span class="label">预期输出</span>（实测：CSV 由 Excel 存成了 GBK，md 放在 templates/ 文件夹里）：
 <pre class="out">==&gt; 从 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/ 查找 discussion-feedback.md 和 golden-set-feedback.csv
-✅ discussion-feedback.md：已拷贝 → data/templates/discussion-feedback.md  ← s3://s12lab-zhang3-&lt;account&gt;-us-west-2/templates/discussion-feedback.md（4.3 KB，上传于 11-06 10:24 北京时间）
+✅ discussion-feedback.md：已拷贝 → data/templates/discussion-feedback.md  ← s3://s12lab-zhang3-&lt;account&gt;-us-west-2/templates/discussion-feedback.md（4.9 KB，上传于 11-06 10:24 北京时间）
      原文件已备份到 data/templates/.backup/20261106-022426/discussion-feedback.md
 ✅ golden-set-feedback.csv：已拷贝 → data/templates/golden-set-feedback.csv  ← s3://s12lab-zhang3-&lt;account&gt;-us-west-2/golden-set-feedback.csv（13.2 KB，上传于 11-06 10:24 北京时间，GBK → UTF-8）
      原文件已备份到 data/templates/.backup/20261106-022426/golden-set-feedback.csv
@@ -76,7 +76,7 @@
   <table>
     <tr><th>文件</th><th>内容</th></tr>
     <tr><td><a data-repo="data/feedback_last_month.jsonl">data/feedback_last_month.jsonl</a>（Excel 版 <a data-repo="data/feedback_last_month.csv">.csv</a>）</td><td>60 条“上个月的需求反馈”，每行一条：编号、标题、描述、客户、行业、客户等级、渠道、模块、提交日期、反馈类型、是否合同承诺。<b>不含任何标签</b>。</td></tr>
-    <tr><td><a data-repo="data/capability_catalog.json">data/capability_catalog.json</a></td><td>平台能力目录（39 项）：已支持 24 · 部分支持 8 · 明确不做 7；每项有限制、替代方案和用法。Agent 判断“已有能力 / 真实缺口 / 超出定位”的依据。</td></tr>
+    <tr><td><a data-repo="data/capability_catalog.json">data/capability_catalog.json</a>（<a href="catalog.html">网页版</a> · Excel 版 <a data-repo="data/capability_catalog.csv">.csv</a>）</td><td>平台能力目录（39 项）：已支持 24 · 部分支持 8 · 明确不做 7；每项有限制、替代方案和用法。Agent 判断“已有能力 / 真实缺口 / 超出定位”的依据。</td></tr>
   </table>
 <pre><code>head -c 600 data/feedback_last_month.jsonl; echo
 python3 -c "import json;d=json.load(open('data/capability_catalog.json'));print(d['platform']['name']);[print(c['id'],c['status'],c['name']) for c in d['capabilities'][:8]]"</code></pre>

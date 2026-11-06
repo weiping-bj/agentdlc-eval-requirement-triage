@@ -179,7 +179,7 @@ python3 evaluators/s12_label_accuracy/batch_score.py --results results/all-60.js
 ## 6. 本地验证
 
 ```bash
-python3 evaluators/sync_shared.py --check                      # 黄金集 / 适配层副本是否最新
+python3 evaluators/sync_shared.py --check                      # 黄金集 / 适配层副本 / 能力目录视图是否最新
 python3 evaluators/run_local.py s12_label_accuracy evaluators/sample_events/label_pass_G01.json
 python3 evaluators/run_local.py s12_label_accuracy evaluators/sample_events/label_criticalfail_G03.json
 python3 evaluators/run_local.py s12_reject_quality evaluators/sample_events/reject_G04.json   # 真实调用 Bedrock

@@ -4,7 +4,7 @@
  *   ./tools/set-repo-url.sh https://github.com/<owner>/<name>
  * 该脚本会把全仓库中的占位符替换为真实地址。
  */
-const REPO_URL = "https://github.com/REPO_OWNER/REPO_NAME";
+const REPO_URL = "https://github.com/weiping-bj/agentdlc-eval-requirement-triage";
 const REPO_BRANCH = "main";
 
 /* 章节清单：目录、上一页/下一页都由它生成。path: common / a / b */

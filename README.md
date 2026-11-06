@@ -2,7 +2,7 @@
 
 > 所有数据均为合成数据（synthetic）。本仓库是一次 Agent DLC workshop 的动手实验交付物。
 
-**操作手册（HTML，GitHub Pages）**：打开 [`docs/index.html`](docs/index.html)，或在 GitHub Pages 上访问（Settings → Pages → Branch `main`, folder `/docs`）。
+**操作手册（HTML，GitHub Pages）**：打开 [`docs/index.html`](docs/index.html)，或在 GitHub Pages 上访问 <https://weiping-bj.github.io/agentdlc-eval-requirement-triage/>（需先在 Settings → Pages 选择 Branch `main`, folder `/docs`）。
 
 ## 实验内容
 

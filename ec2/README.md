@@ -23,8 +23,8 @@
 
    ```bash
    mkdir -p ~/s12lab && cd ~/s12lab
-   curl -fsSLO https://raw.githubusercontent.com/REPO_OWNER/REPO_NAME/main/ec2/s12lab-ec2.yaml
-   curl -fsSLO https://raw.githubusercontent.com/REPO_OWNER/REPO_NAME/main/ec2/launch-from-cloudshell.sh
+   curl -fsSLO https://raw.githubusercontent.com/weiping-bj/agentdlc-eval-requirement-triage/main/ec2/s12lab-ec2.yaml
+   curl -fsSLO https://raw.githubusercontent.com/weiping-bj/agentdlc-eval-requirement-triage/main/ec2/launch-from-cloudshell.sh
    bash launch-from-cloudshell.sh zhang3
    ```
 
@@ -65,7 +65,7 @@ Session Manager 默认用户是 `ssm-user`，**请先切换到 `ec2-user`**，�
 
 ```bash
 sudo su - ec2-user
-git clone https://github.com/REPO_OWNER/REPO_NAME ~/scenario12-lab && cd ~/scenario12-lab
+git clone https://github.com/weiping-bj/agentdlc-eval-requirement-triage ~/scenario12-lab && cd ~/scenario12-lab
 bash ec2/setup-ec2.sh
 ```
 

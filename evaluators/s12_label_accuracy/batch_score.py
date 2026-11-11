@@ -12,7 +12,8 @@
 
 结论 = 没有红线 且 门禁全部达标（规则见 pillars.py）：
   红线（一票否决）：误拒不可自动拒绝的需求；话术评审的 red_flags（需 --reject-eval）。有 1 条就不通过，该条整条判错。
-  门禁：三项（分级模式：优先级 + 处理建议）准确率各自 >= 目标；拒绝话术通过率 >= 目标。
+  门禁：是否重要 / 是否紧急 / 处理建议（分级模式再加优先级）准确率各自 >= 目标，红线条目和无输出条目按错计；
+        拒绝话术通过率 >= 目标。
         目标线：--target > config/lab.env 的 TARGET_ACCURACY > 0.70。没有话术评审结果时该门禁“未评估”，结论不能判通过。
   观测：五维、用例类型、召回率、话术分项、格式错误率、能力目录命中率、输出分布，只看趋势。
 """
@@ -73,6 +74,9 @@ def preds_from_results(path: str) -> list:
             v = r.get(k)
             objs = sa.triage_objects(v) if isinstance(v, (dict, list)) else (sa.triage_from_text(v) if isinstance(v, str) else [])
         fid_hint = r.get("feedback_id") or (obj.get("feedback_id") if isinstance(obj, dict) else None)
+        if not objs and r.get("error") and r.get("result") is None:
+            preds.append({"feedback_id": fid_hint, "_agent_error": True})  # no output at all (not a format error)
+            continue
         if not objs:
             preds.append({"feedback_id": fid_hint, "_unparsed": True})
             continue
@@ -97,16 +101,17 @@ def preds_from_spans(path: str) -> list:
     return preds
 
 
-def reject_results(path: str) -> dict:
-    """{feedback_id: reject_quality entry} from a labkit eval JSON (results/eval-<run_id>.json)."""
+def reject_results(path: str) -> tuple:
+    """({feedback_id: reject_quality entry}, run file name) from a labkit eval JSON (results/eval-<run_id>.json)."""
     data = _read_any_json(path)
     sessions = data.get("sessions") if isinstance(data, dict) else data
+    run = (data.get("run") or {}) if isinstance(data, dict) else {}
     out = {}
     for s in sessions or []:
         if isinstance(s, dict) and s.get("feedback_id") and isinstance(s.get("scores"), dict) \
                 and "reject_quality" in s["scores"]:
             out[str(s["feedback_id"])] = s["scores"]["reject_quality"]
-    return out
+    return out, os.path.basename(str(run.get("file") or "")) if isinstance(run, dict) else ""
 
 
 def _cap_hit(pred: dict, caps: list):
@@ -116,24 +121,32 @@ def _cap_hit(pred: dict, caps: list):
     return any(c in blob for c in caps)
 
 
-def pillar_items(scored: list, missing: list, golden: dict, latest: dict, rejects: dict | None, fields,
-                 unparsed=()) -> list:
-    """Per-item records for pillars.build (missing / unparsable outputs count as wrong in every label)."""
+def pillar_items(scored: list, missing: list, golden: dict, latest: dict, rejects: dict | None, scheme: str = "binary",
+                 tol: int = 0, unparsed=()) -> list:
+    """Per-item records for pillars.build (missing / unparsable outputs count as wrong in every label).
+
+    Gate fields are pillars.gate_fields(scheme): in the graded scheme important / urgent are scored here too.
+    A reject_quality entry is only used for an item this run actually rejected (a stale eval cannot charge
+    a red flag to an item the agent did not reject)."""
     unparsed = set(unparsed)
     out = []
     for s in scored:
         fid = s["feedback_id"]
         gold, pred = golden[fid], latest.get(fid) or {}
+        raw = {f: v.get("raw_correct", v["correct"]) for f, v in s["fields"].items()}
+        if scheme == "level":
+            raw.update({f: v["raw_correct"] for f, v in ls.score_record(pred, gold, "binary", tol)["fields"].items()
+                        if f not in raw})
+        rejected = pred.get("decision") == "拒绝"
+        rej = pillars.reject_entry(rejects.get(fid)) if (rejects is not None and rejected) else None
         out.append(pillars.new_item(
-            fid, golden_id=s.get("golden_id"), fields={f: v.get("raw_correct", v["correct"]) for f, v in s["fields"].items()},
-            misreject=s["critical"], format_error=False, rejected=pred.get("decision") == "拒绝", decision=pred.get("decision"),
-            reject=pillars.reject_entry(rejects.get(fid)) if rejects is not None else None,
-            dimensions=gold.get("dimensions") or [], case_type=gold.get("case_type"),
+            fid, golden_id=s.get("golden_id"), fields=raw, misreject=s["critical"], format_error=False, rejected=rejected,
+            decision=pred.get("decision"), reject=rej, dimensions=gold.get("dimensions") or [], case_type=gold.get("case_type"),
             capabilities=gold.get("matched_capabilities") or [], cap_hit=_cap_hit(pred, gold.get("matched_capabilities") or [])))
     for fid in missing:
         gold = golden[fid]
         out.append(pillars.new_item(fid, golden_id=gold.get("golden_id"), no_output=True, format_error=fid in unparsed,
-                                    fields={f: False for f in fields},
+                                    fields={f: False for f in pillars.gate_fields(scheme)},
                                     dimensions=gold.get("dimensions") or [], case_type=gold.get("case_type")))
     return out
 
@@ -146,6 +159,8 @@ def score(preds: list, golden: dict, target: float, scheme: str, tol: int, rejec
             if p.get("feedback_id"):
                 unparsed.append(p["feedback_id"])
             continue
+        if p.get("_agent_error"):
+            continue  # counted as missing output (wrong in every label)
         if p.get("feedback_id"):
             latest[p["feedback_id"]] = p
     scored, missing = [], []
@@ -163,10 +178,16 @@ def score(preds: list, golden: dict, target: float, scheme: str, tol: int, rejec
                         "fields": {f: v for f, v in s["fields"].items() if not v.get("raw_correct", v["correct"])}}
                        for s in scored if s["label"] != "Pass"]
     agg["distribution"] = ls.distribution(latest.values())
-    fields = ls.fields_for(scheme)
-    p = pillars.build(pillar_items(scored, missing, golden, latest, rejects, fields, unparsed), fields, target)
+    p = pillars.build(pillar_items(scored, missing, golden, latest, rejects, scheme, tol, unparsed),
+                      pillars.gate_fields(scheme), target)
     agg["pillars"] = p
-    agg["accuracy_by_dimension"] = p["observations"]["by_dimension"]  # same denominators as the gates
+    # one set of numbers per report: gate accuracies (every red-line item and every missing output counts as wrong)
+    gates = [g for g in p["gates"] if g["key"] != "reject_quality"]
+    agg["accuracy"] = {g["key"]: g["actual"] for g in gates}
+    agg["overall_accuracy"] = round(sum(v or 0 for v in agg["accuracy"].values()) / len(gates), 4) if gates else 0.0
+    agg["label_gates_passed"] = all(g["status"] == "met" for g in gates)
+    agg["all_three_correct_rate"] = p["observations"]["all_correct_rate"]
+    agg["accuracy_by_dimension"] = p["observations"]["by_dimension"]
     agg["verdict"] = p["verdict"]
     agg["passed"] = p["passed"]
     agg["reject_quality_source"] = "eval" if rejects is not None else None
@@ -175,6 +196,14 @@ def score(preds: list, golden: dict, target: float, scheme: str, tol: int, rejec
 
 def _pct(x) -> str:
     return "-" if x is None else f"{x * 100:.1f}%"
+
+
+def _cell(v, n: int = 160) -> str:
+    """Markdown table cell from untrusted text: one line, no table / link / image / HTML syntax."""
+    s = pillars.plain(v, n)
+    for ch, rep in (("|", "｜"), ("[", "［"), ("]", "］"), ("<", "＜"), (">", "＞"), ("`", "｀"), ("!", "！")):
+        s = s.replace(ch, rep)
+    return s
 
 
 def _gate_cell(g: dict) -> str:
@@ -189,7 +218,7 @@ def pillars_md(p: dict, reject_hint: str = "") -> list:
     rl, obs = p["red_line"], p["observations"]
     L = [f"**结论：{pillars.verdict_line(p)}**", "",
          "> 三大支柱：**红线**一票否决（出现 1 条即不通过，该条整条判错）→ **门禁**全部达标 → **观测**只看趋势、不影响结论。", "",
-         f"## 1. 红线（一票否决）：{rl['count']} 条 {'✅' if rl['passed'] else '❌'}", "",
+         f"## 1. 红线（一票否决）：{rl['count']} 条 {pillars.red_line_mark(p)}", "",
          "| 红线 | 条数 | 要求 |", "|---|---|---|"]
     rq = next(g for g in p["gates"] if g["key"] == "reject_quality")
     for k, cn in pillars.KIND_CN.items():
@@ -205,15 +234,15 @@ def pillars_md(p: dict, reject_hint: str = "") -> list:
         L += ["", "| 黄金集 | 需求编号 | 红线 | 说明 |", "|---|---|---|---|"]
         for x in rl["items"]:
             for k in x["kinds"]:
-                L.append(f"| {x.get('golden_id') or '-'} | {x['feedback_id']} | {pillars.KIND_CN[k['kind']]} | "
-                         f"{k['detail'].replace('|', '｜')[:160]} |")
+                L.append(f"| {_cell(x.get('golden_id') or '-')} | {_cell(x['feedback_id'])} | {pillars.KIND_CN[k['kind']]} | "
+                         f"{_cell(k['detail'])} |")
     L += ["", "## 2. 门禁（全部达标才通过）", "", "| 门禁 | 实际 | 门槛 | 是否达标 |", "|---|---|---|---|"]
     for g in p["gates"]:
         st = pillars.GATE_STATUS_CN[g["status"]]
         if g["status"] == "not_evaluated" and g["key"] == "reject_quality" and reject_hint:
             st += f"（{reject_hint}）"
         L.append(f"| {g['name']} | {_gate_cell(g)} | ≥ {_pct(g['threshold'])} | {st} |")
-    L += ["", f"- 误拒（红线）的条目在三项里都按“错”计；拒绝话术通过率：{rq['rule']}。"]
+    L += ["", f"- 红线条目（误拒或话术红线）整条判错：标签门禁里各项都按“错”计；无输出的条目也按错计。拒绝话术通过率：{rq['rule']}。"]
     L += ["", "## 3. 观测（只看趋势，不影响结论）", "",
           f"- 整条通过率（各项全对且无红线）：{_pct(obs['all_correct_rate'])}；格式错误（FormatError）：{obs['format_error']['n']} 条"
           f"（{_pct(obs['format_error']['rate'])}）",
@@ -230,7 +259,8 @@ def pillars_md(p: dict, reject_hint: str = "") -> list:
         names = dict(pillars.JUDGE_DIMS)
         sub = "，".join(f"{names.get(k, k)} {v:g}" for k, v in r["scores"].items())
         L.append(f"- 拒绝话术：评审 {r['n']} 条，均分 {r['mean']:.2f}" + (f"；分项均分（1~5）：{sub}" if sub else "")
-                 + (f"；未覆盖要点 {r['missing_points']} 条，例如：{'；'.join(r['top_missing'][:3])}" if r["missing_points"] else ""))
+                 + (f"；未覆盖要点 {r['missing_points']} 条，例如：{_cell('；'.join(r['top_missing'][:3]), 120)}"
+                    if r["missing_points"] else ""))
     return L
 
 
@@ -240,7 +270,7 @@ def report_md(res: dict, title: str) -> str:
         hint = "" if res.get("reject_quality_source") else "本地打分不调用评审模型：用 --reject-eval 传入 31-run-eval.sh 的评估结果"
         L += pillars_md(res["pillars"], hint)
         L += ["", f"黄金集 {res['n_items']} 条，有输出 {res['n_scored']} 条，无输出 {res['n_missing_output']} 条（无输出按三项全错计）。"]
-        L += [f"- 三项平均：{_pct(res['overall_accuracy'])}；严重错误（误拒不可自动拒绝的需求）："
+        L += [f"- 标签门禁平均：{_pct(res['overall_accuracy'])}；严重错误（误拒不可自动拒绝的需求）："
               f"{len(res['critical_misrejects'])} 条 {', '.join(res['critical_misrejects'])}"]
         rec = res.get("per_class_recall") or {}
         if rec:
@@ -264,7 +294,7 @@ def report_md(res: dict, title: str) -> str:
         if dist.get("rejected"):
             L += ["", "| 自动拒绝的需求 | 拒绝理由 |", "|---|---|"]
             for r in dist["rejected"][:60]:
-                L.append(f"| {r['feedback_id']} | {(r.get('reject_reason') or '').replace('|', '｜')[:120]} |")
+                L.append(f"| {_cell(r['feedback_id'])} | {_cell(r.get('reject_reason'), 120)} |")
     return "\n".join(L) + "\n"
 
 
@@ -290,7 +320,10 @@ def main(argv=None) -> int:
     if a.distribution_only:
         res = {"distribution": ls.distribution([p for p in preds if not p.get("_unparsed")])}
     else:
-        rejects = reject_results(a.reject_eval) if a.reject_eval else None
+        rejects, ran = reject_results(a.reject_eval) if a.reject_eval else (None, "")
+        if ran and a.results and ran != os.path.basename(a.results):
+            print(f"⚠️ --reject-eval 来自另一次运行（{ran}），与 --results {os.path.basename(a.results)} 不一致："
+                  "话术评审结果只用于本次运行判为“拒绝”的条目，结论仅供参考", file=sys.stderr)
         res = score(preds, ls.load_golden(a.golden), target, a.scheme, a.level_tolerance, rejects)
     md = report_md(res, a.title)
     print(md)

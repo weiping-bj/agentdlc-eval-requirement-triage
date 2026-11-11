@@ -561,25 +561,6 @@ def case_of(s: dict) -> dict:
             "reject": entry_of(sc.get("reject_quality")), "has_reject": "reject_quality" in sc}
 
 
-def all_correct(ev: EvalRun) -> dict:
-    """Share of sessions with all three labels right (label_accuracy == 1), plus CriticalFail count."""
-    n = ok = 0
-    crit = sum(1 for s in ev.sessions
-               if str(entry_of(as_dict(s.get("scores")).get("label_accuracy")).get("label") or "") == "CriticalFail")
-    for s in ev.sessions:
-        v = score_value(entry_of(as_dict(s.get("scores")).get("label_accuracy")))
-        if v is not None:
-            n += 1
-            ok += int(v >= 0.999)
-    if n == 0:  # no label_accuracy evaluator: derive from the three single-label evaluators
-        for s in ev.sessions:
-            c = case_of(s)
-            if not c["agent_error"] and all(c["labels"][k][1] is not None for k in ALIASES):
-                n += 1
-                ok += int(c["n"] == 3)
-    return {"rate": ok / n if n else None, "n": n, "ok": ok, "critical": crit}
-
-
 def _bar_path(x: float, y0: float, w: float, h: float, r: float = 4.0) -> str:
     """Column growing up from baseline y0: rounded data-end, square at the baseline."""
     r = max(0.0, min(r, h, w / 2))
@@ -675,8 +656,10 @@ def _run_box(ev: EvalRun, role: str) -> str:
             f"<table>{trs}</table></div>")
 
 
-def _label_cell(cb, ca, key: str, cn: str, vb: str, va: str, expected) -> str:
-    def one(c, tag):
+def _label_cell(cb, ca, key: str, cn: str, vb: str, va: str, expected, vetoed=(False, False)) -> str:
+    """Agent label before → after; ✓/✗ is what the single-label evaluator said (for a red-line item the gate
+    still counts it wrong: a note in the tooltip says so)."""
+    def one(c, tag, veto=False):
         if c is None:
             return pill("无", "n", f"{tag}：这次评估里没有这条需求")
         if c["agent_error"] and not c["out"]:
@@ -700,10 +683,12 @@ def _label_cell(cb, ca, key: str, cn: str, vb: str, va: str, expected) -> str:
                 tips.append("理由：" + clip(out.get("reasoning"), 200))
         elif out.get("reasoning"):
             tips.append("理由：" + clip(out.get("reasoning"), 160))
+        if veto:
+            tips.append("⛔ 红线否决：这条需求整条判错，门禁里这一项也按错计")
         return pill(icon + (text(val) or "—"), cls, "\n".join(tips))
 
     exp = f'<div class="exp">期望 {esc(expected)}</div>' if expected else ""
-    return f'<td>{one(cb, vb)}<span class="arr">→</span>{one(ca, va)}{exp}</td>'
+    return f'<td>{one(cb, vb, vetoed[0])}<span class="arr">→</span>{one(ca, va, vetoed[1])}{exp}</td>'
 
 
 def _reject_cell(cb, ca, vb: str, va: str) -> str:
@@ -734,12 +719,21 @@ def _reject_cell(cb, ca, vb: str, va: str) -> str:
 
 LEVEL_SPEC = ("label_level", "level", "优先级")
 GATE_EVALS = ("label_accuracy", "label_important", "label_urgent", "label_decision", "label_level")
+_LEVEL_EXPLAINED = re.compile(r"优先级 (对|错)（")
+
+
+def _level_from_label_accuracy(sc: dict):
+    """Graded scheme without a label_level evaluator: 优先级 对/错 as written in the label_accuracy explanation."""
+    m = _LEVEL_EXPLAINED.search(text(entry_of(sc.get("label_accuracy")).get("explanation")))
+    return None if m is None else m.group(1) == "对"
 
 
 def label_specs(*evs) -> tuple:
-    """The label gates of these runs: the three binary labels, plus 优先级 when a label_level evaluator ran."""
-    has_level = any("label_level" in as_dict(s.get("scores")) for ev in evs for s in ev.sessions)
-    return LABELS + ((LEVEL_SPEC,) if has_level else ())
+    """Label gates of these runs (pillars.gate_fields): the three binary labels, plus 优先级 in the graded scheme
+    (a label_level evaluator ran, or label_accuracy scored 优先级)."""
+    graded = any("label_level" in as_dict(s.get("scores")) or _level_from_label_accuracy(as_dict(s.get("scores"))) is not None
+                 for ev in evs for s in ev.sessions)
+    return LABELS + ((LEVEL_SPEC,) if graded else ())
 
 
 def _ok_of(v):
@@ -747,37 +741,59 @@ def _ok_of(v):
 
 
 def pillar_items(ev: EvalRun, fb: dict, specs: tuple) -> list:
-    """Per-session records for pillars.build, read from the stored evaluator results."""
+    """Per-session records for pillars.build, read from the stored evaluator results.
+
+    Same rules as batch_score.py: an agent error counts as no output (wrong in every label); a misreject is
+    found from the evaluators (CriticalFail) or, if they did not say, from the golden can_auto_reject and the
+    agent's decision."""
     out = []
     for i, s in enumerate(ev.sessions):
         sc = as_dict(s.get("scores"))
         fid = str(s.get("feedback_id") or s.get("session_id") or f"#{i + 1}")
         info = as_dict(fb.get(fid))
         res = parse_obj(s.get("agent_output"))
-        fields = {key: (_ok_of(score_value(entry_of(sc.get(name)))) if name in sc else None) for name, key, _cn in specs}
+        fields = {}
+        for name, key, _cn in specs:
+            if name in sc:
+                fields[key] = _ok_of(score_value(entry_of(sc.get(name))))
+            elif key == "level":
+                fields[key] = _level_from_label_accuracy(sc)
+            else:
+                fields[key] = None
         labels = [str(entry_of(sc.get(n)).get("label") or "") for n in GATE_EVALS if n in sc]
         dec = None if s.get("agent_error") else (text(first_present(res, ALIASES["decision"])).strip() or None)
+        rejected = pillars.is_reject(dec)
         caps = [str(c) for c in info.get("matched_capabilities") or []]
         blob = " ".join(text(res.get(k)) for k in ("reasoning", "reject_reason", "customer_reply"))
         out.append(pillars.new_item(
-            fid, golden_id=info.get("golden_id"), fields=fields, misreject="CriticalFail" in labels,
+            fid, golden_id=info.get("golden_id"), fields=fields,
+            misreject="CriticalFail" in labels or (rejected and info.get("can_auto_reject") is False),
             format_error="FormatError" in labels, no_output=bool(s.get("agent_error")),
             reject=pillars.reject_entry(entry_of(sc["reject_quality"])) if "reject_quality" in sc else None,
-            rejected=dec == "拒绝", decision=dec, dimensions=info.get("dimensions") or [], case_type=info.get("case_type"),
+            rejected=rejected, decision=dec, dimensions=info.get("dimensions") or [], case_type=info.get("case_type"),
             capabilities=caps, cap_hit=(any(c in blob for c in caps) if caps and res else None)))
     return out
 
 
 def pillars_of(ev: EvalRun, fb: dict, target: float, specs: tuple | None = None) -> dict:
-    """Three-pillar verdict of one evaluation (same rule as batch_score.py / labkit.evaluate)."""
+    """Three-pillar verdict of one evaluation (same rule as batch_score.py / labkit.evaluate).
+
+    Incomplete when a session failed to evaluate or an evaluator that feeds a gate returned an error
+    (label_accuracy only counts when it is the source of the 优先级 gate)."""
     specs = specs or label_specs(ev)
     incomplete = []
     n_err = sum(1 for s in ev.sessions if s.get("error"))
     if n_err:
         incomplete.append(f"{n_err} 个 session 评估失败")
-    gate_names = [n for n, _k, _c in specs] + ["label_accuracy"]
-    n_gate_err = sum(1 for s in ev.sessions if not s.get("error")
-                     and any(is_error(entry_of(as_dict(s.get("scores")).get(n))) for n in gate_names if n in as_dict(s.get("scores"))))
+    names = [n for n, _k, _c in specs]
+    if LEVEL_SPEC in specs and not any("label_level" in as_dict(s.get("scores")) for s in ev.sessions):
+        names.append("label_accuracy")
+
+    def gate_error(s):
+        sc = as_dict(s.get("scores"))
+        return any(is_error(entry_of(sc.get(n))) for n in names if n in sc)
+
+    n_gate_err = sum(1 for s in ev.sessions if not s.get("error") and gate_error(s))
     if n_gate_err:
         incomplete.append(f"{n_gate_err} 条门禁评估器出错")
     items = pillar_items(ev, fb, specs)
@@ -844,7 +860,8 @@ def _pillars_section(b: EvalRun, a: EvalRun, pb: dict, pa: dict) -> str:
     incomplete = [f"{tag} 有 {len(_gate(p, 'reject_quality').get('unjudged') or [])} 条拒绝没有话术评审结果，话术红线可能没统计全。"
                   for tag, p in ((vb, pb), (va, pa)) if not p["red_line"]["complete"]]
     red = ('<h3>1. 红线（一票否决）</h3>'
-           '<p class="small muted">出现 1 条即整体不通过，该条需求整条判错（三项都按错计）。来源：误拒 = 标签评估器 CriticalFail；'
+           '<p class="small muted">出现 1 条即整体不通过，该条需求整条判错（标签三项都按错计，话术判 Fail）。来源：误拒 = 标签评估器返回 CriticalFail，'
+           '或 Agent 判“拒绝”而黄金集标为不可自动拒绝（话术评估器也会标出）；'
            '话术红线 = reject_quality 评审列出的 red_flags（编造功能或配置路径、承诺上线时间、泄露其他客户或内部信息、话术为空或与理由矛盾）。</p>'
            f'<table><thead><tr><th>红线</th><th>{esc(vb)} 优化前</th><th>{esc(va)} 优化后</th><th>变化</th></tr></thead>'
            f'<tbody>{"".join(rows)}</tbody></table>'
@@ -862,7 +879,8 @@ def _pillars_section(b: EvalRun, a: EvalRun, pb: dict, pa: dict) -> str:
                      f'<td class="num">{delta_html(gb["actual"], ga["actual"], "pct")}</td></tr>')
     rule = _gate(pa, "reject_quality").get("rule") or ""
     gate = ('<h3>2. 门禁（全部达标才通过）</h3>'
-            f'<p class="small muted">误拒（红线）的条目在三项里都按“错”计；Agent 出错、评估出错的条目不计入分母。拒绝话术通过率：{esc(rule)}。</p>'
+            f'<p class="small muted">红线条目（误拒或话术红线）整条判错，标签门禁各项都按“错”计；Agent 出错（无输出）的条目也按错计；'
+            f'评估出错的条目不计入分母，结论标“不完整”。拒绝话术通过率：{esc(rule)}。</p>'
             f'<table><thead><tr><th>门禁</th><th>门槛</th><th>{esc(vb)} 优化前</th><th>{esc(va)} 优化后</th><th>变化</th></tr></thead>'
             f'<tbody>{"".join(grows)}</tbody></table>')
     # ---- 观测 ----
@@ -948,15 +966,13 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict, pb: dict | None = None, pa:
         info = fb.get(fid, {})
         exp = as_dict(info.get("expected"))
         title = f'<div class="small muted">{esc(clip(info.get("title"), 40))}</div>' if info.get("title") else ""
-        cells = "".join(_label_cell(cb, ca, key, cn, b.vlabel, a.vlabel, exp.get(key)) for _e, key, cn in LABELS)
+        vetoed = (bool(itb and pillars.red_line_kinds(itb)), bool(ita and pillars.red_line_kinds(ita)))
+        cells = "".join(_label_cell(cb, ca, key, cn, b.vlabel, a.vlabel, exp.get(key), vetoed) for _e, key, cn in LABELS)
 
         def nfmt(c, it):
             if c is None or c["n"] is None:
                 return "—"
-            kinds = pillars.red_line_kinds(it) if it else []
-            if any(k["kind"] == "misreject" for k in kinds):
-                return "0/3"
-            return f"{c['n']}/3"
+            return "0/3" if it and pillars.red_line_kinds(it) else f"{c['n']}/3"  # red line: whole item wrong
 
         crit = ""
         tags = [st]
@@ -998,8 +1014,8 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict, pb: dict | None = None, pa:
         f'<p class="small muted">每格显示 {esc(b.vlabel)} → {esc(a.vlabel)} 的 Agent 输出：'
         '<span class="pill g">✓ 绿色</span>= 该项单项评估器判对，<span class="pill r">✗ 红色</span>= 判错，'
         '<span class="pill n">灰色</span>= 无评估结果 / 不适用。鼠标悬停查看理由；“拒绝”条目悬停可看客户话术。'
-        '<span class="pill r">⛔ 红线</span>= 一票否决（误拒不可自动拒绝的需求，或拒绝话术红线），这条需求整条判错；'
-        '误拒的条目“三项命中”记 0/3。“修复”= 优化后三项全对且无红线、而优化前不是；'
+        '<span class="pill r">⛔ 红线</span>= 一票否决（误拒不可自动拒绝的需求，或拒绝话术红线），这条需求整条判错，'
+        '“三项命中”记 0/3（格子里的 ✓/✗ 仍是单项评估器的原始判定，悬停可见“红线否决”）。“修复”= 优化后三项全对且无红线、而优化前不是；'
         '“退步”= 优化后答对的项数减少，或新出现红线；“仍错误”= 优化后仍未三项全对或仍有红线。</p>'
         f'<p><b>{esc(summary)}</b></p>'
         f'<div class="filters">{"".join(btn)}<span class="small muted" data-status-for="#cases">全部：{total} 条</span></div>'
@@ -1057,7 +1073,7 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
              f'<span><span class="dash"></span>门槛 ≥{esc(t)}</span></div>'
              f'<div class="chart">{bar_chart(groups, target, vb, va)}</div>'
              '<p class="small muted">准确率按门禁口径：单项评估器（label_important / label_urgent / label_decision）的判定，'
-             '误拒（红线）的条目三项都按错计；Agent 出错、评估出错的条目不计入分母。悬停柱子可查看条数。</p></div>')
+             '红线条目三项都按错计，Agent 出错的条目按错计，评估出错的条目不计入分母。悬停柱子可查看条数。</p></div>')
 
     names = [n for n in EVAL_ORDER if n in (b.names() | a.names())]
     names += sorted((b.names() | a.names()) - set(names))
@@ -1134,9 +1150,14 @@ def main(argv=None) -> int:
             raise SystemExit(f"❌ 找不到评估结果文件：{p}")
     b, af = EvalRun.load(before_p), EvalRun.load(after_p)
     target = target_accuracy()
-    print(f"▶ 对比 {b.vlabel} {b.run_id} → {af.vlabel} {af.run_id}（目标各 ≥{pct_short(target)}）", file=sys.stderr)
+    print(f"▶ 对比 {b.vlabel} {b.run_id} → {af.vlabel} {af.run_id}（红线 0 条且门禁各 ≥{pct_short(target)} 才通过）",
+          file=sys.stderr)
     out = Path(a.out) if a.out else root() / "results" / f"compare-{safe_name(b.run_id)}-vs-{safe_name(af.run_id)}.html"
     path = write_page(out, build_compare(b, af, target))
+    fb = feedback_index()
+    for ev in (b, af):  # build_compare may have renamed the labels of a same-version pair
+        print(f"  {ev.vlabel}：{pillars.plain(pillars.verdict_line(pillars_of(ev, fb, target, label_specs(b, af))), 300)}",
+              file=sys.stderr)
     print("✅ 对比页已生成（本地文件，可直接用浏览器打开）：", file=sys.stderr)
     print(shown_path(path))
     return 0

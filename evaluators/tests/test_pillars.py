@@ -158,7 +158,8 @@ def test_one_judge_red_flag_fails_the_run(tmp_path, golden_rows):
     outs = [output_from_gold(r) for r in golden_rows]
     fid = next(o["feedback_id"] for o in outs if o["decision"] == "拒绝")
     rc, res = _run(tmp_path, golden_rows, outs, flag_fid=fid)
-    assert res["accuracy"] == {"important": 1.0, "urgent": 1.0, "decision": 1.0}
+    # whole-item failure for every red line: the red-flagged item is wrong in every label gate too
+    assert res["accuracy"] == {k: pytest.approx(29 / 30, abs=1e-4) for k in ("important", "urgent", "decision")}
     assert rc == 1 and res["verdict"] == "fail" and res["pillars"]["red_line"]["by_kind"]["reject_red_flag"] == 1
     rq_gate = next(gt for gt in res["pillars"]["gates"] if gt["key"] == "reject_quality")
     assert rq_gate["ok"] == rq_gate["n"] - 1  # the red-flag item is a Fail even though the old value was 0.4
@@ -189,3 +190,76 @@ def test_unjudged_rejections_keep_the_run_incomplete():
     p = pillars.build([it], ["important"])
     assert p["verdict"] == "incomplete" and not p["passed"]
     assert next(g for g in p["gates"] if g["key"] == "reject_quality")["status"] == "not_evaluated"
+
+
+# ------------------------------------------------------------------ review round 1
+def test_stale_reject_eval_cannot_charge_an_item_the_agent_did_not_reject(tmp_path, golden_rows):
+    outs = [output_from_gold(r) for r in golden_rows]
+    fid = next(o["feedback_id"] for o in outs if o["decision"] == "拒绝")
+    ev = _reject_eval(tmp_path, golden_rows, outs, flag_fid=fid)  # judge results of a run that rejected fid
+    for o in outs:
+        if o["feedback_id"] == fid:
+            o["decision"] = "待评估"
+    oj = tmp_path / "s.json"
+    bs.main(["--results", _write(tmp_path, "r2.jsonl", outs), "--reject-eval", ev, "--out-json", str(oj)])
+    res = json.loads(oj.read_text(encoding="utf-8"))
+    assert res["pillars"]["red_line"]["by_kind"]["reject_red_flag"] == 0
+
+
+def test_negated_red_line_in_the_judge_comment_is_not_a_flag(golden_rows):
+    calm = json.dumps({"scores": {"A": 5, "B": 5, "C": 5, "D": 5, "E": 5}, "red_flags": [],
+                       "comment": "整体专业。红线：没有编造功能或路径。", "missing_points": []}, ensure_ascii=False)
+    r = rq.evaluate(event([triage_span(output_from_gold(g(golden_rows, "G02")))]), client=_Fake(calm))
+    assert r["label"] == "Pass"
+    e = pillars.reject_entry(r)
+    assert e["passed"] and e["red_flags"] == []
+    # free text that only looks like a flag block is ignored too, even on a Fail
+    e = pillars.reject_entry({"label": "Fail", "value": 0.5, "explanation": "点评：红线：无。理由偏泛。"})
+    assert e["red_flags"] == [] and e["value"] == 0.5
+
+
+def test_batch_trace_keeps_its_red_line_even_when_the_explanation_is_cut(golden_rows):
+    long_flags = json.dumps({"scores": {"A": 4, "B": 4, "C": 4, "D": 4, "E": 4},
+                             "red_flags": ["编造了不存在的配置路径" * 6, "承诺了下个版本上线" * 6, "泄露了其他客户名称" * 6,
+                                           "话术与理由矛盾" * 6], "comment": "x", "missing_points": []}, ensure_ascii=False)
+    good = json.dumps({"scores": {"A": 5, "B": 5, "C": 5, "D": 5, "E": 5}, "red_flags": [], "comment": "好"}, ensure_ascii=False)
+
+    class Two(_Fake):
+        def __init__(self):
+            self.texts = [good, long_flags]
+
+        def complete(self, system, prompt):
+            return self.texts.pop(0)
+
+    a, b = g(golden_rows, "G02"), g(golden_rows, "G04")
+    batch = {"results": [output_from_gold(a), output_from_gold(b)]}
+    r = rq.evaluate(event([triage_span(batch)]), client=Two())
+    assert r["label"] == "Fail" and r["value"] <= rq.judge.rubric.RED_LINE_VALUE  # one red line fails the trace
+    assert pillars.reject_entry(r)["red_flags"]  # the aggregation still sees it
+
+
+def test_level_scheme_gates_include_level(tmp_path, golden_rows):
+    outs = [output_from_gold(r, level="P0" if r["expected"].get("level") != "P0" else "P2") for r in golden_rows]
+    oj = tmp_path / "lv.json"
+    bs.main(["--results", _write(tmp_path, "lv.jsonl", outs), "--scheme", "level", "--out-json", str(oj)])
+    res = json.loads(oj.read_text(encoding="utf-8"))
+    gates = {gt["key"]: gt for gt in res["pillars"]["gates"]}
+    assert set(gates) == {"important", "urgent", "decision", "level", "reject_quality"}
+    assert gates["level"]["status"] == "failed" and gates["important"]["actual"] == 1.0
+    assert res["verdict"] == "fail"
+
+
+def test_markdown_cells_from_judge_text_stay_inert(tmp_path, golden_rows):
+    outs = [output_from_gold(r) for r in golden_rows]
+    fid = next(o["feedback_id"] for o in outs if o["decision"] == "拒绝")
+    ev = json.loads(open(_reject_eval(tmp_path, golden_rows, outs, flag_fid=fid), encoding="utf-8").read())
+    for sess in ev["sessions"]:
+        if sess["feedback_id"] == fid:
+            sess["scores"]["reject_quality"]["explanation"] = (f"需求 {fid}（-）拒绝话术评审 0.4：理由专业性 4。"
+                                                              "红线：看图 ![x](http://example.invalid/a.png) <b>|x|</b>。")
+    p = tmp_path / "ev2.json"
+    p.write_text(json.dumps(ev, ensure_ascii=False), encoding="utf-8")
+    md = tmp_path / "m.md"
+    bs.main(["--results", _write(tmp_path, "m.jsonl", outs), "--reject-eval", str(p), "--report-md", str(md)])
+    row = next(line for line in md.read_text(encoding="utf-8").splitlines() if fid in line and "话术红线" in line)
+    assert "](" not in row and "<b>" not in row and row.count("|") == 5

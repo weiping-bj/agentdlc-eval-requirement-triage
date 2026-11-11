@@ -6,10 +6,12 @@ red line makes the whole run fail whatever the accuracies are:
   - reject_red_flag: the reject-quality judge listed a red flag (fabricated feature or menu path,
     promised launch date, leaked other customers / internal info, empty reply or reply contradicting
     the reason, rejecting a non-auto-rejectable item).
-门禁 (gate, quality). Every gate must be met: important / urgent / decision (/ level in the graded
+门禁 (gate, quality). Every gate must be met: important / urgent / decision (+ level in the graded
   scheme) accuracy >= target, and the reject-quality pass rate >= target (Pass = value >= 0.7 and no
-  red flag). A misrejected item counts as wrong in every label gate. A gate that applies but has no
-  data (e.g. rejections that were never judged) is "未评估" and the run cannot pass.
+  red flag). A red-line item (either kind) counts as wrong in every label gate and, if it was judged,
+  as a Fail in the reject gate. An item with no agent output counts as wrong in every label gate.
+  A gate that applies but has no data (e.g. a rejection that was never judged) is "未评估" and the
+  run cannot pass.
 观测 (observation). Trend metrics shown side by side; they never change the verdict.
 
 Canonical copy: evaluators/shared/pillars.py. evaluators/sync_shared.py copies it into each Lambda
@@ -37,7 +39,13 @@ PILLAR_CN = {"red_line": "红线（一票否决）", "gate": "门禁（全部达
 VERDICT_CN = {"pass": "✅ 通过", "fail": "❌ 不通过", "incomplete": "⚠️ 不完整（不能判通过）"}
 GATE_STATUS_CN = {"met": "达标", "failed": "未达标", "not_evaluated": "未评估", "not_applicable": "不适用（无拒绝条目）"}
 
-_FLAGS_RE = re.compile(r"红线：(.*?)。")
+# Only the flag block judge.explain writes right after "拒绝话术评审 <value>：<dims>。" counts: a "红线：" inside
+# the judge's own comment (e.g. "红线：没有编造功能。") is not a flag. The block may be cut short (batch traces).
+_FLAGS_RE = re.compile(r"拒绝话术评审 [\d.]+：[^。\n]*。红线：([^。\n]*)")
+_EMPTY_FLAG = {"", "无", "没有", "无红线", "无红线问题", "没有红线", "none", "null", "n/a", "na", "-", "[]", "否", "no"}
+_CTRL = re.compile(r"[\x00-\x1f\x7f]+")
+REJECT_WORDS = ("拒绝", "reject", "rejected", "decline", "不做", "驳回")  # == span_adapter.DECISION_ALIASES[拒绝]
+_NEGATION = re.compile(r"(不|暂不|不予|无需|无须|无法|没有|won'?t|not\b|^un|n't)")
 _SCORE_RE = re.compile(r"(" + "|".join(n for _, n in JUDGE_DIMS) + r") (\d+(?:\.\d+)?)")
 _MISSING_RE = re.compile(r"未覆盖要点：(.*?)。")
 
@@ -62,11 +70,27 @@ def _split(s: str) -> List[str]:
     return [x.strip() for x in re.split(r"[；;]", s or "") if x.strip()]
 
 
+def plain(v: Any, n: int = 200) -> str:
+    """One line of plain text (control characters and newlines collapsed) for terminals and Markdown."""
+    s = " ".join(_CTRL.sub(" ", str(v or "")).split())
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def is_reject(decision: Any) -> bool:
+    """Agent decision normalised like span_adapter.norm_decision: 拒绝 / reject / 建议拒绝 ...; 不拒绝 is not."""
+    s = str(decision or "").strip().lower()
+    if not s:
+        return False
+    if s in REJECT_WORDS:
+        return True
+    return not _NEGATION.search(s) and any(w in s for w in REJECT_WORDS) and "评估" not in s
+
+
 def red_flags_from_text(text: Any) -> List[str]:
-    """Red flags written by judge.explain ("红线：a；b。"), from every block of a (batch) explanation."""
+    """Red flags written by judge.explain ("…评审 0.2：<dims>。红线：a；b。"), from every block of a batch explanation."""
     out: List[str] = []
     for m in _FLAGS_RE.finditer(str(text or "")):
-        out.extend(_split(m.group(1)))
+        out.extend(f for f in _split(m.group(1)) if re.sub(r"[\s。．.,，;；!！:：]", "", f).lower() not in _EMPTY_FLAG)
     return out
 
 
@@ -105,7 +129,7 @@ def reject_entry(entry: Any) -> Optional[Dict[str, Any]]:
     raw = num(e.get("value"))
     if label.lower() in NA_LABELS or raw is None:
         return {"status": "na", "label": label}
-    flags = red_flags_from_text(expl)
+    flags = [] if label == "Pass" else red_flags_from_text(expl)  # the evaluator never passes a red-flag item
     value = min(raw, REJECT_RED_VALUE) if flags else raw
     ok = (label == "Pass") if label in ("Pass", "Fail") else value >= REJECT_PASS
     ok = ok and value >= REJECT_PASS and not flags
@@ -138,10 +162,23 @@ def red_line_kinds(it: Dict[str, Any]) -> List[Dict[str, str]]:
 
 
 def _vetoed(it: Dict[str, Any], f: str) -> Optional[bool]:
-    v = (it.get("fields") or {}).get(f)
-    if it.get("misreject") or any(k["kind"] == "misreject" for k in red_line_kinds(it)):
-        return False  # whole-item failure: a misrejected item is wrong in every label
-    return v
+    """Label f of one item after the veto: any red line fails the whole item; no output = wrong."""
+    if it.get("misreject") or red_line_kinds(it):
+        return False
+    if it.get("no_output"):
+        return False
+    return (it.get("fields") or {}).get(f)
+
+
+def gate_fields(scheme: str = "binary") -> tuple:
+    """Label gates: important / urgent / decision, plus level in the graded scheme."""
+    return ("important", "urgent", "decision", "level") if scheme == "level" else ("important", "urgent", "decision")
+
+
+def unjudged(it: Dict[str, Any]) -> bool:
+    """The agent rejected this item but no reject-quality verdict was read for it."""
+    rej = it.get("reject") or {}
+    return bool(it.get("rejected")) and not it.get("format_error") and rej.get("status") != "judged"
 
 
 def _dim_order(d: str):
@@ -168,11 +205,9 @@ def build(items: Iterable[Dict[str, Any]], fields: Iterable[str], target: float 
             for k in kinds:
                 by_kind[k["kind"]] += 1
     judged = [it for it in items if (it.get("reject") or {}).get("status") == "judged"]
-    unjudged = [it["feedback_id"] for it in items
-                if it.get("rejected") and not it.get("format_error")
-                and (it.get("reject") is None or it["reject"].get("status") == "error")]
+    pending_rej = [it["feedback_id"] for it in items if unjudged(it)]
     red = {"count": len(rl_items), "by_kind": {k: by_kind.get(k, 0) for k in KIND_CN}, "items": rl_items,
-           "complete": not unjudged, "passed": not rl_items}
+           "complete": not pending_rej, "passed": not rl_items}
 
     # ---- 门禁 ----
     gates = []
@@ -182,15 +217,15 @@ def build(items: Iterable[Dict[str, Any]], fields: Iterable[str], target: float 
         status = "not_evaluated" if acc is None else ("met" if acc >= target else "failed")
         gates.append({"key": f, "name": f"{FIELD_CN.get(f, f)}准确率", "actual": acc, "threshold": target,
                       "n": len(vals), "ok": sum(1 for v in vals if v), "status": status})
-    n_pass = sum(1 for it in judged if it["reject"]["passed"])
+    n_pass = sum(1 for it in judged if it["reject"]["passed"] and not red_line_kinds(it))
     if judged:
         rate = _rate(n_pass, len(judged))
         rstatus = "met" if rate >= reject_target else "failed"
     else:
         rate = None
-        rstatus = "not_evaluated" if unjudged else "not_applicable"
+        rstatus = "not_evaluated" if pending_rej else "not_applicable"
     gates.append({"key": "reject_quality", "name": "拒绝话术通过率", "actual": rate, "threshold": reject_target,
-                  "n": len(judged), "ok": n_pass, "status": rstatus, "unjudged": unjudged,
+                  "n": len(judged), "ok": n_pass, "status": rstatus, "unjudged": pending_rej,
                   "rule": f"每条 Pass = 评审分 ≥ {REJECT_PASS:g} 且无红线"})
 
     # ---- 观测 ----
@@ -231,6 +266,7 @@ def build(items: Iterable[Dict[str, Any]], fields: Iterable[str], target: float 
         "by_case_type": {c: _rate(a, b) for c, (a, b) in sorted(by_ct.items()) if b},
         "format_error": {"n": sum(1 for it in items if it.get("format_error")),
                          "rate": _rate(sum(1 for it in items if it.get("format_error")), len(items))},
+        "no_output": sum(1 for it in items if it.get("no_output") and not it.get("format_error")),
         "decisions": dict(Counter((it.get("decision") or "（无输出）") for it in items)),
         "reject": {"n": len(judged), "mean": round(sum(vals) / len(vals), 4) if vals else None,
                    "scores": {k: round(sum(v) / len(v), 2) for k, v in sorted(scores.items())},
@@ -250,8 +286,8 @@ def build(items: Iterable[Dict[str, Any]], fields: Iterable[str], target: float 
         reasons.append("门禁未达标：" + "、".join(failed))
     pending = [g["name"] for g in gates if g["status"] == "not_evaluated"]
     extra = list(incomplete)
-    if unjudged and rstatus != "not_evaluated":
-        extra.append(f"{len(unjudged)} 条拒绝没有话术评估结果")
+    if pending_rej and rstatus != "not_evaluated":
+        extra.append(f"{len(pending_rej)} 条拒绝没有话术评估结果")
     if pending:
         reasons.append("门禁未评估：" + "、".join(pending))
     reasons.extend(extra)
@@ -261,6 +297,14 @@ def build(items: Iterable[Dict[str, Any]], fields: Iterable[str], target: float 
             reasons.append("没有可评估的条目")
     return {"verdict": verdict, "passed": verdict == "pass", "reasons": reasons, "target": target,
             "fields": fields, "n_items": len(items), "red_line": red, "gates": gates, "observations": obs}
+
+
+def red_line_mark(p: Dict[str, Any]) -> str:
+    """✅ only when the red-line check is complete; '⚠️ 未评估全' when some rejections were never judged."""
+    rl = p["red_line"]
+    if rl["count"]:
+        return "❌"
+    return "✅" if rl["complete"] else "⚠️ 话术红线未评估全"
 
 
 def verdict_line(p: Dict[str, Any]) -> str:

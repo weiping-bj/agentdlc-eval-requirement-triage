@@ -136,12 +136,13 @@ def summary_lines(summ: dict) -> list:
     p = summ["pillars"]
     rl, obs = p["red_line"], p["observations"]
     by = rl["by_kind"]
-    L = [f"  红线（一票否决，要求 0 条）：{rl['count']} 条 {'✅' if rl['passed'] else '❌'}"
+    L = [f"  红线（一票否决，要求 0 条）：{rl['count']} 条 {compare.pillars.red_line_mark(p)}"
          f"  误拒 {by.get('misreject', 0)} · 话术红线 {by.get('reject_red_flag', 0)}"]
     for x in rl["items"][:10]:
         for k in x["kinds"]:
             name = "误拒" if k["kind"] == "misreject" else "话术红线"
-            L.append(f"    ⛔ {x['feedback_id']}（{x.get('golden_id') or '-'}）{name}：{compare.clip(k['detail'], 60)}")
+            L.append(f"    ⛔ {compare.pillars.plain(x['feedback_id'], 40)}（{x.get('golden_id') or '-'}）{name}："
+                     f"{compare.pillars.plain(k['detail'], 60)}")
     if len(rl["items"]) > 10:
         L.append(f"    …… 另有 {len(rl['items']) - 10} 条，见对比页或 eval JSON")
     L.append(f"  门禁（各 ≥ {p['target']:.0%}）：")

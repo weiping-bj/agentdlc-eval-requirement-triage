@@ -74,6 +74,7 @@
     <li><a href="#s-2-4">2.4</a> 模板第 5 节写了 mock 数据意见才做：一行命令交给 coding agent（提示词 02）；没填或写的是“基本符合”就跳过。一定在 2.5 之前：提示词 03 要读 <code>data/feedback_last_month.jsonl</code>（数“几个客户提过”，按 <code>feedback_id</code> 取“新增”行的需求原文）。</li>
     <li><a href="#s-2-5">2.5</a> CSV 或模板第 1–4 节有改动才做：模板第 3 节补了能力目录时，先交给 coding agent 提示词 04（改能力目录）；再 <code>apply-feedback --dry-run</code> 预览，最后提示词 03。</li>
     <li><a href="#s-2-6">2.6</a> 冻结：做了 2.4 或 2.5 都要做。</li>
+    <li><a href="#s-2-7">2.7</a> 改过任何数据（2.4 / 2.5 / 提示词 04）就做：把 EC2 上的当前数据发布成网页，在笔记本上核对。</li>
     <li>回到本章之后的流程（A 版 <a href="a3-instrument.html">A3</a>，B 版 <a href="b3-deploy.html">B3</a>）。如果之前已经注册过评估器，重跑 <code>./30-create-evaluators.sh</code>（<a href="06-evaluators.html">第 6 章</a>），评估器才会用上新黄金集。B 版：部署时会把 <code>data/capability_catalog.json</code> 和 <code>data/feedback_last_month.jsonl</code> 打进 Runtime 包（<code>labkit/runtime.py</code> 的 <code>DATA_FILES</code>），所以 Runtime <b>已经部署过</b>、而 2.4 改了 mock 数据或提示词 04 改了能力目录时，要重跑 <code>./20-B-deploy-runtime.sh</code>（<a href="b3-deploy.html">B3</a>，更新同一个 Runtime）；还没做 B3 就不用管。A 版每次本地运行都直接读 <code>data/</code>，不用额外操作。用了客户数据（设过 <code>S12_DATA_DIR</code>）时，Agent 和 Runtime 读的是 <code>data/customer/agent_data/</code> 里的副本：改了能力目录要再复制一份过去：<code>cp data/capability_catalog.json data/customer/agent_data/</code>。</li>
   </ol></div>
   <div class="tip"><b>改动很小？</b>例如只改了一两句口径，可以不走 S3：在 EC2 上运行 <code>claude</code>，直接告诉它“把 data/templates/discussion-feedback.md 第 1.2 节‘紧急 = 是’的口径改成：……”。<b>CSV 不要粘贴</b>进对话（30 多行、很多逗号，容易错列或被截断），请走上面的 S3 步骤。</div>
@@ -102,6 +103,7 @@ CAP-006 已支持 页面布局与首页自定义组件
 CAP-007 已支持 审批流
 CAP-008 已支持 自定义函数</pre></div>
   <div class="tip">在笔记本上看更方便：点上面的 <code>.csv</code> 链接，在 GitHub 页面里可以直接以表格形式浏览。</div>
+  <div class="note">手册里的网页版和 GitHub 上的文件都是仓库里的<b>原始样例</b>，不会随 EC2 上的修改变化。改过数据之后要看<b>当前版本</b>，用 <a href="#s-2-7">2.7</a> 把它们发布到你的私有 S3 桶再打开。</div>
 </div>
 
 <div class="step" id="s-2-2">
@@ -109,7 +111,7 @@ CAP-008 已支持 自定义函数</pre></div>
   <p class="why">黄金集是“标准答案”：每条都标好是否重要、是否紧急、处理建议和拒绝要点。</p>
   <table>
     <tr><th>文件</th><th>内容</th></tr>
-    <tr><td><a data-repo="data/golden/golden_set.jsonl">data/golden/golden_set.jsonl</a>（Excel 版 <a data-repo="data/golden/golden_set.csv">golden_set.csv</a>）</td><td>30 条：需求原文 + 期望标签（重要 / 紧急 / 处理建议 / 优先级）+ 可接受的其它建议 + 是否可自动拒绝 + 拒绝要点 + 话术要点 + 标注理由 + 五维标签 + 样例类型</td></tr>
+    <tr><td><a data-repo="data/golden/golden_set.jsonl">data/golden/golden_set.jsonl</a>（Excel 版 <a data-repo="data/golden/golden_set.csv">golden_set.csv</a> · 网页版见 <a href="#s-2-7">2.7</a>）</td><td>30 条：需求原文 + 期望标签（重要 / 紧急 / 处理建议 / 优先级）+ 可接受的其它建议 + 是否可自动拒绝 + 拒绝要点 + 话术要点 + 标注理由 + 五维标签 + 样例类型</td></tr>
     <tr><td><a data-repo="data/golden/LABELING_GUIDE.md">data/golden/LABELING_GUIDE.md</a></td><td>标注标准：什么算重要、什么算紧急、何时迭代 / 拒绝 / 待评估、哪些<b>不可自动拒绝</b></td></tr>
     <tr><td><a data-repo="data/schema/">data/schema/</a></td><td>输入条目 / 黄金集条目 / Agent 输出的 JSON Schema</td></tr>
   </table>
@@ -190,7 +192,7 @@ cat data/customer/report.md</code></pre></li>
     <li>读模板第 5 节（<code>data/templates/discussion-feedback.md</code>）；</li>
     <li>把意见翻译成 <a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a> 里的参数（条数、月份、类别占比、行业、渠道）；</li>
     <li>种子库里没有的需求类型、或某一类条数不够时，把新条目写进 <code>data/templates/extra-feedback.jsonl</code>；</li>
-    <li>运行 <code>python3 data/tools/generate_mock_data.py</code> 重新生成数据（同时刷新 <a href="mock-data.html">60 条 mock 需求</a> 网页）；</li>
+    <li>运行 <code>python3 data/tools/generate_mock_data.py</code> 重新生成数据（同时刷新 EC2 上的 <code>docs/mock-data.html</code>；它在 EC2 上，浏览器打不开，笔记本上看新数据用 <a href="#s-2-7">2.7</a>）；</li>
     <li>运行 <code>python3 data/tools/golden_tool.py validate</code>，确认黄金集不受影响；</li>
     <li>汇报：改了哪些参数、类别分布、新增了哪些条目、还剩哪些警告。</li>
   </ol>
@@ -216,7 +218,7 @@ cat data/customer/report.md</code></pre></li>
 <pre><code>python3 data/tools/generate_mock_data.py</code></pre>
   输出就是上面那种类别分布；参数一点没改时，结果和仓库里的 60 条完全一样（同样的参数 + 同样的随机种子 = 同样的结果）。数据有变化时还会多一行 <code>已刷新讨论用的网页版：docs/mock-data.html</code>。脚本：<a data-repo="data/tools/generate_mock_data.py">data/tools/generate_mock_data.py</a>。</div>
   <div class="tip">默认不覆盖黄金集，黄金集请走 2.5 的流程修改，这样每条改动都有记录。需求编号变了（例如改了月份）时，脚本会自动同步黄金集里的 <code>feedback_id</code>，在 2.6 冻结时一并生效；讨论时填的 CSV 里的旧编号不用改（按 <code>golden_id</code> 对应），只有“新增”行写了旧 <code>feedback_id</code> 时，<code>apply-feedback</code> 会提示改成新编号。</div>
-  <p><b>下一步：</b>做 <a href="#s-2-5">2.5</a> 改黄金集（提示词 03 会读刚生成的数据）。B 版：Runtime 已经部署过（<a href="b3-deploy.html">B3</a>）时，数据改了要重跑 <code>./20-B-deploy-runtime.sh</code>，新数据才会打进 Runtime 包；还没做 B3 就不用管。</p>
+  <p><b>下一步：</b>做 <a href="#s-2-5">2.5</a> 改黄金集（提示词 03 会读刚生成的数据），冻结（<a href="#s-2-6">2.6</a>）后用 <a href="#s-2-7">2.7</a> 在笔记本上核对新数据。B 版：Runtime 已经部署过（<a href="b3-deploy.html">B3</a>）时，数据改了要重跑 <code>./20-B-deploy-runtime.sh</code>，新数据才会打进 Runtime 包；还没做 B3 就不用管。</p>
 </div>
 
 <div class="step" id="s-2-5">
@@ -284,6 +286,32 @@ python3 data/tools/golden_tool.py freeze</code></pre>
 ...
 校验通过</pre></div>
   <div class="warn">黄金集冻结后再修改，需要重新运行 <code>freeze</code> <b>并</b>重新注册评估器（第 6 章 <code>./30-create-evaluators.sh</code>），否则评估器里还是旧答案。</div>
+  <p><b>下一步：</b>做 <a href="#s-2-7">2.7</a>，把冻结后的黄金集（和改过的 mock 数据、能力目录）发布成网页，在笔记本上核对。</p>
+</div>
+
+<div class="step" id="s-2-7">
+  <div class="step-head"><span class="num">2.7</span><h3>在笔记本上查看当前数据：能力目录 / mock 需求 / 黄金集</h3><span class="time">3 分钟</span></div>
+  <p class="why">手册里的 <a href="catalog.html">能力目录</a> 和 <a href="mock-data.html">60 条 mock 需求</a> 是仓库里的<b>原始样例</b>，不会随 EC2 上的修改变化；黄金集在手册里没有网页版；EC2 没有入站端口，浏览器也打不开 EC2 上的文件。这一步把 EC2 上<b>当前</b>的三份数据生成网页，上传到你的私有 S3 桶，在控制台里打开。</p>
+  <p>做过 <a href="#s-2-4">2.4</a>、<a href="#s-2-5">2.5</a> / <a href="#s-2-6">2.6</a> 或提示词 04 之后运行；以后数据再改，重跑同一条命令即可（覆盖同名对象，链接不变）：</p>
+<pre><code>./tools/publish-data-pages.sh</code></pre>
+  <div class="expect"><span class="label">预期输出（节选）：</span>
+<pre class="out">▶ 按 EC2 上的当前数据生成网页 → reports/data-pages/
+  ✅ 能力目录：39 项（data/capability_catalog.json）→ reports/data-pages/data-catalog.html
+  ✅ mock 需求：60 条（data/feedback_last_month.jsonl）→ reports/data-pages/data-mock-feedback.html
+  ✅ 黄金集：30 条（data/golden/golden_set.jsonl）→ reports/data-pages/data-golden-set.html
+☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/data-catalog.html
+…
+在笔记本浏览器打开（需已登录这个实验账号的控制台），点右上角「打开」查看（桶是私有的，链接不能给组外的人用）：
+  能力目录   https://us-west-2.console.aws.amazon.com/s3/object/s12lab-zhang3-&lt;account&gt;-us-west-2?region=us-west-2&amp;prefix=reports/data-catalog.html
+  mock 需求  https://…&amp;prefix=reports/data-mock-feedback.html
+  黄金集     https://…&amp;prefix=reports/data-golden-set.html</pre></div>
+  <ol class="clicks">
+    <li>在笔记本浏览器打开打印的链接（需已登录这个实验账号的控制台），点右上角 <span class="ui">打开</span>。</li>
+    <li>每页顶部写着“这是 EC2 上数据文件的当前版本”、生成时间、来源文件和 sha256；条数和分布就是你们改过之后的。黄金集页还会提示这一版有没有冻结（没冻结先做 <a href="#s-2-6">2.6</a>）。</li>
+    <li>黄金集页每条都列出期望标签、可接受建议、能否自动拒绝、拒绝要点、话术要点、五维和样例类型；还要改就回到 <a href="#s-2-5">2.5</a>，改完重跑本步。</li>
+  </ol>
+  <div class="note">只发布其中一页：<code>--only golden</code>（或 <code>catalog</code> / <code>mock</code>）。只生成本地文件、不上传：<code>--no-upload</code>（写到 <code>reports/data-pages/</code>）。用了客户数据（<a href="#s-2-3">2.3</a>）时，用 <code>--feedback</code> / <code>--catalog</code> / <code>--golden</code> 指定文件。脚本：<a data-repo="tools/publish-data-pages.sh">tools/publish-data-pages.sh</a> → <a data-repo="labkit/data_pages.py">labkit/data_pages.py</a>。</div>
+  <div class="warn">桶是私有的（四项“阻止公开访问”全部开启，脚本检查不通过就不上传），只有登录了这个账号控制台的人能打开。黄金集页就是标准答案：不要把对象改成公开，也不要把「打开」后的临时链接发给组外的人。</div>
 </div>
 
 </section>

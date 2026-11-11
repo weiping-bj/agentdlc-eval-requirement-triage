@@ -112,6 +112,7 @@ def render_html(catalog: dict) -> str:
   <p>Agent 判断“已有能力 / 真实缺口 / 明确不做”只看这份目录。分组讨论时请<b>看一遍</b>：缺了哪些能力、哪里写错了，填进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 3 节；不用改本页，也不用看 JSON。</p>
   <p>共 {len(caps)} 项：{chips}</p>
   <p class="where">版本 {e(catalog.get("version"))}{" · 全部为合成数据" if catalog.get("synthetic") else ""} · 本页由 <code>data/tools/catalog_views.py</code> 根据 <a data-repo="data/capability_catalog.json">capability_catalog.json</a> 自动生成 · Excel 版：<a data-download="data/capability_catalog.csv"></a></p>
+  <p class="note" data-handbook-only>本页是仓库里的<b>原始样例</b>，不会随 EC2 上的修改变化。按讨论反馈改过能力目录（提示词 04）之后，要看<b>当前版本</b>：在 EC2 上运行 <code>./tools/publish-data-pages.sh</code>，在 S3 控制台打开它打印的链接（第 <a href="02-data.html#s-2-7">2.7</a> 步）。</p>
 </section>
 
 <section class="card">

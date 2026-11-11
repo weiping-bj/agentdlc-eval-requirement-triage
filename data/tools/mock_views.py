@@ -140,6 +140,7 @@ def render_html(feedback: List[dict], cats: List[str]) -> str:
   <p class="lead">这是动手环节 Agent 要分诊的“上个月的需求反馈”。分组讨论时请<b>看一遍</b>：条数、类别占比、行业、渠道像不像你们的真实情况，缺了哪类常见需求。</p>
   <p>意见用大白话写进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 5 节即可；动手环节由 coding agent 把它改成 mock 数据参数和新增条目，你们不用打开参数文件。</p>
   <p class="where">本页由 <code>data/tools/mock_views.py</code> 根据 <a data-repo="data/feedback_last_month.jsonl">feedback_last_month.jsonl</a> 自动生成 · Excel 版：<a data-download="{CSV_REPO_PATH}"></a> · 全部为合成数据（客户名均为“（示例）”）</p>
+  <p class="note" data-handbook-only>本页是仓库里的<b>原始样例</b>，不会随 EC2 上的修改变化。第 2.4 步重新生成 mock 数据之后，要看<b>当前版本</b>：在 EC2 上运行 <code>./tools/publish-data-pages.sh</code>，在 S3 控制台打开它打印的链接（第 <a href="02-data.html#s-2-7">2.7</a> 步）。</p>
 </section>
 
 <section class="card">

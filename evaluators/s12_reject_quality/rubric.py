@@ -25,6 +25,10 @@ RED_FLAGS = [
     "拒绝了不应自动拒绝的需求（数据丢失/错误、安全漏洞、合规监管、合同承诺、线上功能缺陷）",
 ]
 
+# How to read "编造…配置路径" (both judges): the catalog's menu path (how_to) is the reference.
+PATH_RULE = ("菜单 / 配置路径以平台能力目录写明的路径（how_to，摘录里写作“用法”）为准：与某项能力的路径一致，或只写了其中连续的几级，不算编造；"
+             "在其中插入、追加或替换任何一级，或能力目录里没有的路径，都算“编造平台并不存在的功能或配置路径”。")
+
 PASS_THRESHOLD = 0.7
 # Red line (红线, one-vote veto): any red flag makes the item Fail with value <= RED_LINE_VALUE, the
 # lowest failing grade (不合格). 0.0 is not used for this: the native judge reserves it for 不适用.
@@ -85,6 +89,7 @@ def judge_user_prompt(requirement: str, reject_reason: str, customer_reply: str,
 
 【红线问题（一票否决：出现任意一条即列入 red_flags，整条判为不通过）】
 {red_flag_text()}
+{PATH_RULE}
 
 只输出一个紧凑的 JSON 对象（不要换行缩进、不要输出其它文字），字段顺序如下：
 {{"scores": {{"A": 1-5, "B": 1-5, "C": 1-5, "D": 1-5, "E": 1-5}}, "red_flags": ["每条不超过 20 字，没有则为空数组"], "comment": "不超过 60 字，指出最需要改进的一点", "missing_points": ["最多 3 条，每条不超过 20 字"], "covered_points": ["最多 3 条，每条不超过 20 字"]}}"""
@@ -115,6 +120,7 @@ Agent 的最终输出是一个 JSON，其中 decision 是处理建议，reject_r
 {dimension_text()}
 3. 检查红线问题（一票否决）：出现任意一条，不论其它方面多好，一律给“不合格”（{RED_LINE_VALUE}），整条判为不通过：
 {red_flag_text()}
+{PATH_RULE}
 
 【评分档位】
 {grades}

@@ -182,6 +182,34 @@ def test_judge_excerpt_adds_capability_whose_menu_path_the_agent_quotes(golden_r
     assert "- CAP-009 " in excerpts[1] and "用法：开放平台 → 应用管理" in excerpts[1] and "- OOS-001 " in excerpts[1]
 
 
+@pytest.mark.parametrize("quoted, added", [
+    ("在 后台 > 通知设置 里配置", True),                      # other arrow, spaces
+    ("在 后台 --> 通知设置 里配置", True),
+    ("在“后台 → 通知设置 → 升级规则”里配置", False),          # a level appended to the catalog path
+    ("在“系统 → 后台 → 通知设置”里配置", False),              # a level put in front
+    ("在“后台 → 提醒中心 → 升级”里设置", False),              # not in the catalog
+])
+def test_quoted_path_lookup_needs_the_catalog_levels_as_a_path_of_their_own(quoted, added):
+    req = "审批超时后希望自动提醒审批人并升级给上级"
+    assert ("- CAP-017 " in lf.capability_hints(req, k=1, quoted=quoted)) is added
+
+
+def test_quoted_sub_path_and_quote_marks():
+    req = "希望 CRM 内置财务总账和凭证"  # top-1 is OOS-001
+    assert "- CAP-007 " in lf.capability_hints(req, k=1, quoted="“流程管理 → 审批流 → 节点设置 → 超时处理”")
+    assert "- CAP-003 " in lf.capability_hints(req, k=1, quoted="在 列表页 → 导入 → 选择‘按唯一字段更新’ 即可")
+    assert "- CAP-007 " not in lf.capability_hints(
+        req, k=1, quoted="后台 → 流程管理 → 审批流 → 选择对应审批节点 → 节点设置 → 超时处理")  # a level inserted
+
+
+def test_path_rule_in_both_judges():
+    """Both judges read 编造…配置路径 against the catalog how_to: a catalog path is fine, a changed or uncatalogued one is not."""
+    assert "how_to" in rubric.PATH_RULE and "插入、追加或替换任何一级" in rubric.PATH_RULE
+    assert rubric.PATH_RULE in rubric.judge_user_prompt("r", "x", "y")
+    cfg = json.load(open(os.path.join(EV, "llm_judge_config", "s12_reject_quality.json"), encoding="utf-8"))
+    assert rubric.PATH_RULE in cfg["llmAsAJudge"]["instructions"].split("【评分档位】")[0]
+
+
 def test_temperature_rejected_by_model_is_dropped_and_remembered():
     err = FakeErr("ValidationException")
     err.args = ("The model returned the following errors: `temperature` is deprecated for this model.",)

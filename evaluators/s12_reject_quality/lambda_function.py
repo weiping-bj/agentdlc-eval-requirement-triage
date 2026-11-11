@@ -61,15 +61,45 @@ def _bigrams(s: str) -> set:
     return {s[i:i + 2] for i in range(len(s) - 1)}
 
 
+_ARROWS = ("-->", "->", "=>", "＞", "›", "»", ">")
+_QUOTES = "“”‘’\"'「」『』"
+
+
 def _path_key(s: str) -> str:
-    return "".join(ch for ch in (s or "") if not ch.isspace()).replace("->", "→")
+    """Menu path text without whitespace or quote marks, every arrow written as →."""
+    s = "".join(ch for ch in (s or "") if not ch.isspace() and ch not in _QUOTES)
+    for a in _ARROWS:
+        s = s.replace(a, "→")
+    return s
+
+
+def _how_to(c: dict) -> str:
+    return str(c.get("how_to") or c.get("usage") or "")
+
+
+def _quotes_path_of(qk: str, how_to: str) -> bool:
+    """True if `qk` (a _path_key) contains two or more consecutive levels of `how_to` as a path of its own:
+    the match is not glued to a further level (no → right before or after it), so a quoted path that adds,
+    inserts or replaces a level does not count as quoting this capability's path."""
+    segs = [x for x in _path_key(how_to).split("→") if x]
+    for n in range(len(segs), 1, -1):
+        for i in range(len(segs) - n + 1):
+            sub = "→".join(segs[i:i + n])
+            start = qk.find(sub)
+            while start >= 0:
+                end = start + len(sub)
+                if (start == 0 or qk[start - 1] != "→") and (end == len(qk) or qk[end] != "→"):
+                    return True
+                start = qk.find(sub, start + 1)
+    return False
 
 
 def capability_hints(text: str, k: int = 5, quoted: str = "") -> str:
     """Catalog excerpt for the judge, one line per capability with id, name, status, description, limits,
     workaround and the menu path (how_to, 用法), so a path the agent quotes from the catalog can be told apart
     from an invented one: the top-k capabilities by bigram overlap with `text` (the ranking does not use how_to),
-    plus every capability whose whole how_to appears in `quoted` (the agent's own reject_reason / customer_reply)."""
+    plus every capability whose menu path (whole, or two or more consecutive levels of it) is quoted as a path of
+    its own in `quoted` (the agent's own reject_reason / customer_reply)."""
     q = _bigrams(text)
     scored = []
     for c in _catalog() if q else ():
@@ -80,13 +110,13 @@ def capability_hints(text: str, k: int = 5, quoted: str = "") -> str:
     scored.sort(key=lambda x: -x[0])
     picked = [c for _, c in scored[:k]]
     qk = _path_key(quoted)
-    if qk:
+    if "→" in qk:
         ids = {c.get("id") for c in picked}
-        picked += [c for c in _catalog() if c.get("how_to") and c.get("id") not in ids and _path_key(c["how_to"]) in qk]
+        picked += [c for c in _catalog() if _how_to(c) and c.get("id") not in ids and _quotes_path_of(qk, _how_to(c))]
     lines = []
     for c in picked:
         lines.append(f"- {c.get('id')} {c.get('name')}（{c.get('status')}）：{c.get('description')} 限制：{c.get('limits') or '无'}"
-                     f" 替代：{c.get('workaround') or '无'} 用法：{c.get('how_to') or '无'}")
+                     f" 替代：{c.get('workaround') or '无'} 用法：{_how_to(c) or '无'}")
     return "\n".join(lines)
 
 
@@ -126,9 +156,9 @@ def evaluate(event: dict, client=None) -> dict:
         if req.startswith("（") and gold:
             req = gold.get("title") or req
         out = rec["output"]
-        hints = capability_hints(req + " " + out.get("reject_reason", ""),
-                                 quoted=f"{out.get('reject_reason') or ''} {out.get('customer_reply') or ''}")
-        r = judge.judge_rejection(client, req, rec["output"], gold, hints)
+        reason = out.get("reject_reason") or ""
+        hints = capability_hints(req + " " + reason, quoted=f"{reason} {out.get('customer_reply') or ''}")
+        r = judge.judge_rejection(client, req, out, gold, hints)
         outs.append((rec, gold, r))
     if len(outs) == 1:
         rec, gold, r = outs[0]

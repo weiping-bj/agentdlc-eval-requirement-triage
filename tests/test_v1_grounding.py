@@ -1,11 +1,12 @@
 """V1 grounding (no AWS calls).
 
 The reject-quality judge checks a rejection against a catalog excerpt built from each capability's
-name / description / limits / workaround (evaluators/s12_reject_quality/lambda_function.capability_hints).
-A platform fact the agent states from any other source -- e.g. the catalog's menu path how_to, or the
+name / description / limits / workaround / how_to (menu path) (evaluators/s12_reject_quality/lambda_function.capability_hints).
+A platform fact the agent states from any other source -- e.g. a menu path it made up or rephrased, or the
 model's own knowledge -- cannot be verified there (unless the golden reply points happen to list it) and
-tends to be judged "编造平台并不存在的功能或配置路径" (a red line, one-vote veto). So V1's capability tool hands the model only those fields, and the V1 prompt keeps
-every platform fact in reject_reason / customer_reply to them. V0 stays the deliberately weak baseline.
+tends to be judged "编造平台并不存在的功能或配置路径" (a red line, one-vote veto). So V1's capability tool hands the
+model exactly those fields, and the V1 prompt keeps every platform fact in reject_reason / customer_reply to them
+(a menu path only as the verbatim how_to). V0 stays the deliberately weak baseline.
 """
 import importlib
 import json
@@ -18,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "agent"))
 
 PATH_MARKS = ("→", "->")
-FACT_FIELDS = ("name", "description", "limits", "workaround")
+FACT_FIELDS = ("name", "description", "limits", "workaround", "how_to")
 
 
 def _catalog() -> list:
@@ -39,16 +40,17 @@ def _judge_hints():
             sys.modules.pop(m, None)
 
 
-def test_v1_capability_search_gives_no_menu_paths():
+def test_v1_capability_search_returns_the_catalog_menu_path():
     pytest.importorskip("strands")
     from s12agent import tools
+    caps = {c["id"]: c for c in _catalog()}
     seen = set()
     for c in _catalog():
         for hit in json.loads(tools.search_capabilities._tool_func(c["name"])):
             seen.add(hit["id"])
-            assert "how_to" not in hit, hit
             assert set(FACT_FIELDS) | {"id", "status"} <= set(hit), hit
-            assert not any(m in str(v) for v in hit.values() for m in PATH_MARKS), hit
+            assert hit["how_to"] == (caps[hit["id"]].get("how_to") or ""), hit  # verbatim catalog path, nothing else
+            assert not any(m in str(v) for f, v in hit.items() if f != "how_to" for m in PATH_MARKS), hit
     with_path = {c["id"] for c in _catalog() if any(m in (c.get("how_to") or "") for m in PATH_MARKS)}
     assert with_path and with_path <= seen  # the loop really covered every capability that has a menu path
 
@@ -99,8 +101,9 @@ def test_citing_capabilities_in_reject_reason_puts_them_in_the_judge_excerpt():
 
 def test_v1_prompt_keeps_platform_facts_to_catalog_fields():
     v1 = (ROOT / "agent" / "s12agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
-    assert "how_to" not in v1
-    assert "不要写菜单路径" in v1 and "search_capabilities" in v1
+    assert "菜单路径只能原样引用本次 `search_capabilities` 结果里该功能的 how_to" in v1  # never an invented path
+    assert "不增减、不改写其中任何一级" in v1 and "就不写路径" in v1
+    assert "不要写菜单路径" not in v1
     assert "不出现能力编号" in v1 and "相似需求的客户数" in v1  # internal ids / demand counts stay out of replies
     assert "暗示以后会做" in v1  # no "not yet" wording for capabilities the catalog marks as not planned
     for f in FACT_FIELDS:

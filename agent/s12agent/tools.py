@@ -4,8 +4,8 @@ V0 (deliberately weak, "tool gap"): only `lookup_capability`, which returns capa
 NAMES without support status, limits or workarounds, so the model cannot tell
 "already supported" from "not planned" and has no signal about how many customers ask.
 
-V1: `search_capabilities` (status / description / limits / workaround / not-planned scope; no menu
-paths, see below) and `find_similar_requests` (how many distinct customers raised a similar need last month).
+V1: `search_capabilities` (status / description / limits / workaround / menu path how_to / not-planned scope)
+and `find_similar_requests` (how many distinct customers raised a similar need last month).
 """
 from __future__ import annotations
 
@@ -36,11 +36,11 @@ def lookup_capability(keyword: str) -> str:
 
 @tool
 def search_capabilities(query: str) -> str:
-    """在平台能力目录中检索与需求相关的能力，返回支持状态、功能说明、限制和替代方案。
+    """在平台能力目录中检索与需求相关的能力，返回支持状态、功能说明、限制、替代方案和菜单入口（how_to）。
 
-    判断需求前必须先调用本工具：status 为“已支持”说明客户可能不会用（用 name 指明功能、用 description 说明它能做什么，而不是新开发）；
-    “部分支持”看 limits 判断真实缺口；“明确不做”是“超出平台定位”拒绝的依据（引用其 id）。
-    关于平台的事实只用这里返回的 name / description / limits / workaround，不要补充菜单路径或其它细节。
+    判断需求前必须先调用本工具：status 为“已支持”说明客户可能不会用（用 name 指明功能、用 description 说明它能做什么，
+    有 how_to 的可原样给出入口，而不是新开发）；“部分支持”看 limits 判断真实缺口；“明确不做”是“超出平台定位”拒绝的依据（引用其 id）。
+    关于平台的事实只用这里返回的 name / description / limits / workaround / how_to；菜单路径只能原样引用 how_to，不要自己补充或改写。
 
     Args:
         query: 需求的核心诉求（用一句话描述，例如“列表页批量编辑自定义字段”）
@@ -48,9 +48,8 @@ def search_capabilities(query: str) -> str:
     hits = _rank_caps(query, 5)
     out = []
     for c in hits:
-        # No menu path (catalog how_to): the reviewer's catalog excerpt carries name / description / limits /
-        # workaround only, so a quoted path the golden reply points do not list cannot be verified there and
-        # tends to be judged as fabricated (a red line).
+        # how_to = the catalog menu path. The reviewer's catalog excerpt carries it too
+        # (evaluators/s12_reject_quality/lambda_function.capability_hints), so a path quoted verbatim can be verified.
         out.append({
             "id": data.g(c, "id", "capability_id"),
             "name": data.g(c, "name", "title"),
@@ -60,6 +59,7 @@ def search_capabilities(query: str) -> str:
             "limits": data.g(c, "limits", "limitations", "constraints"),
             "workaround": data.g(c, "workaround", "alternatives"),
             "effort_hint": data.g(c, "effort_hint", "dev_effort", "difficulty"),
+            "how_to": data.g(c, "how_to", "usage"),
         })
     return json.dumps(out or [{"note": "能力目录中没有相关能力"}], ensure_ascii=False)
 

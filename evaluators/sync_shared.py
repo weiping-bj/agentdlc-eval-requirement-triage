@@ -6,7 +6,8 @@ and regenerate the readable capability-catalog views.
     python3 evaluators/sync_shared.py --check  # exit 1 if any copy is stale (used by tests)
 
 Copies:
-  evaluators/shared/span_adapter.py, golden_store.py   -> s12_label_accuracy/, s12_reject_quality/
+  evaluators/shared/span_adapter.py, golden_store.py, pillars.py -> s12_label_accuracy/, s12_reject_quality/
+                                   (pillars.py = three-pillar verdict; labkit loads the shared/ copy directly)
   data/golden/golden_set.jsonl  -> */golden_set.json   ({"version", "items": {feedback_id: gold}})
   data/capability_catalog.json  -> s12_reject_quality/capability_catalog.json
   rubric.py                     -> evaluators/llm_judge_config/s12_reject_quality.json
@@ -24,7 +25,7 @@ import sys
 EV = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(EV)
 PKGS = ("s12_label_accuracy", "s12_reject_quality")
-SHARED = ("span_adapter.py", "golden_store.py")
+SHARED = ("span_adapter.py", "golden_store.py", "pillars.py")
 
 
 def _golden_bundle(golden_path: str) -> str:

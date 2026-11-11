@@ -9,7 +9,8 @@ Event (schema 1.0): {evaluationLevel, evaluationInput.sessionSpans, evaluationTa
 Return: {"label", "value", "explanation"} or {"errorCode", "errorMessage"}.
 
 value  = fraction of scored labels that are correct (3 labels by default -> 0 / 0.33 / 0.67 / 1).
-label  = Pass (all correct) | Fail | CriticalFail (rejected a must-not-reject item)
+label  = Pass (all correct) | Fail | CriticalFail (red line: rejected a must-not-reject item; the whole
+         item fails, value 0, also for the single-label evaluators)
          | FormatError (assistant answered but no parsable triage JSON; value 0)
          | Skipped (no answer in trace, or no ground truth for this feedback id; value omitted).
 

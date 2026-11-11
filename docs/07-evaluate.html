@@ -68,44 +68,49 @@ results/triage-report-A-v0-20261106T065342Z.html
   <div class="warn">跑完 7.1 后先等 <b>2–3 分钟</b>（trace 写入 CloudWatch 有延迟）。脚本自己也会重试，找不到 trace 时会等待再查。</div>
 <pre><code>./31-run-eval.sh</code></pre>
   <p class="where">脚本：<a data-repo="31-run-eval.sh">31-run-eval.sh</a> → <a data-repo="labkit/evaluate.py">labkit/evaluate.py</a>（调用 Evaluate API；把黄金集答案作为参考输入一起传入）。评估指定运行：<code>./31-run-eval.sh --run &lt;run_id&gt;</code>。不带 <code>--run</code> 时评估的是 <code>.lab-state/runs.json</code> 里最后一条登记的运行；会后评估自带 Agent 前要先登记，见 <a href="own-agent-guide.html#s-g-8">指南 G.8</a>。</p>
-  <div class="expect"><span class="label">预期输出（B 版 V0 实测，约 2–3 分钟）：</span>
-<pre class="out">▶ 评估 run B-v0-20261105T142708Z：30 个 session × 8 个评估器
+  <div class="expect"><span class="label">预期输出（A 版 V0 实测，约 2–3 分钟；结尾按三大支柱规则输出）：</span>
+<pre class="out">▶ 评估 run A-v0-20261105T142551Z：30 个 session × 8 个评估器
   评估器：label_accuracy, label_important, label_urgent, label_decision, reject_quality, reject_quality_llm, Builtin.Correctness, Builtin.Helpfulness
-  [ 1/30] FB-2610-009    三项=Fail     重要=Pass  紧急=Pass  建议=Fail  话术=不适用
+  [ 1/30] FB-2610-001    三项=Pass     重要=Pass  紧急=Pass  建议=Pass  话术=不适用
   [ 2/30] FB-2610-002    三项=Fail     重要=Fail  紧急=Pass  建议=Fail  话术=不适用
-  [ 3/30] FB-2610-005    三项=Fail     重要=Fail  紧急=Pass  建议=Fail  话术=不适用
+  [ 3/30] FB-2610-003    三项=Fail     重要=Pass  紧急=Pass  建议=Fail  话术=不适用
   …
-  [30/30] FB-2610-041    三项=Fail     重要=Fail  紧急=Pass  建议=Pass  话术=Pass
 
-═══ 结果（142s）· 目标：三项各 ≥ 70% ═══
-  是否重要：66% ❌
-  是否紧急：86% ✅
-  处理建议：48% ❌
-  label_accuracy: 平均 0.67（29 条）
-  reject_quality: 平均 0.55（4 条）
-  reject_quality_llm: 平均 0.47（3 条）
-  Builtin.Correctness: 平均 0.14（29 条）
-  Builtin.Helpfulness: 平均 0.81（29 条）
-  ❌ 未达标 · 详细结果：results/eval-B-v0-20261105T142708Z.json</pre>
+═══ 结果（…s）· 三大支柱：红线 0 条 + 门禁各 ≥ 70% 才通过 ═══
+  红线（一票否决，要求 0 条）：1 条 ❌  误拒 0 · 话术红线 1
+    ⛔ FB-2610-041（G29）话术红线：“受控数据访问”暗示可跨租户访问，超出能力目录
+  门禁（各 ≥ 70%）：
+    是否重要准确率：67% ❌
+    是否紧急准确率：80% ✅
+    处理建议准确率：40% ❌
+    拒绝话术通过率：67%（2/3 条 Pass） ❌
+  观测（只看趋势，不影响结论）：整条通过率 23% · 格式错误 1 条 · 话术均分 0.57（3 条）
+    label_accuracy: 平均 0.64（30 条）
+    reject_quality: 平均 0.47（4 条）
+    reject_quality_llm: 平均 0.60（4 条）
+    Builtin.Correctness: 平均 0.13（30 条）
+    Builtin.Helpfulness: 平均 0.84（30 条）
+  ❌ 不通过：红线 1 条（一票否决）；门禁未达标：是否重要准确率、处理建议准确率、拒绝话术通过率 · 详细结果：results/eval-A-v0-20261105T142551Z.json</pre>
   <table>
-    <tr><th>实测 V0（30 条黄金集）</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>结论</th></tr>
-    <tr><td>A 版（EC2 + ADOT）</td><td>67%</td><td>83%</td><td>43%</td><td>❌ 未达标</td></tr>
-    <tr><td>B 版（AgentCore Runtime）</td><td>66%</td><td>86%</td><td>48%</td><td>❌ 未达标</td></tr>
+    <tr><th>实测 V0（30 条黄金集）</th><th>红线</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>拒绝话术通过率</th><th>结论</th></tr>
+    <tr><td>A 版（EC2 + ADOT）</td><td>1 条</td><td>67%</td><td>80%</td><td>40%</td><td>67%</td><td>❌ 不通过</td></tr>
+    <tr><td>B 版（AgentCore Runtime）</td><td>—</td><td>66%</td><td>86%</td><td>48%</td><td>—</td><td>❌ 不通过（门禁未达标）</td></tr>
   </table>
-  <p>大模型每次运行的结果会有几个百分点的波动，你的数字和上表略有不同是正常的。“话术=不适用”表示这条 Agent 没有判“拒绝”，话术评估器不打分。</p></div>
+  <p class="small muted">A 版的三项准确率已按“红线条目整条判错”计（FB-2610-041 有话术红线，三项都按错计）。B 版那次实测在三大支柱规则之前，只记录了三项准确率；已有两项低于 70%，结论同样是不通过。</p>
+  <p>大模型每次运行的结果会有几个百分点的波动，你的数字和上表略有不同是正常的。“话术=不适用”表示这条 Agent 没有判“拒绝”，话术评估器不打分。上面每行的 Pass / Fail 是评估器原样返回的标签；结尾的红线、门禁按 7.3 的规则汇总。</p></div>
 </div>
 
 <div class="step" id="s-7-3">
-  <div class="step-head"><span class="num">7.3</span><h3>读懂分数：三项准确率 vs 70% 目标</h3><span class="time">5 分钟</span></div>
-  <p class="why">看是否重要、是否紧急、处理建议三项各自的准确率是否达标。</p>
+  <div class="step-head"><span class="num">7.3</span><h3>读懂分数：红线 · 门禁 · 观测</h3><span class="time">5 分钟</span></div>
+  <p class="why">结论分三层看：先看有没有红线（一票否决），再看门禁是否全部达标，观测指标只用来找原因、看趋势。</p>
   <table>
-    <tr><th>看哪个数</th><th>含义</th><th>怎么判断</th></tr>
-    <tr><td><b>是否重要 / 是否紧急 / 处理建议</b>（label_important / urgent / decision 的平均分）</td><td>三项各自的准确率，直接对应场景目标</td><td><b>三项都 ≥ 70%</b> 才算达标</td></tr>
-    <tr><td>label_accuracy</td><td>每条需求三项里对了几项（0、0.33、0.67、1）</td><td>看整体；<code>CriticalFail</code> = 把不可拒绝的需求拒绝了，最严重</td></tr>
-    <tr><td>reject_quality / reject_quality_llm</td><td>拒绝理由和话术的质量（只统计 Agent 判了“拒绝”的条目）</td><td>≥ 0.7 为合格</td></tr>
-    <tr><td>Builtin.Correctness / Helpfulness</td><td>内置评估器的通用视角</td><td>作为参考，不作为目标</td></tr>
+    <tr><th>支柱</th><th>看哪个数</th><th>怎么判断</th></tr>
+    <tr><td><span class="pill r">红线</span><br>一票否决</td><td><b>误拒</b>：把“不可自动拒绝”的需求（数据丢失、安全、合规、合同承诺、线上缺陷）判成了拒绝，标签评估器返回 <code>CriticalFail</code><br><b>话术红线</b>：reject_quality 评审列出的红线（编造功能或配置路径、承诺上线时间、泄露其他客户或内部信息、话术为空或与理由矛盾）</td><td><b>必须 0 条</b>。出现 1 条，不论准确率多高，结论都是不通过；这条需求<b>整条判错</b>：三项都按错计，话术判 Fail（≤ 0.2）</td></tr>
+    <tr><td><span class="pill o">门禁</span><br>全部达标</td><td><b>是否重要 / 是否紧急 / 处理建议</b>准确率（label_important / urgent / decision；红线条目、Agent 没有输出的条目都按错计；分级模式再加<b>优先级</b>）<br><b>拒绝话术通过率</b>：Agent 判了“拒绝”的条目里，reject_quality 为 Pass 的比例（Pass = 评审分 ≥ 0.7 且无红线）</td><td><b>每项都 ≥ 70%</b> 才算达标；有拒绝却没有话术评审结果时显示“未评估”，结论为“不完整”</td></tr>
+    <tr><td><span class="pill n">观测</span><br>只看趋势</td><td>label_accuracy、整条通过率、五维准确率、用例类型、话术分项（理由专业性…风险控制）和未覆盖要点、能力目录命中率、格式错误率、reject_quality_llm、Builtin.Correctness / Helpfulness</td><td><b>不影响结论</b>，用来归因（7.5）和对比优化前后（第 9 章）</td></tr>
   </table>
-  <div class="note">V0 本来就设计得偏弱，第一次不达标是正常的——这正是“评估驱动”的起点：有了分数，才知道改哪里、改完有没有用。</div>
+  <p class="where">规则代码：<a data-repo="evaluators/shared/pillars.py">evaluators/shared/pillars.py</a>（本地打分、终端结果、对比页共用）· 说明：<a data-repo="evaluators/README.md">evaluators/README.md</a> 第 0 节</p>
+  <div class="note">V0 本来就设计得偏弱，第一次不通过是正常的——这正是“评估驱动”的起点：有了分数，才知道改哪里、改完有没有用。</div>
 </div>
 
 <div class="step" id="s-7-4">

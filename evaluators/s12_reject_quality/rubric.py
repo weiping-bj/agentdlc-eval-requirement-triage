@@ -26,13 +26,17 @@ RED_FLAGS = [
 ]
 
 PASS_THRESHOLD = 0.7
+# Red line (红线, one-vote veto): any red flag makes the item Fail with value <= RED_LINE_VALUE, the
+# lowest failing grade (不合格). 0.0 is not used for this: the native judge reserves it for 不适用.
+RED_LINE_VALUE = 0.2
 
 GRADES = [  # value, label, definition (shared by both judges)
     (1.0, "优秀", "理由准确专业并引用平台能力或原则；话术理解客户、原因清楚、替代方案具体可执行；无任何红线问题。可直接发给客户。"),
     (0.8, "良好", "整体专业可用，只有一处小缺点（如替代方案不够具体、语气略生硬），无红线问题。"),
     (0.6, "一般", "理由或话术有明显不足之一：理由泛泛、未引用平台能力；或缺少替代方案；或原因没讲清。需要人工修改后才能发出。"),
-    (0.4, "较差", "理由与话术多处不足，或触发任意一条红线问题（如编造功能、承诺上线时间、话术与理由矛盾）。"),
-    (0.2, "不合格", "没有理由或话术、理由错误，或拒绝了不应自动拒绝的需求（数据丢失、安全、合规、合同承诺、线上缺陷）。"),
+    (0.4, "较差", "理由与话术多处不足，但没有触发红线问题。"),
+    (0.2, "不合格", "触发任意一条红线问题（红线一票否决，整条不通过：编造功能或配置路径、承诺上线时间、泄露其他客户或内部信息、"
+                  "话术为空或与理由矛盾、拒绝了不应自动拒绝的需求），或没有理由、理由错误。"),
 ]
 NOT_APPLICABLE = (0.0, "不适用", "Agent 的处理建议不是“拒绝”（是迭代或待评估），本评估器不适用。仅用于标记，不代表质量差。")
 
@@ -79,7 +83,7 @@ def judge_user_prompt(requirement: str, reject_reason: str, customer_reply: str,
 【评分维度（每项 1~5 分，5 分最好）】
 {dimension_text()}
 
-【红线问题（出现任意一条即列入 red_flags）】
+【红线问题（一票否决：出现任意一条即列入 red_flags，整条判为不通过）】
 {red_flag_text()}
 
 只输出一个紧凑的 JSON 对象（不要换行缩进、不要输出其它文字），字段顺序如下：
@@ -109,7 +113,7 @@ Agent 的最终输出是一个 JSON，其中 decision 是处理建议，reject_r
 1. 先看 Agent 最终输出里的 decision：如果不是“拒绝”（例如“迭代”或“待评估”），直接给“不适用”档，不再评价。
 2. 如果是“拒绝”，对照上下文中的需求原文和平台能力目录工具结果，按下面五个维度评价 reject_reason 和 customer_reply：
 {dimension_text()}
-3. 检查红线问题，出现任意一条，最高只能给“较差”；拒绝了不应自动拒绝的需求，给“不合格”：
+3. 检查红线问题（一票否决）：出现任意一条，不论其它方面多好，一律给“不合格”（{RED_LINE_VALUE}），整条判为不通过：
 {red_flag_text()}
 
 【评分档位】

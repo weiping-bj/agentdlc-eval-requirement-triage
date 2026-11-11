@@ -12,7 +12,7 @@ GOLDEN = os.path.join(REPO, "data", "golden", "golden_set.jsonl")
 def load_pkg(pkg: str, module: str = "lambda_function"):
     """Import a Lambda package's module in isolation (each package has its own copies of shared files)."""
     d = os.path.join(EV, pkg)
-    for m in ("lambda_function", "span_adapter", "golden_store", "label_scoring", "judge", "rubric", "batch_score"):
+    for m in ("lambda_function", "span_adapter", "golden_store", "label_scoring", "judge", "rubric", "batch_score", "pillars"):
         sys.modules.pop(m, None)
     sys.path.insert(0, d)
     try:

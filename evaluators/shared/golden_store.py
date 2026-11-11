@@ -27,6 +27,7 @@ def gold_from_golden_item(item: Dict[str, Any]) -> Dict[str, Any]:
         "dimensions": list(item.get("dimensions") or []),
         "reject_points": list(item.get("reject_points") or []),
         "reply_points": list(item.get("reply_points") or []),
+        "matched_capabilities": list(item.get("matched_capabilities") or []),
         "title": (item.get("input") or {}).get("title"),
     }
 

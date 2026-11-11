@@ -28,23 +28,31 @@
   <p>评估自己的 V2 同理：8.3 切换到 v2、8.4 让它生效后，跑同样的命令；V1、V2 都评估过时怎么对比见 9.2。</p>
   <p>等 2–3 分钟后评估（自动评估最近一次运行，也就是 V1）：</p>
 <pre><code>./31-run-eval.sh</code></pre>
-  <div class="expect"><span class="label">预期输出（B 版 V1 实测，结尾）：</span>
-<pre class="out">═══ 结果（149s）· 目标：三项各 ≥ 70% ═══
-  是否重要：90% ✅
-  是否紧急：93% ✅
-  处理建议：100% ✅
-  label_accuracy: 平均 0.94（30 条）
-  reject_quality: 平均 0.60（14 条）
-  reject_quality_llm: 平均 0.84（11 条）
-  Builtin.Correctness: 平均 0.53（30 条）
-  Builtin.Helpfulness: 平均 0.85（30 条）
-  ✅ 达标 · 详细结果：results/eval-B-v1-20261105T144133Z.json</pre>
+  <div class="expect"><span class="label">预期输出（A 版 V1 实测，结尾；按三大支柱规则输出）：</span>
+<pre class="out">═══ 结果（…s）· 三大支柱：红线 0 条 + 门禁各 ≥ 70% 才通过 ═══
+  红线（一票否决，要求 0 条）：9 条 ❌  误拒 0 · 话术红线 9
+    ⛔ FB-2610-002（G02）话术红线：首页配置路径目录未载,疑编造
+    ⛔ FB-2610-005（G04）话术红线：“连接器市场”入口路径无目录依据
+    ⛔ FB-2610-014（G09）话术红线：导出菜单路径未见于能力目录
+    …（共 9 条，都是话术里写了能力目录里没有的菜单路径）
+  门禁（各 ≥ 70%）：
+    是否重要准确率：63% ❌
+    是否紧急准确率：63% ❌
+    处理建议准确率：70% ✅
+    拒绝话术通过率：29%（4/14 条 Pass） ❌
+  观测（只看趋势，不影响结论）：整条通过率 57% · 格式错误 0 条 · 话术均分 0.44（14 条）
+    label_accuracy: 平均 0.96（30 条）
+    reject_quality: 平均 0.56（14 条）
+    reject_quality_llm: 平均 0.91（7 条）
+    Builtin.Correctness: 平均 0.40（25 条）
+    Builtin.Helpfulness: 平均 0.85（25 条）
+  ❌ 不通过：红线 9 条（一票否决）；门禁未达标：是否重要准确率、是否紧急准确率、拒绝话术通过率 · 详细结果：results/eval-A-v1-20261105T143233Z.json</pre>
   <table>
-    <tr><th>实测（30 条黄金集）</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>结论</th></tr>
-    <tr><td>A 版 V0 → V1</td><td>67% → <b>93%</b></td><td>83% → <b>93%</b></td><td>43% → <b>100%</b></td><td>✅ 达标</td></tr>
-    <tr><td>B 版 V0 → V1</td><td>66% → <b>90%</b></td><td>86% → <b>93%</b></td><td>48% → <b>100%</b></td><td>✅ 达标</td></tr>
+    <tr><th>实测（30 条黄金集）</th><th>红线</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th><th>拒绝话术通过率</th><th>结论</th></tr>
+    <tr><td>A 版 V0 → V1</td><td>1 → <b>9</b> 条</td><td>67% → <b>63%</b></td><td>80% → <b>63%</b></td><td>40% → <b>70%</b></td><td>67% → <b>29%</b></td><td>❌ → ❌ 不通过</td></tr>
+    <tr><td>B 版 V0 → V1</td><td>—</td><td>66% → <b>90%</b></td><td>86% → <b>93%</b></td><td>48% → <b>100%</b></td><td>—</td><td>—（这次实测在三大支柱规则之前，未统计红线）</td></tr>
   </table>
-  <p>大模型每次运行会有几个百分点的波动，你的数字略有不同是正常的；关键是三项都越过 70%。注意 V1 拒绝的条目变多了（4 → 14），所以话术质量 reject_quality 平均分只有 0.6 左右——这是第 8 章可以继续优化的方向。</p></div>
+  <p>大模型每次运行会有几个百分点的波动，你的数字略有不同是正常的。只看标签，V1 比 V0 好很多（不算红线时三项是 93% / 93% / 100%，见对比页的“全部评估器平均分”）；但 V1 拒绝的条目变多了（3 → 14），话术里常写出能力目录里没有的菜单路径（如“后台→通知设置”），评审判为“编造配置路径”——这是红线：一票否决，这 9 条需求整条判错，所以门禁里的三项也降到 63% / 63% / 70%，结论是<b>不通过</b>。这正是第 8 章写 V2 时要优先解决的问题：先清零红线，再提高话术通过率。</p></div>
 </div>
 
 <div class="step" id="s-9-2">
@@ -53,7 +61,9 @@
 <pre><code>./32-compare.sh</code></pre>
   <p class="where">脚本：<a data-repo="32-compare.sh">32-compare.sh</a> → <a data-repo="labkit/compare.py">labkit/compare.py</a>（默认：“优化后”= 最新一次非 V0 评估，“优化前”= 同一路线在它之前最近一次 V0 评估；也可指定 <code>--before results/eval-…json --after results/eval-…json</code>）→ <a data-repo="labkit/publish.py">labkit/publish.py</a></p>
   <div class="expect"><span class="label">预期输出（结尾）：</span>
-<pre class="out">▶ 对比 V0 B-v0-20261105T142708Z → V1 B-v1-20261105T144133Z（目标各 ≥70%）
+<pre class="out">▶ 对比 V0 B-v0-20261105T142708Z → V1 B-v1-20261105T144133Z（红线 0 条且门禁各 ≥70% 才通过）
+  V0：❌ 不通过：…
+  V1：…（两个版本各自的结论，读法见 7.3）
 ✅ 对比页已生成（本地文件，可直接用浏览器打开）：
 results/compare-B-v0-20261105T142708Z-vs-B-v1-20261105T144133Z.html
 ☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/compare-B-v0-20261105T142708Z-vs-B-v1-20261105T144133Z.html
@@ -63,10 +73,10 @@ results/compare-B-v0-20261105T142708Z-vs-B-v1-20261105T144133Z.html
     <li>在笔记本浏览器（已登录 AWS 控制台）打开脚本打印的链接。</li>
     <li>在 S3 对象页面点右上角 <span class="ui">打开</span>（Open），对比页会在新标签页显示。</li>
   </ol>
-  <img class="shot" src="img/compare-sample.png" alt="实测对比页顶部：三项准确率 V0→V1 的变化和 70% 达标标记">
-  <img class="shot" src="img/compare-matrix.png" alt="实测对比页下半部分：各评估器平均分对比，以及逐条用例的修复 / 退步 / 仍错误筛选和前后标签">
-  <p class="where">上面两张是 B 版实测对比页的截图（上：三项准确率与达标；下：评估器平均分与逐条对比）。</p>
-  <p>先看看对比页长什么样：<a href="compare/sample-compare.html" target="_blank" rel="noopener">示例对比页（合成数据）</a>。页面内容：三项准确率前后变化与达标标记、柱状图（含 70% 目标线）、所有评估器的平均分对比、逐条用例的“修复 / 退步 / 仍错误”筛选。</p>
+  <img class="shot" src="img/compare-sample.png" alt="实测对比页顶部：V0 与 V1 的结论（红线一票否决），红线条数、各门禁 V0→V1 的变化和 70% 门槛">
+  <img class="shot" src="img/compare-matrix.png" alt="实测对比页的三大支柱卡片：红线条数与清单、门禁实际值对门槛、观测指标的前后变化">
+  <p class="where">上面两张是 A 版实测对比页的截图（上：结论与关键指标；下：三大支柱的红线、门禁、观测对比）。</p>
+  <p>先看看对比页长什么样：<a href="compare/sample-compare.html" target="_blank" rel="noopener">示例对比页（合成数据）</a>。页面内容：两个版本各自的结论（红线 0 条且门禁全部达标才算通过）；三大支柱对比——红线（误拒、话术红线的条数和清单，一票否决）、门禁（三项准确率和拒绝话术通过率对 70% 门槛）、观测（五维、用例类型、话术分项等的前后变化，不影响结论）；门禁柱状图（含 70% 门槛线）；所有评估器的原始平均分；逐条用例的“修复 / 退步 / 仍错误 / 含红线”筛选，红线条目标 ⛔。</p>
   <p>V1、V2 都评估过时，默认的“优化后”是<b>最后评估</b>的那个非 V0 版本，对比的是 V0 → 它（例如 V0 → V2）。要看 V1 → V2，指定两次评估（run_id 或 <code>results/eval-…json</code> 路径都可以）：</p>
 <pre><code>./32-compare.sh --before &lt;V1 的 run_id&gt; --after &lt;V2 的 run_id&gt;</code></pre>
   <div class="note">桶禁止公开访问，没有公开链接；同一实验账号里有 S3 权限的人（包括其他学员）能看到。</div>
@@ -118,8 +128,8 @@ results/triage-report-B-v1-20261105T145251Z.html
     <tr><th style="width:12%">时间</th><th>讲什么</th><th>展示什么</th></tr>
     <tr><td>0:00–0:30</td><td>问题：每月大量需求反馈，人工判断重要 / 紧急 / 是否迭代，拒绝时话术难统一</td><td>一条典型需求原文</td></tr>
     <tr><td>0:30–1:00</td><td>标准：我们讨论定下的口径和黄金集（30 条，五维覆盖，含不可拒绝红线）</td><td><a data-repo="data/golden/golden_set.csv">黄金集</a> / <a href="discussion.html">讨论结论</a></td></tr>
-    <tr><td>1:00–1:45</td><td>评估：V0 三项准确率多少，主要错在哪一维</td><td>CloudWatch Evaluations 页签 + 7.5 的失败归因</td></tr>
-    <tr><td>1:45–2:30</td><td>优化：改了什么（口径 / 工具 / 红线 / 话术），V1 分数</td><td>9.2 对比页（三项 V0 → V1）</td></tr>
+    <tr><td>1:00–1:45</td><td>评估：V0 有几条红线、三项门禁各多少，主要错在哪一维</td><td>CloudWatch Evaluations 页签 + 7.5 的失败归因</td></tr>
+    <tr><td>1:45–2:30</td><td>优化：改了什么（口径 / 工具 / 红线 / 话术），V1 分数</td><td>9.2 对比页（红线 · 门禁 · 观测 V0 → V1）</td></tr>
     <tr><td>2:30–3:00</td><td>结果：上个月 60 条需求的分诊报告；下一步（接入真实数据、在线评估持续监控）</td><td>9.4 分诊报告</td></tr>
   </table>
 </div>

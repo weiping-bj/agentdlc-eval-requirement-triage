@@ -69,10 +69,35 @@ def test_every_v1_tool_fact_is_visible_to_the_judge():
                 assert str(v) in line, (c["id"], f, v)
 
 
+def test_citing_capabilities_in_reject_reason_puts_them_in_the_judge_excerpt():
+    """v1.md asks reject_reason to name every capability the reply relies on. The judge's excerpt is the
+    top 5 (default k) by overlap with requirement + reject_reason, so that citation is what brings each
+    capability into the excerpt; without it some golden capabilities fall outside the top 5."""
+    pytest.importorskip("strands")
+    from s12agent.core import format_input
+    hints = _judge_hints()
+    caps = {c["id"]: c for c in _catalog()}
+    rows = [json.loads(l) for l in (ROOT / "data" / "golden" / "golden_set.jsonl").read_text(encoding="utf-8").splitlines()
+            if l.strip()]
+    rejects = [g for g in rows if g["expected"]["decision"] == "拒绝" and g.get("matched_capabilities")]
+    assert rejects
+    missing_without, missing_with = [], []
+    for g in rejects:
+        req = format_input(g["input"])
+        cited = "；".join(f"{i} {caps[i]['name']}（{caps[i]['status']}）：{caps[i]['description']} 限制：{caps[i]['limits'] or '无'}"
+                         f" 替代：{caps[i]['workaround'] or '无'}" for i in g["matched_capabilities"])
+        plain, with_cite = hints(req), hints(req + " " + cited)
+        missing_without += [(g["golden_id"], i) for i in g["matched_capabilities"] if f"- {i} " not in plain]
+        missing_with += [(g["golden_id"], i) for i in g["matched_capabilities"] if f"- {i} " not in with_cite]
+    assert missing_with == []
+    assert missing_without  # the citation rule does real work for at least one golden rejection
+
+
 def test_v1_prompt_keeps_platform_facts_to_catalog_fields():
     v1 = (ROOT / "agent" / "s12agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
     assert "how_to" not in v1
     assert "不要写菜单路径" in v1 and "search_capabilities" in v1
+    assert "不出现能力编号" in v1  # internal capability ids stay out of the customer reply (rubric E)
     for f in FACT_FIELDS:
         assert f in v1
     for key in ("feedback_id", "important", "urgent", "decision", "level", "reasoning", "reject_reason", "customer_reply"):

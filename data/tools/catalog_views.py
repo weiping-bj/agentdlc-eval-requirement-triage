@@ -109,7 +109,7 @@ def render_html(catalog: dict) -> str:
 <section class="card chapter-head">
   <h1><span class="num">录</span>平台能力目录：{e(plat.get("name"))} <span class="applies common">A/B 通用</span></h1>
   <p class="lead">{e(plat.get("positioning"))}</p>
-  <p>Agent 判断“已有能力 / 真实缺口 / 明确不做”只看这份目录。11:00 讨论时请<b>看一遍</b>：缺了哪些能力、哪里写错了，填进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 3 节；不用改本页，也不用看 JSON。</p>
+  <p>Agent 判断“已有能力 / 真实缺口 / 明确不做”只看这份目录。分组讨论时请<b>看一遍</b>：缺了哪些能力、哪里写错了，填进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 3 节；不用改本页，也不用看 JSON。</p>
   <p>共 {len(caps)} 项：{chips}</p>
   <p class="where">版本 {e(catalog.get("version"))}{" · 全部为合成数据" if catalog.get("synthetic") else ""} · 本页由 <code>data/tools/catalog_views.py</code> 根据 <a data-repo="data/capability_catalog.json">capability_catalog.json</a> 自动生成 · Excel 版：<a data-download="data/capability_catalog.csv"></a></p>
 </section>

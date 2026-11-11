@@ -11,7 +11,7 @@ const REPO_BRANCH = "main";
 const CHAPTERS = [
   { group: "导读" },
   { id: "index", file: "index.html", no: "0", title: "导读与路线选择", path: "common" },
-  { id: "discussion", file: "discussion.html", no: "讨", title: "11:00 分组讨论材料", path: "common" },
+  { id: "discussion", file: "discussion.html", no: "讨", title: "分组讨论材料", path: "common" },
   { id: "catalog", file: "catalog.html", no: "录", title: "平台能力目录（讨论时看）", path: "common", extra: true },
   { id: "mock-data", file: "mock-data.html", no: "数", title: "60 条 mock 需求（讨论时看）", path: "common", extra: true },
   { group: "通用准备（A/B 都做）" },

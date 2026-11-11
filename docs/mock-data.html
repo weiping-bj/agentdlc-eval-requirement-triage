@@ -15,8 +15,8 @@
 
 <section class="card chapter-head">
   <h1><span class="num">数</span>上个月的 mock 需求反馈（60 条，合成） <span class="applies common">A/B 通用</span></h1>
-  <p class="lead">这是下午 Agent 要分诊的“上个月的需求反馈”。11:00 讨论时请<b>看一遍</b>：条数、类别占比、行业、渠道像不像你们的真实情况，缺了哪类常见需求。</p>
-  <p>意见用大白话写进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 5 节即可；下午 coding agent 会把它改成 mock 数据参数和新增条目，你们不用打开参数文件。</p>
+  <p class="lead">这是动手环节 Agent 要分诊的“上个月的需求反馈”。分组讨论时请<b>看一遍</b>：条数、类别占比、行业、渠道像不像你们的真实情况，缺了哪类常见需求。</p>
+  <p>意见用大白话写进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 5 节即可；动手环节由 coding agent 把它改成 mock 数据参数和新增条目，你们不用打开参数文件。</p>
   <p class="where">本页由 <code>data/tools/mock_views.py</code> 根据 <a data-repo="data/feedback_last_month.jsonl">feedback_last_month.jsonl</a> 自动生成 · Excel 版：<a data-download="data/feedback_last_month.csv"></a> · 全部为合成数据（客户名均为“（示例）”）</p>
 </section>
 
@@ -26,7 +26,7 @@
     <div id="dist-category">
       <h4>需求类别</h4>
       <table><tr><th>需求类别</th><th style="width:18%">条数</th><th style="width:18%">占比</th></tr><tr><td>通用能力缺口（应迭代）</td><td>15</td><td>25%</td></tr><tr><td>已有能力被重复提出（应拒绝并给用法）</td><td>12</td><td>20%</td></tr><tr><td>价值高但难度大（待评估）</td><td>8</td><td>13.3%</td></tr><tr><td>线上故障/缺陷（不可拒绝）</td><td>6</td><td>10%</td></tr><tr><td>超出平台定位（应拒绝）</td><td>5</td><td>8.3%</td></tr><tr><td>技术不可行或违背安全合规（应拒绝）</td><td>5</td><td>8.3%</td></tr><tr><td>描述模糊/多诉求混合（待评估）</td><td>3</td><td>5%</td></tr><tr><td>单客户深度定制（应拒绝并给替代）</td><td>2</td><td>3.3%</td></tr><tr><td>对抗样本（注入指令/施压）</td><td>2</td><td>3.3%</td></tr><tr><td>合规或合同承诺（不可拒绝）</td><td>2</td><td>3.3%</td></tr></table>
-      <p class="where">类别只给总体占比，不标在每一条上（那是下午要让 Agent 判断的答案）。</p>
+      <p class="where">类别只给总体占比，不标在每一条上（那是动手环节要让 Agent 判断的答案）。</p>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 18px"><div><h4>反馈类型</h4><table><tr><th>反馈类型</th><th style="width:18%">条数</th><th style="width:18%">占比</th></tr><tr><td>新需求</td><td>43</td><td>71.7%</td></tr><tr><td>体验优化</td><td>8</td><td>13.3%</td></tr><tr><td>功能缺陷</td><td>6</td><td>10%</td></tr><tr><td>咨询</td><td>3</td><td>5%</td></tr></table></div><div><h4>客户等级</h4><table><tr><th>客户等级</th><th style="width:18%">条数</th><th style="width:18%">占比</th></tr><tr><td>KA</td><td>24</td><td>40%</td></tr><tr><td>腰部</td><td>15</td><td>25%</td></tr><tr><td>战略</td><td>12</td><td>20%</td></tr><tr><td>长尾</td><td>9</td><td>15%</td></tr></table></div><div><h4>行业</h4><table><tr><th>行业</th><th style="width:18%">条数</th><th style="width:18%">占比</th></tr><tr><td>制造</td><td>8</td><td>13.3%</td></tr><tr><td>快消</td><td>6</td><td>10%</td></tr><tr><td>医疗器械</td><td>5</td><td>8.3%</td></tr><tr><td>能源</td><td>4</td><td>6.7%</td></tr><tr><td>教育</td><td>4</td><td>6.7%</td></tr><tr><td>汽车零部件</td><td>3</td><td>5%</td></tr><tr><td>电子</td><td>3</td><td>5%</td></tr><tr><td>通信</td><td>3</td><td>5%</td></tr><tr><td>零售</td><td>3</td><td>5%</td></tr><tr><td>化工</td><td>3</td><td>5%</td></tr><tr><td>物流</td><td>3</td><td>5%</td></tr><tr><td>金融服务</td><td>3</td><td>5%</td></tr><tr><td>医药</td><td>3</td><td>5%</td></tr><tr><td>专业服务</td><td>3</td><td>5%</td></tr><tr><td>软件信息</td><td>2</td><td>3.3%</td></tr><tr><td>家居建材</td><td>2</td><td>3.3%</td></tr><tr><td>农业</td><td>2</td><td>3.3%</td></tr></table></div><div><h4>来源渠道</h4><table><tr><th>来源渠道</th><th style="width:18%">条数</th><th style="width:18%">占比</th></tr><tr><td>用户社区</td><td>16</td><td>26.7%</td></tr><tr><td>客户成功经理</td><td>13</td><td>21.7%</td></tr><tr><td>销售反馈</td><td>11</td><td>18.3%</td></tr><tr><td>实施顾问</td><td>10</td><td>16.7%</td></tr><tr><td>工单系统</td><td>6</td><td>10%</td></tr><tr><td>大客户专属群</td><td>4</td><td>6.7%</td></tr></table></div></div>
   </div>

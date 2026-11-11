@@ -1,7 +1,7 @@
-"""Chapter 2.0: copy the morning's filled-in templates from the lab S3 bucket into data/templates/.
+"""Chapter 2.0: copy the filled-in discussion templates from the lab S3 bucket into data/templates/.
 
-At 11:00 the EC2 does not exist yet and it has no inbound ports, so the group's recorder edits
-the two template files on a laptop and, in the afternoon, drags them into the participant's
+During the group discussion the EC2 does not exist yet and it has no inbound ports, so the group's recorder edits
+the two template files on a laptop and, once the hands-on part starts, drags them into the participant's
 private s12lab bucket in the S3 console. This module brings them onto the EC2.
 
   python -m labkit.pull_templates --prepare     # create the private bucket if missing, print name + console link

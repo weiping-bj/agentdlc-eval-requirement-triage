@@ -19,14 +19,14 @@
 
 <section class="card">
   <div class="step" id="s-0-1">
-    <div class="step-head"><span class="num">0.1</span><h3>今天下午要完成的 4 件事</h3><span class="time">14:00–17:00</span></div>
+    <div class="step-head"><span class="num">0.1</span><h3>动手实验要完成的 4 件事</h3><span class="time"></span></div>
     <p class="why">先看全貌：我们用“评估驱动”的方式迭代 Agent——先定标准答案，再打分，再按分数改进，再证明改进有效。</p>
     <div class="flow">
       <div class="f"><span class="n">1</span><b>准备 Agent + 遥测</b><span>A：mock agent 在 EC2 上，ADOT 埋点<br>B：mock agent 上 Runtime</span></div>
-      <div class="f"><span class="n">2</span><b>确定黄金集</b><span>上午讨论的结论 → 30 条标准答案</span></div>
+      <div class="f"><span class="n">2</span><b>确定黄金集</b><span>分组讨论的结论 → 30 条标准答案</span></div>
       <div class="f"><span class="n">3</span><b>评估 V0</b><span>AgentCore Evaluations + 两个自定义评估器</span></div>
       <div class="f"><span class="n">4</span><b>优化 → V1 → 再评估</b><span>对比页 + 控制台展示提升</span></div>
-      <div class="f hl"><span class="n">★</span><b>17:00 Demo</b><span>3 分钟讲清前后差异</span></div>
+      <div class="f hl"><span class="n">★</span><b>Demo</b><span>3 分钟讲清前后差异</span></div>
     </div>
   </div>
 
@@ -46,15 +46,15 @@
 
   <div class="step" id="s-0-3">
     <div class="step-head"><span class="num">0.3</span><h3>时间安排</h3><span class="time"></span></div>
-    <p class="why">按这个节奏推进，16:40 前完成对比，留 20 分钟准备 Demo。</p>
+    <p class="why">按这个节奏推进：先完成对比，再留约 20 分钟准备 Demo。各段用时是建议值，以现场讲师安排为准。</p>
     <table>
-      <tr><th>时间</th><th>A 版</th><th>B 版</th></tr>
-      <tr><td>14:00–14:25</td><td colspan="2">第 1 章 准备 EC2 环境（一组人可以共用讲师演示，每人仍建自己的 EC2）</td></tr>
-      <tr><td>14:25–14:55</td><td colspan="2">第 2 章 黄金集：把上午讨论结论落到模板，重新生成 / 校验黄金集</td></tr>
-      <tr><td>14:55–15:35</td><td>A3 埋点（mock agent）→ A4 导日志（可选，时间紧就跳过）→ A5 检查</td><td>B3 部署 Runtime → B4 控制台查看 trace</td></tr>
-      <tr><td>15:35–16:05</td><td colspan="2">第 6–7 章 注册评估器 + 开启在线评估、跑黄金集（V0）并评估、找失败用例</td></tr>
-      <tr><td>16:05–16:40</td><td colspan="2">第 8–9 章 优化到 V1、再评估、生成对比页</td></tr>
-      <tr><td>16:40–17:00</td><td colspan="2">准备 Demo；第 10 章清理（可在 Demo 后做）</td></tr>
+      <tr><th>建议用时</th><th>A 版</th><th>B 版</th></tr>
+      <tr><td>约 25 分钟</td><td colspan="2">第 1 章 准备 EC2 环境（一组人可以共用讲师演示，每人仍建自己的 EC2）</td></tr>
+      <tr><td>约 30 分钟</td><td colspan="2">第 2 章 黄金集：把分组讨论结论落到模板，重新生成 / 校验黄金集</td></tr>
+      <tr><td>约 40 分钟</td><td>A3 埋点（mock agent）→ A4 导日志（可选，时间紧就跳过）→ A5 检查</td><td>B3 部署 Runtime → B4 控制台查看 trace</td></tr>
+      <tr><td>约 30 分钟</td><td colspan="2">第 6–7 章 注册评估器 + 开启在线评估、跑黄金集（V0）并评估、找失败用例</td></tr>
+      <tr><td>约 35 分钟</td><td colspan="2">第 8–9 章 优化到 V1、再评估、生成对比页</td></tr>
+      <tr><td>约 20 分钟</td><td colspan="2">准备 Demo；第 10 章清理（可在 Demo 后做）</td></tr>
     </table>
   </div>
 

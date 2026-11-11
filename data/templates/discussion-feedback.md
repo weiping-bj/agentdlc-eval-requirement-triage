@@ -1,6 +1,6 @@
-# 11:00 分组讨论反馈（场景 12：需求价值打分）
+# 分组讨论反馈（场景 12：需求价值打分）
 
-> 记录员现场填写。下午 coding agent 会读取本文件，按 [`data/prompts/03-update-golden-set.md`](../prompts/03-update-golden-set.md) 更新黄金集，按 [`02-regenerate-mock-data.md`](../prompts/02-regenerate-mock-data.md) 更新 mock 数据。
+> 记录员现场填写。动手环节由 coding agent 读取本文件，按 [`data/prompts/03-update-golden-set.md`](../prompts/03-update-golden-set.md) 更新黄金集，按 [`02-regenerate-mock-data.md`](../prompts/02-regenerate-mock-data.md) 更新 mock 数据。
 > 要填的只有：`【填写】` 处、表格里的空白格、勾选框；没讨论到的保留默认值（已按 [`LABELING_GUIDE.md`](../golden/LABELING_GUIDE.md) 预填）。
 >
 > 列表前的勾选框：GitHub 上显示为 ☑ / ☐，文本里写作 [x] / [ ]。☑（[x]）= 采用；要取消就把 [x] 改成 [ ]，要选中就把 [ ] 改成 [x]。不要删行。
@@ -60,7 +60,7 @@
 
 先把现有的平台能力目录**看一遍**：Agent 判断“已有能力 / 明确不做”只看它。网页版：[平台能力目录](https://weiping-bj.github.io/agentdlc-eval-requirement-triage/catalog.html)（按状态分组，“明确不做”单独一组）；Excel 版：[capability_catalog.csv](https://github.com/weiping-bj/agentdlc-eval-requirement-triage/blob/main/data/capability_catalog.csv)（打开后点右上角下载图标）。只看不改，也不用看 JSON。
 
-缺的能力、写错的地方填在下面（表格逐行填）。下午由 coding agent 据此更新目录，它用的提示词你们不用看。
+缺的能力、写错的地方填在下面（表格逐行填）。动手环节由 coding agent 据此更新目录，它用的提示词你们不用看。
 
 | 能力名称 | 状态（已支持/部分支持/规划中/明确不做） | 说明（能做什么） | 限制（不能做什么） | 替代方案 |
 |------|------|------|------|------|
@@ -78,13 +78,13 @@
 | 成本 | | 例如：难度“高”的一律待评估 |
 | 性能 | | 例如：每月批量跑 300 条，单条 ≤ 30 秒 |
 
-我们最担心的一维：【填写】　下午用哪个评估器盯住它：【填写】
+我们最担心的一维：【填写】　动手环节用哪个评估器盯住它：【填写】
 
 ## 5. 对 mock 数据的意见
 
 先把现在的 60 条 mock 需求**看一遍**：网页版：[60 条 mock 需求](https://weiping-bj.github.io/agentdlc-eval-requirement-triage/mock-data.html)（顶部是各种分布，下面是每一条，可搜索）；Excel 版：[feedback_last_month.csv](https://github.com/weiping-bj/agentdlc-eval-requirement-triage/blob/main/data/feedback_last_month.csv)（打开后点右上角下载图标）。
 
-用大白话回答下面几条即可。下午 coding agent 会按提示词把回答改成 mock 数据参数和新增条目，你们不用打开参数文件（yaml）。
+用大白话回答下面几条即可。动手环节由 coding agent 按提示词把回答改成 mock 数据参数和新增条目，你们不用打开参数文件（yaml）。
 
 - 上个月大概有多少条需求反馈：【填写】
 - 需求类别占比是否符合实际（对照网页版的[需求类别分布](https://weiping-bj.github.io/agentdlc-eval-requirement-triage/mock-data.html#dist-category)，例如“已有能力被重复提出”实际占多少）：【填写】

@@ -1,6 +1,6 @@
 # 黄金集标注标准（场景 12：需求价值打分）
 
-> 版本 v1 · 所有样例均为合成数据。11:00 讨论后若口径变化，修改本文件 + [`data/templates/discussion-feedback.md`](../templates/discussion-feedback.md)，再用 [`data/prompts/03-update-golden-set.md`](../prompts/03-update-golden-set.md) 重新生成黄金集。
+> 版本 v1 · 所有样例均为合成数据。分组讨论后若口径变化，修改本文件 + [`data/templates/discussion-feedback.md`](../templates/discussion-feedback.md)，再用 [`data/prompts/03-update-golden-set.md`](../prompts/03-update-golden-set.md) 重新生成黄金集。
 
 每条需求标三个标签：**是否重要（是/否）**、**是否紧急（是/否）**、**处理建议（迭代/拒绝/待评估）**。分级模式下另标 **优先级（P0/P1/P2）**。判断依据是 [`data/capability_catalog.json`](../capability_catalog.json)（平台能力目录）和上个月的需求反馈（看有多少个不同客户提过）。
 
@@ -50,7 +50,7 @@
 - 合同承诺；
 - 线上功能缺陷（`feedback_type=功能缺陷`）。
 
-> 是否把“战略客户的任何需求”也列为不可自动拒绝，留到 11:00 讨论时决定，结论填在模板第 2 节。
+> 是否把“战略客户的任何需求”也列为不可自动拒绝，留到分组讨论时决定，结论填在模板第 2 节。
 
 ## 5. 拒绝要点与话术要点（仅“拒绝”样例）
 

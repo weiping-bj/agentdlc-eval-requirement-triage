@@ -13,7 +13,7 @@
 | [`golden/agentcore_dataset.json`](golden/agentcore_dataset.json) | 黄金集投影为 AgentCore dataset 格式（`expected_response` 是标签 JSON） |
 | [`golden/MANIFEST.json`](golden/MANIFEST.json) | 冻结版本：sha256、条数、分布 |
 | [`schema/`](schema/) | JSON Schema：输入条目、黄金集条目、Agent 输出 |
-| [`templates/`](templates/) | 11:00 讨论与现场使用的填写模板 |
+| [`templates/`](templates/) | 分组讨论与现场使用的填写模板 |
 | [`prompts/`](prompts/) | 给 coding agent 的中文提示词（读模板 → 跑脚本 → 校验 → 汇报） |
 | [`tools/`](tools/) | 脚本，只依赖 python3 标准库 |
 | [`HANDOFF.md`](HANDOFF.md) | 与 Agent、评估器的接口约定，以及交接说明 |

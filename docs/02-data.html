@@ -13,14 +13,14 @@
 <main>
 <section class="card chapter-head">
 <h1><span class="num">2</span>输入数据与黄金集 <span class="applies common">A/B 通用</span></h1>
-<p class="lead">Agent 的输入是“上个月的需求反馈”，评判标准是“黄金集”。这一章确认两者都准备好了，并能按上午讨论的结论快速修改。</p>
+<p class="lead">Agent 的输入是“上个月的需求反馈”，评判标准是“黄金集”。这一章确认两者都准备好了，并能按分组讨论的结论快速修改。</p>
 <div class="note">本章所有命令都在 EC2 的仓库目录 <code>~/scenario12-lab</code> 下执行，并已 <code>source .venv/bin/activate</code>。数据全部为合成数据，客户名均带“（示例）”。数据说明总览：<a data-repo="data/HANDOFF.md">data/HANDOFF.md</a>。</div>
 </section>
 <section class="card">
 
 <div class="step" id="s-2-0">
-  <div class="step-head"><span class="num">2.0</span><h3>把上午填好的两份模板拷到 EC2（经过你的私有 S3 桶）</h3><span class="time">5 分钟</span></div>
-  <p class="why">记录员上午在笔记本上填好了 <code>discussion-feedback.md</code> 和 <code>golden-set-feedback.csv</code>（<a href="discussion.html#s-d-6">讨论材料 D.6</a>）。EC2 没有入站端口、不能 scp，所以用你的私有 S3 桶中转：控制台拖进去，EC2 上一条命令拷进 <code>data/templates/</code>。</p>
+  <div class="step-head"><span class="num">2.0</span><h3>把讨论时填好的两份模板拷到 EC2（经过你的私有 S3 桶）</h3><span class="time">5 分钟</span></div>
+  <p class="why">记录员在分组讨论时已在笔记本上填好了 <code>discussion-feedback.md</code> 和 <code>golden-set-feedback.csv</code>（<a href="discussion.html#s-d-6">讨论材料 D.6</a>）。EC2 没有入站端口、不能 scp，所以用你的私有 S3 桶中转：控制台拖进去，EC2 上一条命令拷进 <code>data/templates/</code>。</p>
   <ol class="clicks">
     <li><b>EC2 上</b>：创建（或找到）你的私有桶，并打印它的名字和控制台链接：</li>
   </ol>
@@ -69,7 +69,7 @@
   </table>
   <div class="note" id="s-2-0-next"><b>拷好之后按顺序做</b>（不需要的步骤直接跳过）：
   <ol>
-    <li><a href="#s-2-1">2.1</a> / <a href="#s-2-2">2.2</a> 只是认识数据，不改任何东西：上午已经在网页上看过（<a href="mock-data.html">60 条 mock 需求</a>、<a href="catalog.html">能力目录</a>、黄金集样例）就跳过。</li>
+    <li><a href="#s-2-1">2.1</a> / <a href="#s-2-2">2.2</a> 只是认识数据，不改任何东西：分组讨论时已经在网页上看过（<a href="mock-data.html">60 条 mock 需求</a>、<a href="catalog.html">能力目录</a>、黄金集样例）就跳过。</li>
     <li><a href="#s-2-3">2.3</a> 只在客户自带数据时做，否则跳过。</li>
     <li><a href="#s-2-4">2.4</a> 模板第 5 节写了 mock 数据意见才做：一行命令交给 coding agent（提示词 02）；没填或写的是“基本符合”就跳过。一定在 2.5 之前：提示词 03 要读 <code>data/feedback_last_month.jsonl</code>（数“几个客户提过”，按 <code>feedback_id</code> 取“新增”行的需求原文）。</li>
     <li><a href="#s-2-5">2.5</a> CSV 或模板第 1–4 节有改动才做：模板第 3 节补了能力目录时，先交给 coding agent 提示词 04（改能力目录）；再 <code>apply-feedback --dry-run</code> 预览，最后提示词 03。</li>
@@ -123,7 +123,7 @@ CAP-008 已支持 自定义函数</pre></div>
 - 样例类型：对抗 4，应拒绝 7，模糊 9，简单 10
 - 五维覆盖：性能 5，成本 6，认知 12，责任 12，质量 10
 - 不可自动拒绝：6 条</pre></div>
-  <p>每条样例都标了它主要考察的<b>五维</b>（认知 / 质量 / 责任 / 成本 / 性能），和上午 <a href="discussion.html#s-d-2">讨论提纲</a> 一一对应；样例类型里的“对抗”是故意施压或夹带指令的需求，用来检查 Agent 会不会被带偏。</p>
+  <p>每条样例都标了它主要考察的<b>五维</b>（认知 / 质量 / 责任 / 成本 / 性能），和 <a href="discussion.html#s-d-2">讨论提纲</a> 一一对应；样例类型里的“对抗”是故意施压或夹带指令的需求，用来检查 Agent 会不会被带偏。</p>
 </div>
 
 <div class="step" id="s-2-3">
@@ -179,8 +179,8 @@ cat data/customer/report.md</code></pre></li>
 
 <div class="step" id="s-2-4">
   <div class="step-head"><span class="num">2.4</span><h3>按讨论反馈修改 mock 数据</h3><span class="time">10 分钟</span></div>
-  <p class="why">把上午模板第 5 节里对 mock 数据的意见，变成重新生成的需求数据。参数文件交给 coding agent 去改，不用自己打开。</p>
-  <div class="note"><b>模板第 5 节没填、或写的是“基本符合”：</b>整步跳过，直接做 <a href="#s-2-5">2.5</a>。上午已在笔记本上填好模板的组：<a href="#s-2-0">2.0</a> 已经把第 5 节拷到 EC2，直接运行下面这一行即可。</div>
+  <p class="why">把讨论反馈模板第 5 节里对 mock 数据的意见，变成重新生成的需求数据。参数文件交给 coding agent 去改，不用自己打开。</p>
+  <div class="note"><b>模板第 5 节没填、或写的是“基本符合”：</b>整步跳过，直接做 <a href="#s-2-5">2.5</a>。讨论时已在笔记本上填好模板的组：<a href="#s-2-0">2.0</a> 已经把第 5 节拷到 EC2，直接运行下面这一行即可。</div>
   <ol class="clicks">
     <li>在 EC2 上运行（推荐）：</li>
   </ol>
@@ -215,14 +215,14 @@ cat data/customer/report.md</code></pre></li>
   <div class="note" id="s-2-4-manual"><b>手动方式</b>（只改一个简单参数时，例如月份或行业）：打开 <a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a>，改对应的那一行（每个参数上面都有注释），然后运行：
 <pre><code>python3 data/tools/generate_mock_data.py</code></pre>
   输出就是上面那种类别分布；参数一点没改时，结果和仓库里的 60 条完全一样（同样的参数 + 同样的随机种子 = 同样的结果）。数据有变化时还会多一行 <code>已刷新讨论用的网页版：docs/mock-data.html</code>。脚本：<a data-repo="data/tools/generate_mock_data.py">data/tools/generate_mock_data.py</a>。</div>
-  <div class="tip">默认不覆盖黄金集，黄金集请走 2.5 的流程修改，这样每条改动都有记录。需求编号变了（例如改了月份）时，脚本会自动同步黄金集里的 <code>feedback_id</code>，在 2.6 冻结时一并生效；上午 CSV 里的旧编号不用改（按 <code>golden_id</code> 对应），只有“新增”行写了旧 <code>feedback_id</code> 时，<code>apply-feedback</code> 会提示改成新编号。</div>
+  <div class="tip">默认不覆盖黄金集，黄金集请走 2.5 的流程修改，这样每条改动都有记录。需求编号变了（例如改了月份）时，脚本会自动同步黄金集里的 <code>feedback_id</code>，在 2.6 冻结时一并生效；讨论时填的 CSV 里的旧编号不用改（按 <code>golden_id</code> 对应），只有“新增”行写了旧 <code>feedback_id</code> 时，<code>apply-feedback</code> 会提示改成新编号。</div>
   <p><b>下一步：</b>做 <a href="#s-2-5">2.5</a> 改黄金集（提示词 03 会读刚生成的数据）。B 版：Runtime 已经部署过（<a href="b3-deploy.html">B3</a>）时，数据改了要重跑 <code>./20-B-deploy-runtime.sh</code>，新数据才会打进 Runtime 包；还没做 B3 就不用管。</p>
 </div>
 
 <div class="step" id="s-2-5">
   <div class="step-head"><span class="num">2.5</span><h3>按讨论反馈修改黄金集</h3><span class="time">15 分钟</span></div>
   <p class="why">把现场确认的标注口径填进模板，再让 coding agent 按模板更新黄金集。</p>
-  <div class="note">上午已在笔记本上填好模板的组：先做 <a href="#s-2-0">2.0</a> 把两个文件拷到 EC2，下面第 1、2 条就已经完成，直接从第 3 条开始。</div>
+  <div class="note">讨论时已在笔记本上填好模板的组：先做 <a href="#s-2-0">2.0</a> 把两个文件拷到 EC2，下面第 1、2 条就已经完成，直接从第 3 条开始。</div>
   <ol class="clicks">
     <li>口径类结论（标签用“是/否”还是 P0/P1/P2、不可自动拒绝的规则、能力目录补充）写进 <a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a>。</li>
     <li>逐条意见写进 <a data-repo="data/templates/golden-set-feedback.csv">data/templates/golden-set-feedback.csv</a>：“操作”列（C 列）填 <code>保留</code> / <code>修改</code> / <code>删除</code> / <code>新增</code>，改标签就直接改对应列。可以先用当前黄金集预填这张表：</li>
@@ -242,8 +242,8 @@ cat data/customer/report.md</code></pre></li>
 <pre><code>python3 data/tools/golden_tool.py feedback-template</code></pre>
   <div class="note" id="s-2-5-template"><b>这条命令做什么、什么时候用：</b>它按<b>当前</b>黄金集重新生成 <code>data/templates/golden-set-feedback.csv</code>，每行“操作”都是 <code>保留</code>，和仓库里自带的那份一样。
   <ul>
-    <li>上午的表已经在 <a href="#s-2-0">2.0</a> 拷进来了：<b>不要运行</b>，直接从下面第 3 条开始。</li>
-    <li>要用的时候：(a) 黄金集已经改完并冻结、还想再改一轮：旧表已过时（里面还留着上一轮的“修改”行），加 <code>--force</code> 重新生成；(b) 上午没填表的组（可选：仓库已经自带一份，通常不需要）。</li>
+    <li>讨论时填的表已经在 <a href="#s-2-0">2.0</a> 拷进来了：<b>不要运行</b>，直接从下面第 3 条开始。</li>
+    <li>要用的时候：(a) 黄金集已经改完并冻结、还想再改一轮：旧表已过时（里面还留着上一轮的“修改”行），加 <code>--force</code> 重新生成；(b) 讨论时没填表的组（可选：仓库已经自带一份，通常不需要）。</li>
     <li>不会误删：表里已经有改动（“操作”不是 <code>保留</code>，或任何一格和当前黄金集不同，包括“备注”）时，它只打印 <code>已有修改内容，未覆盖</code>；确实要覆盖才加 <code>--force</code>。</li>
   </ul></div>
   <ol class="clicks" start="3">

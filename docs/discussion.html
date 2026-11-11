@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>11:00 分组讨论材料 · 场景 12 实验手册</title>
+<title>分组讨论材料 · 场景 12 实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="discussion">
@@ -13,14 +13,14 @@
 <main>
 
 <section class="card chapter-head">
-  <h1><span class="num">讨</span>11:00 分组讨论：用五维拆解“需求价值打分” <span class="applies common">A/B 通用</span></h1>
-  <p class="lead">40 分钟（10 分钟讲解 · 20 分钟讨论 · 10 分钟分享）。目标不是讨论理论，而是<b>定下下午黄金集的口径</b>：什么样的需求算重要、算紧急、该迭代 / 拒绝 / 待评估，以及拒绝时怎么说。</p>
+  <h1><span class="num">讨</span>分组讨论：用五维拆解“需求价值打分” <span class="applies common">A/B 通用</span></h1>
+  <p class="lead">40 分钟（10 分钟讲解 · 20 分钟讨论 · 10 分钟分享）。目标不是讨论理论，而是<b>定下动手环节黄金集的口径</b>：什么样的需求算重要、算紧急、该迭代 / 拒绝 / 待评估，以及拒绝时怎么说。</p>
 </section>
 
 <section class="card">
   <div class="step" id="s-d-1">
     <div class="step-head"><span class="num">D.1</span><h3>讨论要产出什么</h3><span class="time">讲解 2 分钟</span></div>
-    <p class="why">带着 4 个明确产出进讨论，结束时直接填进模板，下午用脚本 + coding agent 重新生成黄金集。</p>
+    <p class="why">带着 4 个明确产出进讨论，结束时直接填进模板，动手环节用脚本 + coding agent 重新生成黄金集。</p>
     <table>
       <tr><th>#</th><th>产出</th><th>填到哪里</th></tr>
       <tr><td>1</td><td>三项标签的判断口径（含“是/否”还是“P0/P1/P2”的选择）</td><td><a data-repo="data/templates/discussion-feedback.md">data/templates/discussion-feedback.md</a> 第 1 节</td></tr>
@@ -47,7 +47,7 @@
     <div class="step-head"><span class="num">D.3</span><h3>必须当场决定：标签用“是/否”还是“P0/P1/P2”</h3><span class="time">讨论 3 分钟</span></div>
     <p class="why">这决定黄金集怎么标、评估器怎么算准确率。我们默认用“是/否”，输出结构里已预留分级字段，现场选哪种都能当天跑通。</p>
     <table>
-      <tr><th>方案</th><th>好处</th><th>代价</th><th>下午要改什么</th></tr>
+      <tr><th>方案</th><th>好处</th><th>代价</th><th>动手环节要改什么</th></tr>
       <tr><td><b>A. 二元（默认）</b><br>是否重要 是/否 · 是否紧急 是/否 · 处理建议 迭代/拒绝/待评估</td><td>和“三项指标 70%”目标一一对应；标注快，产品研发容易对齐</td><td>粒度粗，“重要”内部无法排序</td><td>不用改</td></tr>
       <tr><td><b>B. 分级</b><br>优先级 P0/P1/P2 + 处理建议</td><td>直接可用于排期；分布图更有信息量</td><td>标注分歧更大；70% 目标需要重新定义（例如“等级完全一致”或“相差不超过一级”）</td><td>黄金集填 <code>level</code> 字段（可先 <code>golden_tool.py fill-levels</code> 自动推导）；让 coding agent 执行 <a data-repo="data/prompts/05-switch-label-scheme.md">05-switch-label-scheme.md</a> 切换口径</td></tr>
     </table>
@@ -74,12 +74,12 @@
 
   <div class="step" id="s-d-5">
     <div class="step-head"><span class="num">D.5</span><h3>反馈收集模板</h3><span class="time">记录 5 分钟</span></div>
-    <p class="why">讨论结论直接写进模板文件；下午的 coding agent 提示词会读取这些模板，重新生成数据和黄金集。</p>
+    <p class="why">讨论结论直接写进模板文件；动手环节的 coding agent 提示词会读取这些模板，重新生成数据和黄金集。</p>
     <table>
       <tr><th>模板</th><th>内容</th><th>谁来填</th></tr>
       <tr><td><a data-repo="data/templates/discussion-feedback.md">discussion-feedback.md</a></td><td>标签口径（含 D.3 选择）、不可自动拒绝的规则、能力目录补充、五维要点</td><td>组长 / 记录员</td></tr>
       <tr><td><a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a></td><td>逐条填“操作”列：保留 / 修改 / 删除 / 新增（每列可填的值见下面的 <a href="#s-d-5-values">速查表</a>）；O–U 列是需求原文（对照判断用），V 列“备注”可自由填写</td><td>产品 + 研发代表</td></tr>
-      <tr><td><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>不用看：上午看 <a href="mock-data.html">60 条 mock 需求</a>，把意见用大白话写进 discussion-feedback.md 第 5 节；下午 coding agent 在 EC2 上改（第 2.4 步）</td></tr>
+      <tr><td><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a></td><td>mock 数据参数：条数、需求类别占比、客户行业、渠道</td><td>不用看：讨论时看 <a href="mock-data.html">60 条 mock 需求</a>，把意见用大白话写进 discussion-feedback.md 第 5 节；动手环节由 coding agent 在 EC2 上改（第 2.4 步）</td></tr>
     </table>
     <div id="s-d-5-values">
     <p><b>golden-set-feedback.csv 可填写的值（速查）</b>：只在“操作”是 <code>修改</code> / <code>新增</code> 的行里改 D–N 列；没列出的写法多半会报错或被忽略。</p>
@@ -95,7 +95,7 @@
       <tr><td>J 五维</td><td><code>认知</code> / <code>质量</code> / <code>责任</code> / <code>成本</code> / <code>性能</code> 里 1~3 个</td><td>用 <code>/</code> 分隔；写这五个以外的词会报错</td><td><a data-repo="data/golden/LABELING_GUIDE.md#7-五维标签每条-13-个">§7</a></td></tr>
       <tr><td>K 样例类型</td><td><code>简单</code>：口径明确，应稳定答对<br><code>模糊</code>：信息不全或边界情况，允许多答案<br><code>对抗</code>：注入伪造指令、施压、情绪化描述下隐藏真实故障、规避审计<br><code>应拒绝</code>：明确应拒绝，并考验拒绝话术</td><td>只填一个；写别的只给警告、不报错（预览 <code>--dry-run</code> 时也会显示）</td><td><a data-repo="data/golden/LABELING_GUIDE.md#8-样例类型case_type">§8</a></td></tr>
       <tr><td>L 拒绝要点<br>M 话术要点</td><td>自由文字</td><td>多条用 <code>；</code> 分隔（<code>;</code> 也认，<b>不要用 /</b>）。只给 F = 拒绝 的行填：拒绝时 L 必填（否则报错），M 缺了给警告</td><td><a data-repo="data/golden/LABELING_GUIDE.md#5-拒绝要点与话术要点仅拒绝样例">§5</a></td></tr>
-      <tr><td>N 标注理由</td><td>自由文字，一句话</td><td>操作 = 修改 时写明依据哪条新口径（下午提示词 03 要用；脚本不检查，漏写不报错）</td><td><a data-repo="data/golden/LABELING_GUIDE.md#9-标注流程">§9</a></td></tr>
+      <tr><td>N 标注理由</td><td>自由文字，一句话</td><td>操作 = 修改 时写明依据哪条新口径（第 2.5 步的提示词 03 要用；脚本不检查，漏写不报错）</td><td><a data-repo="data/golden/LABELING_GUIDE.md#9-标注流程">§9</a></td></tr>
     </table>
     </div>
     <div class="note"><b>想新增样例？</b>新增的样例不必来自那 60 条 mock 需求：在 <a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a> 里“操作”填 <code>新增</code>、<code>feedback_id</code> 留空，写上需求原文（O–U 列）和期望标签（D–N 列）；脚本自动编号为 <code>FB-NEW-9xx</code>，跑黄金集时直接用这一行的需求原文作为 Agent 输入。</div>
@@ -115,35 +115,35 @@
 - [x] 线上功能缺陷（反馈类型=功能缺陷）
 - [x] 战略客户提出的任何需求      ← 例：讨论后决定加上这一条（把 [ ] 改成了 [x]）
 自动拒绝后由谁复核、客户不服怎么办：产品经理每周抽查；客户不服转人工复核</pre>
-    <p>下午在 <a href="02-data.html#s-2-5">第 2.5 步</a> 把这个文件交给 coding agent（提示词 <a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>），它会据此更新黄金集。</p>
+    <p>动手环节在 <a href="02-data.html#s-2-5">第 2.5 步</a> 把这个文件交给 coding agent（提示词 <a data-repo="data/prompts/03-update-golden-set.md">03-update-golden-set.md</a>），它会据此更新黄金集。</p>
   </div>
 
   <div class="step" id="s-d-6">
-    <div class="step-head"><span class="num">D.6</span><h3>记录员：在自己的笔记本上下载并填写两份模板</h3><span class="time">上午 · 2 分钟 + 讨论中填写</span></div>
-    <p class="why">上午还没有 EC2（下午 14:00 才创建），所以每组<b>一位记录员</b>在笔记本上填好两个文件，下午再通过 S3 交给 EC2。</p>
+    <div class="step-head"><span class="num">D.6</span><h3>记录员：在自己的笔记本上下载并填写两份模板</h3><span class="time">讨论环节 · 2 分钟 + 讨论中填写</span></div>
+    <p class="why">分组讨论时还没有 EC2（动手环节第 1 章才创建），所以每组<b>一位记录员</b>在笔记本上填好两个文件，到动手环节再通过 S3 交给 EC2。</p>
     <ol class="clicks">
       <li>点击下载（文件会存到浏览器的“下载”文件夹）：<a data-download="data/templates/discussion-feedback.md"></a> 和 <a data-download="data/templates/golden-set-feedback.csv"></a>。<br>
         第 3 节要对照的平台能力目录（只看不改）：<a href="catalog.html">网页版</a> · Excel 版 <a data-download="data/capability_catalog.csv"></a>。<br>
         第 5 节要对照的 60 条 mock 需求（只看不改）：<a href="mock-data.html">网页版（含类别分布）</a> · Excel 版 <a data-download="data/feedback_last_month.csv"></a>。<br>
         <small>点了只打开一页文字、没有下载时：打开 <a data-repo="data/templates/discussion-feedback.md">GitHub 上的 .md</a> / <a data-repo="data/templates/golden-set-feedback.csv">GitHub 上的 .csv</a>，点右上角的下载图标（Download raw file）。会场网络打不开 GitHub 时，找讲师要这两个文件。</small></li>
       <li><code>discussion-feedback.md</code>：用任意文本编辑器打开（Windows 记事本、Mac 文本编辑、VS Code 都可以；<b>不要用 Word</b>），只填 <code>【填写】</code> 处、表格里的空白格和勾选框，直接保存。勾选框在 GitHub 页面上显示为 ☑ / ☐，在文本里是 <code>[x]</code> / <code>[ ]</code>：<code>[x]</code> = 采用；要取消就把 <code>[x]</code> 改成 <code>[ ]</code>，要选中就把 <code>[ ]</code> 改成 <code>[x]</code>，不要删行。</li>
-      <li><code>golden-set-feedback.csv</code>：用 Excel 打开，按 D.5 填“操作”等列（每列可填的值见 <a href="#s-d-5-values">速查表</a>）。<b>Windows</b>：直接按 <span class="ui">Ctrl+S</span> 保存，提示“某些功能可能丢失 / 是否保持此格式”时选 <span class="ui">是 / 保留</span>（Excel 存成 GBK 编码也没关系，下午的脚本会自动转换）。<b>Mac</b>：用 <span class="ui">文件 → 另存为</span>，格式选 <span class="ui">CSV UTF-8（逗号分隔）</span>，文件名不变；用 Numbers 时选 <span class="ui">文件 → 导出为 → CSV</span>，文本编码选 Unicode（UTF-8）。</li>
-      <li><b>不要改文件名</b>，也不要存成 <code>.xlsx</code> / <code>.docx</code> / <code>.txt</code>：下午的脚本按这两个文件名查找。只点一次下载（点两次会多出一个 “(1)” 副本）。</li>
+      <li><code>golden-set-feedback.csv</code>：用 Excel 打开，按 D.5 填“操作”等列（每列可填的值见 <a href="#s-d-5-values">速查表</a>）。<b>Windows</b>：直接按 <span class="ui">Ctrl+S</span> 保存，提示“某些功能可能丢失 / 是否保持此格式”时选 <span class="ui">是 / 保留</span>（Excel 存成 GBK 编码也没关系，第 2.0 步的脚本会自动转换）。<b>Mac</b>：用 <span class="ui">文件 → 另存为</span>，格式选 <span class="ui">CSV UTF-8（逗号分隔）</span>，文件名不变；用 Numbers 时选 <span class="ui">文件 → 导出为 → CSV</span>，文本编码选 Unicode（UTF-8）。</li>
+      <li><b>不要改文件名</b>，也不要存成 <code>.xlsx</code> / <code>.docx</code> / <code>.txt</code>：第 2.0 步的脚本按这两个文件名查找。只点一次下载（点两次会多出一个 “(1)” 副本）。</li>
     </ol>
-    <p class="where"><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a> 不用看也不用改：看完 <a href="mock-data.html">60 条 mock 需求</a>，把意见用大白话写进 <code>discussion-feedback.md</code> 第 5 节，下午第 2.4 步由 coding agent 按它改参数。</p>
-    <div class="note"><b>下午怎么交给 EC2：</b>EC2 准备好（第 1 章）后，按 <a href="02-data.html#s-2-0">第 2.0 步</a>：在 EC2 上运行 <code>./tools/pull-templates.sh --prepare</code> 拿到你的私有桶链接 → 在笔记本的 S3 控制台把这两个文件拖进去 → 回到 EC2 运行 <code>./tools/pull-templates.sh</code>。EC2 不开任何入站端口，不能 scp，所以用 S3 中转。</div>
+    <p class="where"><a data-repo="data/templates/mock-data-params.yaml">mock-data-params.yaml</a> 不用看也不用改：看完 <a href="mock-data.html">60 条 mock 需求</a>，把意见用大白话写进 <code>discussion-feedback.md</code> 第 5 节，动手环节第 2.4 步由 coding agent 按它改参数。</p>
+    <div class="note"><b>动手环节怎么交给 EC2：</b>EC2 准备好（第 1 章）后，按 <a href="02-data.html#s-2-0">第 2.0 步</a>：在 EC2 上运行 <code>./tools/pull-templates.sh --prepare</code> 拿到你的私有桶链接 → 在笔记本的 S3 控制台把这两个文件拖进去 → 回到 EC2 运行 <code>./tools/pull-templates.sh</code>。EC2 不开任何入站端口，不能 scp，所以用 S3 中转。</div>
   </div>
 
   <div class="step" id="s-d-7">
     <div class="step-head"><span class="num">D.7</span><h3>10 分钟分享怎么讲</h3><span class="time">分享 3 分钟/组</span></div>
-    <p class="why">用一句话讲清每一维的结论，下午 Demo 时可以直接复用。</p>
+    <p class="why">用一句话讲清每一维的结论，最后 Demo 时可以直接复用。</p>
     <ol class="clicks">
       <li>我们的标签口径是：……（是/否 或 P0/P1/P2）</li>
       <li>AI 绝对不能自动拒绝的需求是：……</li>
       <li>拒绝话术必须包含：理由 + 替代方案 + 后续路径</li>
-      <li>我们最担心的一维是：……，下午用哪个评估器盯住它</li>
+      <li>我们最担心的一维是：……，动手环节用哪个评估器盯住它</li>
     </ol>
-    <p>下午：先按 <a href="02-data.html#s-2-0">第 2.0 步</a> 把两份模板拷到 EC2，再到 <a href="02-data.html#s-2-5">第 2.5 步</a> 用这些结论更新黄金集。</p>
+    <p>讨论结束后：先按 <a href="02-data.html#s-2-0">第 2.0 步</a> 把两份模板拷到 EC2，再到 <a href="02-data.html#s-2-5">第 2.5 步</a> 用这些结论更新黄金集。</p>
   </div>
 </section>
 

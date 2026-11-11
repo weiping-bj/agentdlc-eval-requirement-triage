@@ -137,8 +137,8 @@ def render_html(feedback: List[dict], cats: List[str]) -> str:
 
 <section class="card chapter-head">
   <h1><span class="num">数</span>上个月的 mock 需求反馈（{total} 条，合成） <span class="applies common">A/B 通用</span></h1>
-  <p class="lead">这是下午 Agent 要分诊的“上个月的需求反馈”。11:00 讨论时请<b>看一遍</b>：条数、类别占比、行业、渠道像不像你们的真实情况，缺了哪类常见需求。</p>
-  <p>意见用大白话写进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 5 节即可；下午 coding agent 会把它改成 mock 数据参数和新增条目，你们不用打开参数文件。</p>
+  <p class="lead">这是动手环节 Agent 要分诊的“上个月的需求反馈”。分组讨论时请<b>看一遍</b>：条数、类别占比、行业、渠道像不像你们的真实情况，缺了哪类常见需求。</p>
+  <p>意见用大白话写进 <a data-repo="data/templates/discussion-feedback.md">讨论反馈模板</a> 第 5 节即可；动手环节由 coding agent 把它改成 mock 数据参数和新增条目，你们不用打开参数文件。</p>
   <p class="where">本页由 <code>data/tools/mock_views.py</code> 根据 <a data-repo="data/feedback_last_month.jsonl">feedback_last_month.jsonl</a> 自动生成 · Excel 版：<a data-download="{CSV_REPO_PATH}"></a> · 全部为合成数据（客户名均为“（示例）”）</p>
 </section>
 
@@ -148,7 +148,7 @@ def render_html(feedback: List[dict], cats: List[str]) -> str:
     <div id="dist-category">
       <h4>需求类别</h4>
       {table(cat_rows, "需求类别", category_label)}
-      <p class="where">类别只给总体占比，不标在每一条上（那是下午要让 Agent 判断的答案）。</p>
+      <p class="where">类别只给总体占比，不标在每一条上（那是动手环节要让 Agent 判断的答案）。</p>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 18px">{small}</div>
   </div>

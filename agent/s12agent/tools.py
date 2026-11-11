@@ -4,8 +4,8 @@ V0 (deliberately weak, "tool gap"): only `lookup_capability`, which returns capa
 NAMES without support status, limits or workarounds, so the model cannot tell
 "already supported" from "not planned" and has no signal about how many customers ask.
 
-V1: `search_capabilities` (status / limits / workaround / not-planned scope) and
-`find_similar_requests` (how many distinct customers raised a similar need last month).
+V1: `search_capabilities` (status / description / limits / workaround / not-planned scope; no menu
+paths, see below) and `find_similar_requests` (how many distinct customers raised a similar need last month).
 """
 from __future__ import annotations
 
@@ -36,10 +36,11 @@ def lookup_capability(keyword: str) -> str:
 
 @tool
 def search_capabilities(query: str) -> str:
-    """在平台能力目录中检索与需求相关的能力，返回支持状态、限制和替代方案。
+    """在平台能力目录中检索与需求相关的能力，返回支持状态、功能说明、限制和替代方案。
 
-    判断需求前必须先调用本工具：status 为“已支持”说明客户可能不会用（用 how_to 给出用法，而不是新开发）；
+    判断需求前必须先调用本工具：status 为“已支持”说明客户可能不会用（用 name 指明功能、用 description 说明它能做什么，而不是新开发）；
     “部分支持”看 limits 判断真实缺口；“明确不做”是“超出平台定位”拒绝的依据（引用其 id）。
+    关于平台的事实只用这里返回的 name / description / limits / workaround，不要补充菜单路径或其它细节。
 
     Args:
         query: 需求的核心诉求（用一句话描述，例如“列表页批量编辑自定义字段”）
@@ -47,6 +48,8 @@ def search_capabilities(query: str) -> str:
     hits = _rank_caps(query, 5)
     out = []
     for c in hits:
+        # No menu path (catalog how_to): the reviewer checks replies against name / description / limits /
+        # workaround only, so a quoted path cannot be verified and is judged as fabricated (red line).
         out.append({
             "id": data.g(c, "id", "capability_id"),
             "name": data.g(c, "name", "title"),
@@ -56,7 +59,6 @@ def search_capabilities(query: str) -> str:
             "limits": data.g(c, "limits", "limitations", "constraints"),
             "workaround": data.g(c, "workaround", "alternatives"),
             "effort_hint": data.g(c, "effort_hint", "dev_effort", "difficulty"),
-            "how_to": data.g(c, "how_to", "usage"),
         })
     return json.dumps(out or [{"note": "能力目录中没有相关能力"}], ensure_ascii=False)
 

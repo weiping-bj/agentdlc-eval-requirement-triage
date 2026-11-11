@@ -259,3 +259,143 @@ def test_chapter_9_2_describes_the_four_cards():
     for img in re.findall(r'src="(img/compare-story-[^"]+)"', sec):
         assert (ROOT / "docs" / img).exists(), img
     assert len(re.findall(r'src="img/compare-story-', sec)) == 4
+
+
+# ------------------------------------------------------------------- adversarial review round 1 (regressions)
+
+
+def _write(path: Path, data: dict) -> Path:
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _row(card: str, fid: str) -> str:
+    m = re.search(r'<tr><td><span class="mono">' + re.escape(fid) + r'</span>.*?</tr>', card)
+    assert m, fid
+    return _plain(m.group(0))
+
+
+def test_flip_rows_name_only_fields_that_changed_and_the_red_line(tmp_path):
+    v1 = json.loads(V1.read_text(encoding="utf-8"))
+    s = next(x for x in v1["sessions"] if x["feedback_id"] == "FB-2610-002")   # right in V0 and V1, a 拒绝
+    s["scores"]["reject_quality"] = {"value": 0.2, "label": "Fail",
+                                     "explanation": "拒绝话术评审 0.2：理由专业性 3。红线：编造配置路径。（红线一票否决，整条不通过）"}
+    card = _card(_page(tmp_path, V0, _write(tmp_path / "eval-red.json", v1)), "story-flips")
+    broke = card[card.index("对 → 错"):card.index("错 → 对</span>")]
+    row = _row(broke, "FB-2610-002")
+    assert "话术红线：编造配置路径" in row
+    assert "否→否" not in row and "拒绝→拒绝" not in row          # unchanged answers are not listed as changes
+    fixed = _row(card[card.index("错 → 对</span>"):], "FB-2610-053")  # V0 misreject, V1 iterates
+    assert "建议 拒绝→迭代（期望 迭代）" in fixed and "消除红线" in fixed and "是→是" not in fixed
+
+
+def test_change_notes_follow_the_version_chain(tmp_path, monkeypatch):
+    root = _v2_root(tmp_path, monkeypatch, "基于 v1；依据 results/eval-B-v1-x.json\n\n| a | b | c |\n|-|-|-|\n| 1 | 2 | 3 |\n")
+    shutil.copy(PROMPTS / "v0.md", root / "agent" / "s12agent" / "prompts" / "v0.md")
+    shutil.copy(PROMPTS / "v1.changes.md", root / "agent" / "s12agent" / "prompts" / "v1.changes.md")
+    d = json.loads(V0.read_text(encoding="utf-8"))
+    d["run"].update(mode="runtime")
+    _write(root / "eval-v0.json", d)
+    card = _plain(_card(_page(tmp_path, root / "eval-v0.json", root / "eval-v2.json"), "story-changes"))
+    i1, i2 = card.index("V0 → V1 来自 agent/s12agent/prompts/v1.changes.md"), card.index("V1 → V2 来自 agent/s12agent/prompts/v2.changes.md")
+    assert i1 < i2 and "基于 v1；依据 results/eval-B-v1-x.json" in card
+    assert "a b c 1 2 3" in card                                     # |-|-| is a header separator (GFM)
+    for before, after in (("eval-v1.json", "eval-v1.json"), ("eval-v2.json", "eval-v1.json")):
+        card = _plain(_card(_page(tmp_path, root / before, root / after), "story-changes"))
+        assert "没有“改了什么”的说明" in card and "changes.md" not in card
+
+
+def test_sessions_without_ids_are_keyed_like_the_pillars(tmp_path):
+    v0, v1 = (json.loads(p.read_text(encoding="utf-8")) for p in (V0, V1))
+    for d in (v0, v1):
+        for s in d["sessions"][:6]:
+            s.pop("feedback_id"), s.pop("session_id")
+    page = _page(tmp_path, _write(tmp_path / "eval-a.json", v0), _write(tmp_path / "eval-b.json", v1))
+    card = _plain(_card(page, "story-flips"))
+    assert "—→—" not in card
+    fb = compare.feedback_index()
+    b, a = compare.EvalRun(v0, "eval-a.json"), compare.EvalRun(v1, "eval-b.json")
+    specs = compare.label_specs(b, a)
+    pb, pa = compare.pillars_of(b, fb, 0.7, specs), compare.pillars_of(a, fb, 0.7, specs)
+    res = failures.analyze(v0, _golden())
+    right_after = {k for k, it in pa["_items"].items() if compare_story._right(it, [k2 for _n, k2, _c in specs])}
+    expected = sum(1 for w in res["wrong"] if w["fid"] in right_after)
+    assert {w["fid"] for w in res["wrong"]} <= set(pb["_items"])     # same keys as the pillar items
+    assert f"判错的 {len(res['wrong'])} 条，V1 整条答对 {expected} 条" in card
+
+
+def test_gate_column_uses_the_gate_counts_when_a_run_lacks_an_item(tmp_path):
+    v1 = json.loads(V1.read_text(encoding="utf-8"))
+    v1["sessions"] = v1["sessions"][1:]
+    page = _page(tmp_path, V0, _write(tmp_path / "eval-short.json", v1))
+    fb = compare.feedback_index()
+    b, a = compare.EvalRun.load(V0), compare.EvalRun(v1, "eval-short.json")
+    specs = compare.label_specs(b, a)
+    pb, pa = compare.pillars_of(b, fb, 0.7, specs), compare.pillars_of(a, fb, 0.7, specs)
+    card = _plain(_card(page, "story-flips"))
+    gb, ga = compare._gate(pb, "important"), compare._gate(pa, "important")
+    assert f"{gb['ok']}/{gb['n']} → {ga['ok']}/{ga['n']}" in card and ga["n"] == 29
+    assert "只在一次评估里出现 1 条" in card
+
+
+def test_graded_scheme_shows_the_level_and_says_how_it_counts(tmp_path):
+    v0, v1 = (json.loads(p.read_text(encoding="utf-8")) for p in (V0, V1))
+    for d, lv, ok in ((v0, "P2", 0.0), (v1, "P1", 1.0)):
+        for s in d["sessions"]:
+            if not isinstance(s.get("agent_output"), dict):   # an agent error has no output to grade
+                continue
+            s["agent_output"]["level"] = lv
+            s["scores"]["label_level"] = {"value": ok, "label": "Pass" if ok else "Fail"}
+    card = _plain(_card(_page(tmp_path, _write(tmp_path / "a.json", v0), _write(tmp_path / "b.json", v1)), "story-flips"))
+    assert "优先级 P2→P1" in card and "分级模式下“对”还要求优先级也对" in card
+
+
+def test_prompt_diff_counts_lines_that_look_like_headers(tmp_path, monkeypatch):
+    monkeypatch.setattr(labcfg, "ROOT", tmp_path)
+    p = tmp_path / "agent" / "s12agent" / "prompts"
+    p.mkdir(parents=True)
+    (p / "v1.md").write_text("a\n---\nb\n", encoding="utf-8")
+    (p / "v2.md").write_text("a\nb\n++ y\n", encoding="utf-8")
+    summary, diff_html = compare_story.prompt_diff("v1", "v2")
+    assert summary.endswith("新增 1 行、删去 1 行")
+    assert '<span class="del">----</span>' in diff_html and '<span class="add">+++ y</span>' in diff_html
+
+
+def test_toolsets_reads_later_assignments_and_flags_unreadable_lists(tmp_path, monkeypatch):
+    monkeypatch.setattr(labcfg, "ROOT", tmp_path)
+    (tmp_path / "agent" / "s12agent").mkdir(parents=True)
+    (tmp_path / "agent" / "s12agent" / "tools.py").write_text(
+        "def a():\n    '''工具 A。'''\n\ndef b():\n    pass\n\nV1_TOOLS = [a]\n"
+        "TOOLSETS: dict = {'v0': [a], 'v1': V1_TOOLS}\nTOOLSETS['v2'] = [a, mod.b]\nTOOLSETS['v3'] = make()\n", encoding="utf-8")
+    sets, docs = compare_story.toolsets()
+    assert sets == {"v0": ["a"], "v1": ["a"], "v2": ["a", "b"], "v3": None} and docs["a"] == "工具 A。"
+    assert compare_story._tools_of(sets, "v3") == (None, "读不到 v3 的工具列表（不是直接写出的列表）")
+    assert compare_story._tools_of(sets, "v4")[1] == "TOOLSETS 里没有 v4，沿用 v1 的工具"
+
+
+def test_problem_card_names_ties_and_lists_red_lines(tmp_path):
+    assert compare_story._most({"重要": 1, "紧急": 0, "建议": 1}) == (["重要", "建议"], 1)
+    assert compare_story._most({"重要": 0}) == ([], 0)
+    card = _plain(_card(_page(tmp_path), "story-problems"))
+    res = compare.pillars_of(compare.EvalRun.load(V0), compare.feedback_index(), 0.7)
+    assert res["red_line"]["count"] > 0
+    assert f"⛔ 红线 {res['red_line']['count']} 条" in card
+    for x in res["red_line"]["items"]:
+        assert x["feedback_id"] in card
+
+
+def test_render_notes_fences_and_single_dash_separators():
+    out = compare_story.render_notes("```\n# not a heading\n- not a list\n<b>\n```\n| x |\n|:-:|\n| y |\n")
+    assert "<pre># not a heading\n- not a list\n&lt;b&gt;</pre>" in out
+    assert "<thead><tr><th>x</th></tr></thead><tbody><tr><td>y</td></tr></tbody>" in out
+    assert compare_story.render_notes("```\nopen fence <i>").startswith("<pre>open fence &lt;i&gt;</pre>")
+
+
+def test_sample_compare_page_is_current(tmp_path):
+    out = tmp_path / "sample.html"
+    assert compare.main(["--before", str(V0), "--after", str(V1), "--out", str(out)]) == 0
+    stamp = re.compile(r"生成时间 [^<]*")
+    fresh = stamp.sub("", out.read_text(encoding="utf-8"))
+    committed = stamp.sub("", (ROOT / "docs" / "compare" / "sample-compare.html").read_text(encoding="utf-8"))
+    assert fresh == committed, ("regenerate: python -m labkit.compare --before tests/fixtures/eval-sample-v0.json "
+                                "--after tests/fixtures/eval-sample-v1.json --out docs/compare/sample-compare.html")

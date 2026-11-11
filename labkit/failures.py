@@ -199,12 +199,12 @@ def _dims(row: dict) -> list:
 def analyze(ev: dict, golden: dict) -> dict:
     wrong, other = [], []
     sessions = [s for s in (ev.get("sessions") or []) if isinstance(s, dict)]
-    for s in sessions:
+    for i, s in enumerate(sessions):
         sc = _d(_d(s.get("scores")).get("label_accuracy"))
         label = sc.get("label")
         if label == "Pass":
             continue
-        fid = str(s.get("feedback_id") or "（无编号）")
+        fid = str(s.get("feedback_id") or s.get("session_id") or f"#{i + 1}")  # same key as labkit.compare.pillar_items
         row = _d(golden.get(fid))
         if label in WRONG:
             wrong.append({"fid": fid, "gid": row.get("golden_id"), "label": label, "in_golden": bool(row),

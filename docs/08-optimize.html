@@ -49,7 +49,7 @@
 4. 在 agent/s12agent/prompts/v1.md 的基础上写出 agent/s12agent/prompts/v2.md，针对第 2 步的原因修改判断口径、红线和话术要求；保持输出 JSON 格式完全不变（字段：feedback_id, important, urgent, decision, level, reasoning, reject_reason, customer_reply）。
 5. 在 agent/s12agent/tools.py 的 TOOLSETS 里增加 "v2"，使用和 "v1" 相同的工具列表。
 6. 不要修改 data/golden/、evaluators/、labkit/ 下的任何文件，也不要修改 v0.md / v1.md / v1.changes.md。
-7. 把总结写进 agent/s12agent/prompts/v2.changes.md（格式照 agent/s12agent/prompts/v1.changes.md）：先用一两句话说明评估发现了什么，再写一张 Markdown 表格，表头为 | 失败原因（评估发现） | 修改（文件） | 预期影响的指标 |，每个失败原因一行；最后在终端用中文输出同样的总结。</code></pre>
+7. 把总结写进 agent/s12agent/prompts/v2.changes.md（格式照 agent/s12agent/prompts/v1.changes.md）：第一行写“基于 v1；依据 results/eval-&lt;run_id&gt;.json”（换成第 1 步读的那个文件）；再用一两句话说明评估发现了什么；然后写一张 Markdown 表格，每行以 | 开头和结尾，表头为 | 失败原因（评估发现） | 修改（文件） | 预期影响的指标 |，每个失败原因一行；最后在终端用中文输出同样的总结。</code></pre>
   <div class="expect"><span class="label">预期结果：</span>coding agent 列出失败原因，生成 <code>agent/s12agent/prompts/v2.md</code> 和改动说明 <code>agent/s12agent/prompts/v2.changes.md</code>，并在 <code>tools.py</code> 里加上 <code>"v2"</code>。9.2 的对比页会在“③ 改了什么”里显示这份改动说明（没有这个文件也能对比，只是不显示）。之后用 <code>./40-switch-version.sh v2</code> 切换，按 8.4 / 第 9 章评估它。</div>
   <p class="where">给自带 Agent 用这段提示词时要改哪几步，见 <a href="own-agent-guide.html#s-g-15">指南 G.15</a>。</p>
   <div class="tip">时间紧时直接用我们准备好的 V1（8.3）。有余力的组可以 V1、V2 都评估，看看谁的分数更高。</div>

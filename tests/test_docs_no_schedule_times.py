@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parent.parent
 GENERATED = {"docs/mock-data.html": "data/tools/mock_views.py", "docs/catalog.html": "data/tools/catalog_views.py"}
 GLOBS = ("docs/*.html", "docs/assets/*.js", "*.md", "*.sh", "tools/*.sh", "ec2/*.md", "ec2/*.sh", "ec2/*.yaml",
          "evaluators/README.md", "telemetry/*.md", "telemetry/*.sh", "data/*.md", "data/golden/*.md",
-         "data/prompts/*.md", "data/templates/*.md", "data/templates/*.yaml", "labkit/*.py", "data/tools/*.py")
+         "data/prompts/*.md", "data/templates/*.md", "data/templates/*.yaml", "labkit/*.py", "data/tools/*.py",
+         "agent/s12agent/prompts/*.changes.md")
 
 
 def _scanned():

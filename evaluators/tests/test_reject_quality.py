@@ -146,6 +146,42 @@ def test_bigram_capability_hints():
     assert "OOS-001" in hints
 
 
+def test_judge_excerpt_carries_catalog_menu_path():
+    """A menu path the agent quotes from the catalog (how_to) must be in the reviewer's catalog excerpt; without it
+    the reviewer cannot tell a catalog path from an invented one (red line 编造平台并不存在的功能或配置路径)."""
+    caps = [c for c in lf._catalog() if c.get("how_to")]
+    assert caps
+    for c in caps:
+        line = next((l for l in lf.capability_hints(c["name"] + " " + c["description"], k=50).splitlines()
+                     if l.startswith(f"- {c['id']} ")), "")
+        assert c["how_to"] in line, (c["id"], line)
+
+
+def test_judge_prompt_excerpt_shows_menu_path(golden_rows):
+    c, fake = client([GOOD])
+    lf.evaluate(event([triage_span(output_from_gold(g(golden_rows, "G06")))]), client=c)
+    prompt = fake.calls[0]["messages"][0]["content"][0]["text"]
+    excerpt = prompt.split("【平台能力目录摘录】")[1].split("【评分维度")[0]
+    assert "CAP-004" in excerpt and "后台 → 对象管理 → 查重规则" in excerpt
+
+
+def test_judge_excerpt_adds_capability_whose_menu_path_the_agent_quotes(golden_rows):
+    """A catalog path quoted in the reply is shown to the judge even when its capability is outside the top-k
+    ranking of requirement + reject_reason; a path that is not in the catalog adds nothing."""
+    req = "审批超时后希望自动提醒审批人并升级给上级"
+    assert "CAP-017" not in lf.capability_hints(req, k=1)
+    hints = lf.capability_hints(req, k=1, quoted="可在“后台→通知设置”里选择提醒方式")
+    assert "- CAP-017 " in hints and "用法：后台 → 通知设置" in hints
+    assert lf.capability_hints(req, k=1, quoted="可在“后台 → 提醒中心 → 升级”里设置") == lf.capability_hints(req, k=1)
+    excerpts = []
+    for reply in ("可以通过开放接口对接。", "可以在“开放平台 → 应用管理”创建应用，通过开放接口对接。"):
+        c, fake = client([GOOD])
+        lf.evaluate(event([triage_span(output_from_gold(g(golden_rows, "G04"), customer_reply=reply))]), client=c)
+        excerpts.append(fake.calls[0]["messages"][0]["content"][0]["text"].split("【平台能力目录摘录】")[1].split("【评分维度")[0])
+    assert "- CAP-009 " not in excerpts[0] and "- OOS-001 " in excerpts[0]
+    assert "- CAP-009 " in excerpts[1] and "用法：开放平台 → 应用管理" in excerpts[1] and "- OOS-001 " in excerpts[1]
+
+
 def test_temperature_rejected_by_model_is_dropped_and_remembered():
     err = FakeErr("ValidationException")
     err.args = ("The model returned the following errors: `temperature` is deprecated for this model.",)

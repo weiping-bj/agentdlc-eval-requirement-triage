@@ -61,20 +61,32 @@ def _bigrams(s: str) -> set:
     return {s[i:i + 2] for i in range(len(s) - 1)}
 
 
-def capability_hints(text: str, k: int = 5) -> str:
+def _path_key(s: str) -> str:
+    return "".join(ch for ch in (s or "") if not ch.isspace()).replace("->", "→")
+
+
+def capability_hints(text: str, k: int = 5, quoted: str = "") -> str:
+    """Catalog excerpt for the judge, one line per capability with id, name, status, description, limits,
+    workaround and the menu path (how_to, 用法), so a path the agent quotes from the catalog can be told apart
+    from an invented one: the top-k capabilities by bigram overlap with `text` (the ranking does not use how_to),
+    plus every capability whose whole how_to appears in `quoted` (the agent's own reject_reason / customer_reply)."""
     q = _bigrams(text)
-    if not q:
-        return ""
     scored = []
-    for c in _catalog():
+    for c in _catalog() if q else ():
         blob = " ".join(str(c.get(f, "")) for f in ("name", "description", "limits", "workaround")) + " " + " ".join(c.get("keywords") or [])
         overlap = len(q & _bigrams(blob))
         if overlap:
             scored.append((overlap, c))
     scored.sort(key=lambda x: -x[0])
+    picked = [c for _, c in scored[:k]]
+    qk = _path_key(quoted)
+    if qk:
+        ids = {c.get("id") for c in picked}
+        picked += [c for c in _catalog() if c.get("how_to") and c.get("id") not in ids and _path_key(c["how_to"]) in qk]
     lines = []
-    for _, c in scored[:k]:
-        lines.append(f"- {c.get('id')} {c.get('name')}（{c.get('status')}）：{c.get('description')} 限制：{c.get('limits') or '无'} 替代：{c.get('workaround') or '无'}")
+    for c in picked:
+        lines.append(f"- {c.get('id')} {c.get('name')}（{c.get('status')}）：{c.get('description')} 限制：{c.get('limits') or '无'}"
+                     f" 替代：{c.get('workaround') or '无'} 用法：{c.get('how_to') or '无'}")
     return "\n".join(lines)
 
 
@@ -113,7 +125,9 @@ def evaluate(event: dict, client=None) -> dict:
         req = judge.requirement_text(ex.get("user_text") if len(ex["records"]) == 1 else "", gold)
         if req.startswith("（") and gold:
             req = gold.get("title") or req
-        hints = capability_hints(req + " " + rec["output"].get("reject_reason", ""))
+        out = rec["output"]
+        hints = capability_hints(req + " " + out.get("reject_reason", ""),
+                                 quoted=f"{out.get('reject_reason') or ''} {out.get('customer_reply') or ''}")
         r = judge.judge_rejection(client, req, rec["output"], gold, hints)
         outs.append((rec, gold, r))
     if len(outs) == 1:

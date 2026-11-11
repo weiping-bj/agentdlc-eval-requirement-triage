@@ -21,15 +21,15 @@
 
 <div class="step" id="s-6-1">
   <div class="step-head"><span class="num">6.1</span><h3>认识评估器</h3><span class="time">5 分钟</span></div>
-  <p class="why">标签准确率直接对应“三项指标 70%”目标；话术质量用 LLM 评审。</p>
+  <p class="why">标签准确率直接对应“三项指标 70%”目标；话术质量用 LLM 评审。结论按三大支柱判：红线一票否决、门禁全部达标、观测只看趋势（7.3）。</p>
   <table>
     <tr><th>注册名（前缀 s12lab_zhang3_）</th><th>类型 · 级别</th><th>打什么分</th><th>代码</th></tr>
-    <tr><td><code>label_accuracy</code></td><td>代码型（Lambda）· TRACE</td><td>三项标签（是否重要 / 是否紧急 / 处理建议）与黄金集一致的比例 0–1；<code>Pass</code> = 三项全对；误拒了“不可自动拒绝”的需求记 <code>CriticalFail</code></td><td rowspan="4"><a data-repo="evaluators/s12_label_accuracy/">evaluators/s12_label_accuracy/</a><br><small>同一份代码部署成 4 个 Lambda，每个只打一个分项</small></td></tr>
-    <tr><td><code>label_important</code></td><td>代码型 · TRACE</td><td>只看“是否重要”，对 = 1、错 = 0；控制台里的平均分 = 该项准确率</td></tr>
+    <tr><td><code>label_accuracy</code></td><td>代码型（Lambda）· TRACE</td><td>三项标签（是否重要 / 是否紧急 / 处理建议）与黄金集一致的比例 0–1；<code>Pass</code> = 三项全对；误拒了“不可自动拒绝”的需求记 <code>CriticalFail</code>：<b>红线</b>，整条判错（value 0）</td><td rowspan="4"><a data-repo="evaluators/s12_label_accuracy/">evaluators/s12_label_accuracy/</a><br><small>同一份代码部署成 4 个 Lambda，每个只打一个分项</small></td></tr>
+    <tr><td><code>label_important</code></td><td>代码型 · TRACE</td><td>只看“是否重要”，对 = 1、错 = 0；控制台里的平均分 = 该项准确率。误拒（红线）的条目三个单项都记 0</td></tr>
     <tr><td><code>label_urgent</code></td><td>代码型 · TRACE</td><td>只看“是否紧急”</td></tr>
     <tr><td><code>label_decision</code></td><td>代码型 · TRACE</td><td>只看“处理建议”（模糊样例允许多个可接受答案）</td></tr>
-    <tr><td><code>reject_quality</code></td><td>代码型（Lambda 内调用评审模型）· TRACE</td><td>拒绝理由与客户话术质量 0–1（理由专业性 / 理解与礼貌 / 原因说明 / 替代方案 / 风险控制），≥ 0.7 为 Pass；<b>不是拒绝的需求返回“不适用”</b>（不计入平均分）</td><td><a data-repo="evaluators/s12_reject_quality/">evaluators/s12_reject_quality/</a></td></tr>
-    <tr><td><code>reject_quality_llm</code></td><td>原生 LLM-as-a-judge · TRACE</td><td>同一套评审标准，用 AgentCore 自带的 LLM 评审实现（5 档；非拒绝给“不适用”档）</td><td><a data-repo="evaluators/llm_judge_config/s12_reject_quality.json">llm_judge_config/</a></td></tr>
+    <tr><td><code>reject_quality</code></td><td>代码型（Lambda 内调用评审模型）· TRACE</td><td>拒绝理由与客户话术质量 0–1（理由专业性 / 理解与礼貌 / 原因说明 / 替代方案 / 风险控制），≥ 0.7 且无红线为 Pass；<b>出现任一红线（编造功能或配置路径、承诺上线时间等）一票否决</b>：Fail，value ≤ 0.2；<b>不是拒绝的需求返回“不适用”</b>（不计入平均分）</td><td><a data-repo="evaluators/s12_reject_quality/">evaluators/s12_reject_quality/</a></td></tr>
+    <tr><td><code>reject_quality_llm</code></td><td>原生 LLM-as-a-judge · TRACE</td><td>同一套评审标准，用 AgentCore 自带的 LLM 评审实现（5 档，任一红线给 0.2“不合格”；非拒绝给 0.0“不适用”档）</td><td><a data-repo="evaluators/llm_judge_config/s12_reject_quality.json">llm_judge_config/</a></td></tr>
     <tr><td><code>Builtin.Correctness</code></td><td>内置 · TRACE</td><td>对照黄金集的期望答案判断回答是否正确</td><td rowspan="2">AgentCore 内置</td></tr>
     <tr><td><code>Builtin.Helpfulness</code></td><td>内置 · TRACE</td><td>回答对用户是否有帮助</td></tr>
   </table>

@@ -6,9 +6,10 @@
 
   | 文件 | 作用 |
   |------|------|
-  | `judge.py` | 算法：评审调用、分数换算、模型回退 |
+  | `judge.py` | 算法：评审调用、分数换算（红线一票否决：Fail，value ≤ 0.2）、模型回退 |
   | `rubric.py` | 中文评分标准，原生 LLM-as-a-judge 配置也由它生成 |
   | `span_adapter.py` | 适配层 |
+  | `pillars.py` | 三大支柱结论规则（从 `shared/` 同步；本 Lambda 不调用，保持各目录副本一致） |
   | `golden_set.json` | 打包的黄金集（含拒绝要点、话术要点） |
   | `capability_catalog.json` | 能力目录，给评审模型做事实依据 |
 

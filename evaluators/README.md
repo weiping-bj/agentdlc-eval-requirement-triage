@@ -13,7 +13,19 @@
 - **适配层**：`span_adapter.py`，把 ADOT span 转成评估输入；
 - **Lambda 入口**：`lambda_function.py`。
 
-适配层和黄金集在 [`shared/`](shared/) 里各有一份权威副本，由 [`sync_shared.py`](sync_shared.py) 复制到每个 Lambda 目录。**每个 Lambda 目录都是自包含的，整个目录 zip 即可部署。**
+适配层、黄金集和三大支柱判定（`pillars.py`）在 [`shared/`](shared/) 里各有一份权威副本，由 [`sync_shared.py`](sync_shared.py) 复制到每个 Lambda 目录。**每个 Lambda 目录都是自包含的，整个目录 zip 即可部署。**
+
+## 0. 结论怎么判：三大支柱（红线 / 门禁 / 观测）
+
+所有报告（本地 `batch_score.py`、`31-run-eval.sh` 的终端结果、`32-compare.sh` 的对比页）用同一条规则，代码在 [`shared/pillars.py`](shared/pillars.py)：
+
+| 支柱 | 包含什么 | 对结论的作用 |
+|------|------|------|
+| **红线**（一票否决） | ① 误拒：Agent 把黄金集 `can_auto_reject=false` 的需求判为“拒绝”（数据丢失、安全、合规、合同承诺、线上缺陷）；② 话术红线：`reject_quality` 评审列出的 red_flags（编造功能或配置路径、承诺上线时间、泄露其他客户或内部信息、话术为空或与理由矛盾） | 出现 **1 条**就整体不通过；这条需求**整条判错**：标签三项都按错计（value 0），话术判 Fail（value ≤ 0.2） |
+| **门禁**（全部达标） | 是否重要 / 是否紧急 / 处理建议（分级模式：优先级 + 处理建议）准确率各 ≥ `TARGET_ACCURACY`（默认 0.70）；拒绝话术通过率 ≥ `TARGET_ACCURACY`（每条 Pass = 评审分 ≥ 0.7 且无红线） | 任一门禁未达标就不通过；有拒绝条目却没有话术评审结果时该门禁“未评估”，结论为“不完整”，不能判通过 |
+| **观测**（只看趋势） | 五维准确率、用例类型整条答对率、话术分项 A–E 与未覆盖要点、能力目录命中率、格式错误率、处理建议分布、各评估器原始平均分、内置评估器 | **不影响结论**，用于归因和看趋势 |
+
+结论 = 没有红线 **且** 门禁全部达标。已经部署的 Lambda 如果还是旧版本（红线话术只封顶 0.4、误拒时其它单项照常给分），对比页和 `labkit.evaluate` 会按上面的规则重新读取已保存的结果，结论一致；重新部署后 Lambda 自己返回的分数也按新规则。
 
 ---
 
@@ -92,7 +104,7 @@
 |------|------|
 | `label=Pass`, `value=1.0` | 打分的各项全对 |
 | `label=Fail`, `value=0~1` | 部分错误；value = 答对的项数 / 打分项数（三项时为 0 / 0.33 / 0.67 / 1） |
-| `label=CriticalFail` | 把“不可自动拒绝”的需求判成了拒绝（数据、安全、合规、合同、缺陷类）；value 照常计算 |
+| `label=CriticalFail`, `value=0` | **红线**：把“不可自动拒绝”的需求判成了拒绝（数据、安全、合规、合同、缺陷类）。整条判错：打分的各项都按错计，单项评估器（`_important` / `_urgent` / `_decision` / `_level`）也返回 0 和 `CriticalFail`；explanation 里仍写出各项原本的对错（“原本 2/3 项正确”），供归因 |
 | `label=FormatError`, `value=0` | Agent 有回复，但解析不出约定的 JSON（计入平均分，作为惩罚） |
 | `label=Skipped`（无 value） | trace 里没有 Agent 输出，或该需求不在黄金集里（例如非黄金集的普通流量） |
 | `errorCode` / `errorMessage` | 配置错误（如 `S12_SCORE_FIELD` 取值非法）或未预期的异常 |
@@ -113,15 +125,19 @@
 | `S12_LEVEL_TOLERANCE` | `0` | 分级模式允许相差几级 |
 | `S12_GOLDEN_PATH` | 同目录 `golden_set.json` | 一般不用改 |
 
-**本地批量打分**（第 7 章用）。输入可以是 Agent 的输出文件，也可以是导出的 spans。报告内容：
-- 三项准确率 vs 目标（`TARGET_ACCURACY`，默认 0.70，三项各自达标才算通过）；
-- 各类别召回率（防止“全判否”的假高分）；
-- 按五维统计的准确率；
-- 判错清单；
+**本地批量打分**（第 7 章用）。输入可以是 Agent 的输出文件，也可以是导出的 spans。报告按三大支柱输出（第 0 节）：
+- 结论（✅ 通过 / ❌ 不通过 / ⚠️ 不完整）和原因；
+- 红线：误拒条数、话术红线条数和清单；
+- 门禁：三项准确率 vs 目标（`TARGET_ACCURACY`，默认 0.70），拒绝话术通过率；
+- 观测：整条通过率、五维、用例类型、能力目录命中率、话术分项、各类别召回率（按原始输出统计，防止“全判否”的假高分）；
+- 判错清单（红线条目标“整条判错”）；
 - Agent 输出分布，即场景交付物：自动拒绝列表 + 重要/紧急四象限。
+
+本地打分不调用评审模型：话术红线和话术门禁要用 `--reject-eval results/eval-<run_id>.json` 读取 `31-run-eval.sh` 已有的评审结果，否则这两项显示“未评估”、结论为“不完整”。
 
 ```bash
 python3 evaluators/s12_label_accuracy/batch_score.py --results results/v0.jsonl --report-md results/v0-score.md --out-json results/v0-score.json
+python3 evaluators/s12_label_accuracy/batch_score.py --results results/run-A-v1-<时间>.jsonl --reject-eval results/eval-A-v1-<时间>.json
 python3 evaluators/s12_label_accuracy/batch_score.py --spans results/v0-spans.json
 python3 evaluators/s12_label_accuracy/batch_score.py --results results/all-60.jsonl --distribution-only
 ```
@@ -157,8 +173,8 @@ python3 evaluators/s12_label_accuracy/batch_score.py --results results/all-60.js
 
   value 由五项分数换算：value = 各项 (分数−1)/4 的平均。另有三条规则：
   - 有黄金集时，把该条的拒绝要点、话术要点和能力目录摘录一起交给评审模型，判断要点是否覆盖；
-  - 出现任一红线问题（编造功能、承诺上线时间、泄露其他客户信息、话术为空或与理由矛盾、拒绝了不应自动拒绝的需求），value 最高 0.4；
-  - 黄金集标为“不可自动拒绝”的需求被拒绝时，value 记为 0。
+  - **红线一票否决**：出现任一红线问题（编造功能或配置路径、承诺上线时间、泄露其他客户或内部信息、话术为空或与理由矛盾、拒绝了不应自动拒绝的需求），label 为 `Fail`，value 最高 **0.2**（`rubric.RED_LINE_VALUE`，即“不合格”档，是最低的不及格档；不用 0.0，因为原生配置里 0.0 留给“不适用”）；explanation 里写“红线：…。（红线一票否决，整条不通过）”，汇总时据此统计红线；
+  - 黄金集标为“不可自动拒绝”的需求被拒绝时，自动加上红线“拒绝了不应自动拒绝的需求（黄金集标注）”，同样 value ≤ 0.2。
 
   value ≥ 0.7 且无红线时 label 为 `Pass`，否则为 `Fail`。评分标准全文见 [`rubric.py`](s12_reject_quality/rubric.py)。
 - **非拒绝**：返回 `label=不适用`，不带 value。`FormatError` / `Skipped` 的含义同上。评审调用失败时返回 `errorCode=S12_REJECT_JUDGE_FAILED`。
@@ -171,7 +187,7 @@ python3 evaluators/s12_label_accuracy/batch_score.py --results results/all-60.js
 - **占位符**：只用 `{context}` 和 `{assistant_turn}`，不用 `{expected_response}`，因此可以挂到在线评估配置。
 - **输出格式**：不写输出格式说明，由服务自动追加。
 - **不传 `temperature`**：Sonnet 5.5 不接受该参数。
-- **评分档位**：1.0 优秀 / 0.8 良好 / 0.6 一般 / 0.4 较差 / 0.2 不合格 / **0.0 不适用**（处理建议不是拒绝）。
+- **评分档位**：1.0 优秀 / 0.8 良好 / 0.6 一般 / 0.4 较差（无红线）/ 0.2 不合格（**触发任一红线一律给这一档**，与代码型评审一致）/ **0.0 不适用**（处理建议不是拒绝）。
   - 档位值互不重复，避免服务按分值反查档位时混淆。
   - 对比页面和统计时请按 label 排除“不适用”。注意 AgentCore 控制台给出的服务端平均分包含这些 0.0，不代表话术质量，只能看按 label 过滤后的结果。
 - **重新生成**：配置由 `rubric.py` 生成。改了评分标准后运行 `python3 evaluators/sync_shared.py`。
@@ -192,7 +208,7 @@ python3 -m pytest -q evaluators/tests data/tests              # 需要 pytest；
 
 ## 7. 方法与边界
 
-- 标签准确率是确定性的程序打分（0 token），直接对应客户的量化目标。
+- 标签准确率是确定性的程序打分（0 token），直接对应客户的量化目标（门禁）；误拒和话术红线是红线，一票否决。
 - 拒绝话术是主观质量，用 LLM 评审，并且有两套实现：
   - **代码型**：能读取黄金集要点和能力目录，信息更全，适合离线和按需评估；
   - **原生配置型**：可以挂到在线评估，在 CloudWatch 控制台查看。

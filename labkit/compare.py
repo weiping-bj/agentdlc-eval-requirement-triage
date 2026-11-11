@@ -631,7 +631,7 @@ def bar_chart(groups: list, target: float, vb: str, va: str) -> str:
     ty = y(target)
     parts.append(f'<line x1="{ml}" x2="{ml + pw}" y1="{ty:.1f}" y2="{ty:.1f}" stroke="{TARGET_COLOR}" '
                  f'stroke-width="1.5" stroke-dasharray="6 4"/>')
-    parts.append(f'<text x="{ml + pw + 8}" y="{ty + 4:.1f}" fill="#46525e" font-size="12">目标 {esc(pct_short(target))}</text>')
+    parts.append(f'<text x="{ml + pw + 8}" y="{ty + 4:.1f}" fill="#46525e" font-size="12">门槛 {esc(pct_short(target))}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -647,7 +647,7 @@ def _kpi_label(cn: str, mb: dict, ma: dict, target: float) -> str:
         badge = pill(f"✗ 未达标（<{t}）", "r")
     return (f'<div class="kpi"><div class="k">{esc(cn)} 准确率 {badge}</div>'
             f'<div class="v"><span class="from">{esc(pct(mb["mean"]))}</span><span class="arrow">→</span>{esc(pct(a))}</div>'
-            f'<div class="d">{delta_html(mb["mean"], a, "pct")} · 目标 ≥{esc(t)} · {mb["n"]} → {ma["n"]} 条</div></div>')
+            f'<div class="d">{delta_html(mb["mean"], a, "pct")} · 门槛 ≥{esc(t)} · {mb["n"]} → {ma["n"]} 条</div></div>')
 
 
 def _kpi_plain(title: str, vb_txt: str, va_txt: str, delta: str, sub: str) -> str:
@@ -707,7 +707,9 @@ def _label_cell(cb, ca, key: str, cn: str, vb: str, va: str, expected) -> str:
 
 
 def _reject_cell(cb, ca, vb: str, va: str) -> str:
-    """reject_quality before → after: green Pass (>= 0.7), red Fail, gray 不适用 / 出错 / 无."""
+    """reject_quality before → after: green Pass (>= 0.7, no red line), red Fail, gray 不适用 / 出错 / 无.
+
+    The value shown is the one read under the current rule (a red flag caps it at pillars.REJECT_RED_VALUE)."""
     def one(c, tag):
         if c is None or not c["has_reject"]:
             return pill("—", "n", f"{tag}：无话术评估结果")
@@ -716,13 +718,16 @@ def _reject_cell(cb, ca, vb: str, va: str) -> str:
             return pill("出错", "n", f"{tag} 评估出错：{clip(e.get('errorCode') or '', 60)} {clip(e.get('errorMessage'), 200)}")
         if is_na(e.get("label")) or num(e.get("value")) is None:
             return pill("不适用", "n", f"{tag}：处理建议不是“拒绝”，话术评估不适用")
-        v = num(e.get("value"))
-        lab = str(e.get("label") or "")
-        ok = lab == "Pass" if lab in ("Pass", "Fail") else v >= 0.7
+        r = pillars.reject_entry(e) or {}
+        v = r.get("value", num(e.get("value")))
+        lab = r.get("label") or str(e.get("label") or "")
+        ok = bool(r.get("passed")) if r.get("status") == "judged" else v >= 0.7
         tip = f"{tag} 话术质量 {v:.2f}（{lab or '—'}）"
+        if r.get("red_flags"):
+            tip += "\n红线（一票否决）：" + "；".join(r["red_flags"])
         if e.get("explanation"):
             tip += "\n" + clip(e.get("explanation"), 260)
-        return pill(f"{v:.2f}", "g" if ok else "r", tip)
+        return pill(("⛔ " if r.get("red_flags") else "") + f"{v:.2f}", "g" if ok else "r", tip)
 
     return f'<td class="num">{one(cb, vb)}<span class="arr">→</span>{one(ca, va)}</td>'
 

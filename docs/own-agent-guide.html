@@ -245,7 +245,8 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
   是否紧急：100% ✅
   处理建议：100% ✅
   …
-  ✅ 达标 · 详细结果：results/eval-A-own-….json</pre></div>
+  ✅ 达标 · 详细结果：results/eval-A-own-….json</pre>
+  <p class="small muted">这是三大支柱规则之前的实测输出。现在结尾按“红线 → 门禁 → 观测”输出，最后一行是“✅ 通过 / ❌ 不通过 / ⚠️ 不完整”及原因：红线（误拒、话术红线）0 条且门禁全部达标才通过，读法见 <a href="07-evaluate.html#s-7-3">7.3</a>。</p></div>
   <ul>
     <li>检查结论的读法（🟩 通过 / 🟨 缺可选项 / 🟧 缺 1 项必需 / 🟥 差距大）见 <a href="a5-check.html#s-a5-2">A5.2</a>。最常见的 ❌ 是数据还没到（等 2–3 分钟再查）或没开 Transaction Search。</li>
     <li>核对 <code>service.name</code> 是 <code>s12lab-&lt;后缀&gt;-local-agent</code>（实测那次用的是自定义名，所以上面省略了）。</li>
@@ -344,7 +345,7 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
     <tr><td>自定义服务名 / 日志组</td><td>在线评估一条都不打分（实测 0/5）；在 <code>config/local.env</code> 或环境变量里设 <code>LOCAL_SERVICE_NAME</code> / <code>LOCAL_LOG_GROUP</code> 也无效。用 G.4 的默认名</td><td><span class="pill g">已实测</span></td></tr>
     <tr><td>改了在线评估配置之后</td><td>不会给改配置之前产生的 session 补打分（实测：改配置后新跑的 3/3 被打分，之前的 0/5 一直没有分数）。改完要重新跑一遍 Agent</td><td><span class="pill g">已实测</span></td></tr>
     <tr><td>日志组不存在时开启在线评估</td><td><code>./33-online-eval.sh enable --path a</code> 会先打印 7 行 <code>⏳ 等待 IAM 权限生效后重试</code>（不是权限问题），最后报 <code>ValidationException … One or more specified log groups do not exist</code>。先运行 G.6 的 <code>.venv/bin/python -m labkit.loggroup</code></td><td><span class="pill g">已实测</span></td></tr>
-    <tr><td>不带 <code>--run</code> 运行 31 / 12</td><td>评估或检查的是最后一条登记的运行，可能是 mock agent 那次，并显示 ✅ 达标（G.8）</td><td><span class="pill g">已实测</span></td></tr>
+    <tr><td>不带 <code>--run</code> 运行 31 / 12</td><td>评估或检查的是最后一条登记的运行，可能是 mock agent 那次，并显示它的结论（例如 ✅ 达标 / ✅ 通过）（G.8）</td><td><span class="pill g">已实测</span></td></tr>
     <tr><td>导入日志（路线二）</td><td>trace 是按日志合成的，时间重排到导入时刻，没有 token 用量；不进在线评估；版本统一为 <code>imported</code>，对比必须指定 <code>--before</code> / <code>--after</code></td><td><span class="pill b">按代码核对</span></td></tr>
     <tr><td>一个 trace 里处理多条需求（批量模式）</td><td>评估器能解析 <code>{"results": […]}</code>，但控制台的“平均分 = 准确率”只在一条需求一个 trace 时成立（<a data-repo="evaluators/README.md">evaluators/README.md</a> 第 1 节）。按 G.5 一条需求一个 session</td><td><span class="pill b">按代码核对</span></td></tr>
     <tr><td>Agent 在线程池 / 子进程里干活</td><td>子线程、子进程里的 span 可能拿不到 <code>session.id</code>，一条需求的 trace 会断开。在同一线程里调用 Agent，或显式传递 OTel context</td><td><span class="pill o">未验证</span></td></tr>

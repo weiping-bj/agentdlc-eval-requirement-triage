@@ -9,6 +9,7 @@
   | `span_adapter.py` | 适配层（从 `shared/` 同步） |
   | `golden_store.py` | 黄金集加载（从 `shared/` 同步） |
   | `golden_set.json` | 打包的黄金集 |
-  | `batch_score.py` | 本地批量打分 |
+  | `pillars.py` | 三大支柱（红线 / 门禁 / 观测）结论规则（从 `shared/` 同步） |
+  | `batch_score.py` | 本地批量打分（按三大支柱出结论） |
 
 - **返回值和环境变量**：见 [../README.md](../README.md) 第 3 节。

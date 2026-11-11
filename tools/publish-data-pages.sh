@@ -6,9 +6,11 @@
 # 数据再改后重跑即可：同名对象被覆盖，链接不变。逻辑见 labkit/data_pages.py。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-case " $* " in
-  *" --no-upload "*|*" -h "*|*" --help "*)   # local only: no lab config (LAB_SUFFIX) needed
-    _S12_PY="python3"; [ -x .venv/bin/python ] && _S12_PY=".venv/bin/python" ;;
-  *) source ./00-config.sh ;;
-esac
+_local=0   # exact flags only (argparse runs with allow_abbrev=False, so --no-up is rejected there too)
+for _a in "$@"; do case "$_a" in --no-upload|-h|--help) _local=1 ;; esac; done
+if [ "$_local" = 1 ]; then   # local only: no lab config (LAB_SUFFIX) and no AWS needed
+  _S12_PY="python3"; [ -x .venv/bin/python ] && _S12_PY=".venv/bin/python"
+else
+  source ./00-config.sh
+fi
 exec "${_S12_PY}" -m labkit.data_pages "$@"

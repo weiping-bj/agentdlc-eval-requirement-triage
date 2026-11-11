@@ -18,11 +18,13 @@ sys.path.insert(0, str(ROOT))
 from labkit import aws  # noqa: E402
 from labkit import data_pages as D  # noqa: E402
 from labkit import publish as P  # noqa: E402
+from labkit import pull_templates as PT  # noqa: E402
 
 DATA = ROOT / "data"
 CATALOG, FEEDBACK, GOLDEN = DATA / "capability_catalog.json", DATA / "feedback_last_month.jsonl", DATA / "golden" / "golden_set.jsonl"
 FILES = {k: name for k, (name, _) in D.PAGES.items()}
-PRIVATE = {k: True for k in P.PAB_KEYS}
+PRIVATE = {k: True for k in PT._PAB_KEYS}
+OWNER = "123456789012"
 
 
 def _jsonl(p):
@@ -157,7 +159,7 @@ def test_pages_reflect_the_current_modified_data(tmp_path, modified):
 
     page = _read(out, "mock")
     n = modified["n_fb"]
-    assert f"<title>mock 需求（当前版本，{n} 条）" in page and f"（{n} 条，合成）" in page and "改过的标题-当前版本" in page
+    assert f"<title>mock 需求（当前版本，{n} 条）" in page and f"（{n} 条）" in page and "改过的标题-当前版本" in page
     assert page.count("<tr data-row ") == n and _sha12(modified["feedback"]) in page
     for fid in modified["dropped_fb"]:
         assert f'id="{fid}"' not in page
@@ -186,6 +188,68 @@ def test_golden_page_without_manifest_asks_to_freeze(tmp_path, modified):
     out = tmp_path / "o"
     assert _run(["--no-upload", "--only", "golden", "--out-dir", out, "--golden", modified["golden"]]) == 0
     assert "没找到冻结记录" in _read(out, "golden") and sorted(os.listdir(out)) == [FILES["golden"]]
+
+
+def test_golden_rows_and_counts_agree_on_non_standard_values(tmp_path):
+    """can_auto_reject null, dimensions as a string, a boolean label, a missing level: the row, the tables and
+    the banner count must say the same thing (and the evaluators' reading: null = not auto-rejectable)."""
+    golden = _jsonl(GOLDEN)
+    a, b, c = golden[0], golden[1], golden[2]
+    assert a["can_auto_reject"] is True
+    a["can_auto_reject"] = None
+    b["dimensions"] = "认知"
+    c["expected"]["important"] = True
+    c["expected"].pop("level", None)
+    p = tmp_path / "g.jsonl"
+    _write_jsonl(p, golden)
+    out = tmp_path / "o"
+    assert _run(["--no-upload", "--out-dir", out, "--only", "golden", "--golden", p]) == 0
+    page = _read(out, "golden")
+    row = page.split(f'<tr data-row id="{a["golden_id"]}">', 1)[1].split("</tr>", 1)[0]
+    assert "不可自动拒绝" in row
+    n_not = sum(1 for g in golden if not bool(g.get("can_auto_reject", True)))
+    assert f"不可自动拒绝 {n_not} 条" in page
+    dims = page.split("五维覆盖（一条可有多个维度）</h4>", 1)[1].split("</table>", 1)[0]
+    assert ">认</td>" not in dims and ">知</td>" not in dims
+    imp = page.split("<h4>是否重要</h4>", 1)[1].split("</table>", 1)[0]
+    assert "True" not in imp and "-" not in imp.replace("—", "")
+    assert "校验有" in page and "个错误" in page
+
+
+def test_a_customer_file_is_not_called_synthetic(tmp_path, modified):
+    cat = json.loads(Path(modified["catalog"]).read_text(encoding="utf-8"))
+    cat["synthetic"] = False
+    cat["platform"]["name"] = "客户自己的平台"
+    Path(modified["catalog"]).write_text(json.dumps(cat, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "o"
+    assert _run(["--no-upload", "--out-dir", out, "--catalog", modified["catalog"], "--feedback", modified["feedback"],
+                 "--golden", modified["golden"]]) == 0
+    for kind in FILES:
+        page = _read(out, kind)
+        assert "合成" not in page and "（示例）”" not in page, kind
+        assert "来源不是仓库自带的示例数据文件" in page and "不要下载后外传" in page, kind
+    repo = tmp_path / "repo"
+    assert _run(["--no-upload", "--out-dir", repo]) == 0
+    assert "（60 条，合成）" in _read(repo, "mock") and "来源不是仓库自带的示例数据文件" not in _read(repo, "mock")
+
+
+def test_banner_wording_and_csp_per_page(tmp_path):
+    assert _run(["--no-upload", "--out-dir", tmp_path]) == 0
+    assert "手册里没有黄金集网页版" in _read(tmp_path, "golden") and "同名网页" not in _read(tmp_path, "golden")
+    for kind in ("catalog", "mock"):
+        assert "手册里的同名网页是仓库里的" in _read(tmp_path, kind)
+    import base64
+    import re as _re
+    for kind, n in (("catalog", 0), ("mock", 1), ("golden", 1)):
+        page = _read(tmp_path, kind)
+        csp = Tags(page).tags
+        csp = next(a["content"] for t, a in csp if t == "meta" and a.get("http-equiv") == "Content-Security-Policy")
+        script_src = csp.split("script-src ", 1)[1].split(";", 1)[0]
+        assert "unsafe-inline" not in script_src and "default-src 'none'" in csp, kind
+        scripts = _re.findall(r"<script>(.*?)</script>", page, _re.S)
+        assert len(scripts) == n, kind
+        want = ["'sha256-" + base64.b64encode(hashlib.sha256(js.encode()).digest()).decode() + "'" for js in scripts]
+        assert script_src == (" ".join(want) or "'none'"), kind
 
 
 # ---------------------------------------------------------------- escaping
@@ -253,9 +317,24 @@ def test_only_flag_and_missing_source(tmp_path, capsys):
     out = tmp_path / "o2"
     assert _run(["--no-upload", "--out-dir", out, "--golden", tmp_path / "nope.jsonl"]) == 1
     assert "❌ 黄金集：无法生成" in capsys.readouterr().out
-    assert sorted(os.listdir(out)) == sorted([FILES["catalog"], FILES["mock"]])
-    with pytest.raises(SystemExit):
-        _run(["--no-upload", "--out-dir", out, "--only", "everything"])
+    assert sorted(os.listdir(out)) == sorted(FILES.values())
+    page = _read(out, "golden")
+    assert "黄金集这次没能生成" in page and "这是 EC2 上数据文件的当前版本" not in page and D.external_refs(page) == []
+    for bad in (["--only", "everything"], ["--only", ""], ["--only", ","], ["--no-up"]):  # no abbreviations either
+        with pytest.raises(SystemExit):
+            _run(["--no-upload", "--out-dir", out] + bad if bad != ["--no-up"] else ["--out-dir", out] + bad)
+
+
+def test_a_failed_rebuild_replaces_the_old_current_page(tmp_path, capsys):
+    out = tmp_path / "o"
+    assert _run(["--no-upload", "--out-dir", out, "--only", "golden"]) == 0
+    assert "这是 EC2 上数据文件的当前版本" in _read(out, "golden")
+    broken = tmp_path / "broken.jsonl"
+    broken.write_text(GOLDEN.read_text(encoding="utf-8") + "{not json\n", encoding="utf-8")
+    assert _run(["--no-upload", "--out-dir", out, "--only", "golden", "--golden", broken]) == 1
+    page = _read(out, "golden")
+    assert "这次没能生成" in page and "这是 EC2 上数据文件的当前版本" not in page and "不是合法 JSON" in page
+    assert "已写入一页“生成失败”说明" in capsys.readouterr().out
 
 
 def test_no_upload_makes_no_aws_call(tmp_path, monkeypatch):
@@ -277,38 +356,54 @@ def test_shell_wrapper_runs_locally_without_lab_config(tmp_path):
 
 
 # ---------------------------------------------------------------- upload path (stubbed S3)
+def _client_error(code, op):
+    from botocore.exceptions import ClientError
+    return ClientError({"Error": {"Code": code, "Message": code}}, op)
+
+
 class FakeS3:
-    """Records calls; any S3 API not defined here (put_bucket_policy, put_object_acl, ...) fails the test."""
+    """Records calls; any S3 API not defined here (put_bucket_policy, put_object_acl, ...) fails the test.
+    owner: the account that owns the bucket (a call with another ExpectedBucketOwner gets AccessDenied)."""
 
-    def __init__(self, exists=True, pab=PRIVATE, fail_upload_of=None):
-        self.calls, self.objects, self.exists, self.pab, self.fail = [], {}, exists, pab, fail_upload_of
+    def __init__(self, exists=True, pab=PRIVATE, fail_upload_of=None, owner=OWNER, unreadable=False):
+        self.calls, self.objects, self.exists, self.pab = [], {}, exists, pab
+        self.fail, self.owner, self.unreadable = fail_upload_of, owner, unreadable
 
-    def head_bucket(self, Bucket):
+    def _own(self, expected, op):
+        if expected is not None and expected != self.owner:
+            raise _client_error("AccessDenied", op)
+
+    def head_bucket(self, Bucket, ExpectedBucketOwner=None):
         self.calls.append(("head_bucket", Bucket))
         if not self.exists:
-            raise RuntimeError("404 Not Found")
+            raise _client_error("404", "HeadBucket")
 
     def create_bucket(self, Bucket, **kw):
         self.calls.append(("create_bucket", Bucket, kw))
         self.exists = True
 
-    def put_public_access_block(self, Bucket, PublicAccessBlockConfiguration):
-        self.calls.append(("put_public_access_block", Bucket, dict(PublicAccessBlockConfiguration)))
+    def put_public_access_block(self, Bucket, PublicAccessBlockConfiguration, ExpectedBucketOwner=None):
+        self.calls.append(("put_public_access_block", Bucket, dict(PublicAccessBlockConfiguration), ExpectedBucketOwner))
+        self._own(ExpectedBucketOwner, "PutPublicAccessBlock")
         self.pab = dict(PublicAccessBlockConfiguration)
 
     def put_bucket_tagging(self, Bucket, Tagging):
         self.calls.append(("put_bucket_tagging", Bucket))
 
-    def get_public_access_block(self, Bucket):
-        self.calls.append(("get_public_access_block", Bucket))
+    def get_public_access_block(self, Bucket, ExpectedBucketOwner=None):
+        self.calls.append(("get_public_access_block", Bucket, ExpectedBucketOwner))
+        self._own(ExpectedBucketOwner, "GetPublicAccessBlock")
+        if self.unreadable:
+            raise _client_error("AccessDenied", "GetPublicAccessBlock")
         if self.pab is None:
-            raise RuntimeError("NoSuchPublicAccessBlockConfiguration")
+            raise _client_error("NoSuchPublicAccessBlockConfiguration", "GetPublicAccessBlock")
         return {"PublicAccessBlockConfiguration": dict(self.pab)}
 
     def upload_file(self, Filename, Bucket, Key, ExtraArgs=None):
         self.calls.append(("upload_file", Bucket, Key, ExtraArgs))
+        self._own((ExtraArgs or {}).get("ExpectedBucketOwner"), "PutObject")
         if self.fail and Key.endswith(self.fail):
-            raise RuntimeError("AccessDenied")
+            raise _client_error("AccessDenied", "PutObject")
         self.objects[Key] = (Path(Filename).read_bytes(), ExtraArgs)
 
     def __getattr__(self, name):
@@ -316,38 +411,39 @@ class FakeS3:
 
 
 BUCKET = "s12lab-test-123456789012-us-west-2"
+HTML_ARGS = {"ContentType": "text/html; charset=utf-8", "ExpectedBucketOwner": OWNER}
 
 
 @pytest.fixture
 def s3(monkeypatch):
-    holder = {}
-
     def install(**kw):
         fake = FakeS3(**kw)
-        holder["s3"] = fake
         monkeypatch.setattr(aws, "client", lambda name: fake if name == "s3" else pytest.fail(f"unexpected client {name}"))
         monkeypatch.setattr(aws, "bucket_name", lambda: BUCKET)
+        monkeypatch.setattr(aws, "account_id", lambda: OWNER)
         monkeypatch.setattr(aws, "cfg", lambda: {"AWS_REGION": "us-west-2", "LAB_SUFFIX": "test", "LAB_ROOT": str(ROOT)})
         return fake
     return install
+
+
+def _names(fake):
+    return [c[0] for c in fake.calls]
 
 
 def test_upload_puts_each_page_under_reports_with_html_content_type(tmp_path, s3, capsys):
     fake = s3()
     assert _run(["--out-dir", tmp_path]) == 0
     keys = [f"reports/{FILES[k]}" for k in ("catalog", "mock", "golden")]
-    assert [c[2] for c in fake.calls if c[0] == "upload_file"] == keys
-    for c in fake.calls:
-        if c[0] == "upload_file":
-            assert c[1] == BUCKET and c[3] == {"ContentType": "text/html; charset=utf-8"}  # exactly: no ACL, no public grant
+    ups = [c for c in fake.calls if c[0] == "upload_file"]
+    assert [c[2] for c in ups] == keys
+    assert all(c[1] == BUCKET and c[3] == HTML_ARGS for c in ups)  # exactly: no ACL, owner-checked
     for k in ("catalog", "mock", "golden"):
-        body, _ = fake.objects[f"reports/{FILES[k]}"]
-        assert body == (tmp_path / FILES[k]).read_bytes()
-    names = [c[0] for c in fake.calls]
-    assert "create_bucket" not in names and names.count("get_public_access_block") == 3
-    for i, n in enumerate(names):  # every upload is preceded by a privacy check on the same bucket
+        assert fake.objects[f"reports/{FILES[k]}"][0] == (tmp_path / FILES[k]).read_bytes()
+    names = _names(fake)
+    assert "create_bucket" not in names and "put_public_access_block" not in names
+    for i, n in enumerate(names):  # every upload is preceded by an owner-checked privacy check on the same bucket
         if n == "upload_file":
-            assert names[i - 1] == "get_public_access_block"
+            assert fake.calls[i - 1] == ("get_public_access_block", BUCKET, OWNER)
     out = capsys.readouterr().out
     for key in keys:
         assert f"https://us-west-2.console.aws.amazon.com/s3/object/{BUCKET}?region=us-west-2&prefix={key}" in out
@@ -357,20 +453,37 @@ def test_upload_puts_each_page_under_reports_with_html_content_type(tmp_path, s3
 def test_new_bucket_is_created_private_before_the_first_upload(tmp_path, s3):
     fake = s3(exists=False, pab=None)
     assert _run(["--out-dir", tmp_path, "--only", "golden"]) == 0
-    names = [c[0] for c in fake.calls]
+    names = _names(fake)
     assert names.index("create_bucket") < names.index("put_public_access_block") < names.index("upload_file")
     assert next(c for c in fake.calls if c[0] == "put_public_access_block")[2] == PRIVATE
 
 
 @pytest.mark.parametrize("pab", [None, dict(PRIVATE, RestrictPublicBuckets=False), dict(PRIVATE, BlockPublicAcls=None)])
-def test_upload_is_refused_unless_the_bucket_blocks_all_public_access(tmp_path, s3, capsys, pab):
+def test_missing_or_partial_public_access_block_is_reapplied_before_upload(tmp_path, s3, capsys, pab):
     fake = s3(pab=pab)
+    assert _run(["--out-dir", tmp_path, "--only", "golden"]) == 0
+    names = _names(fake)
+    put = next(c for c in fake.calls if c[0] == "put_public_access_block")
+    assert put[2] == PRIVATE and put[3] == OWNER and names.index("put_public_access_block") < names.index("upload_file")
+    assert "已重新开启" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("kw", [{"unreadable": True}, {"owner": "999999999999"}])
+def test_upload_is_refused_when_the_bucket_is_not_provably_ours_and_private(tmp_path, s3, capsys, kw):
+    fake = s3(**kw)
     assert _run(["--out-dir", tmp_path]) == 1
     out = capsys.readouterr().out
-    assert not [c for c in fake.calls if c[0] == "upload_file"] and "未上传" in out and "put-public-access-block" in out
-    assert [c[0] for c in fake.calls].count("get_public_access_block") == 1  # stops at the first page
-    with pytest.raises(P.NotPrivateError):  # same guard for 32-compare.sh / 34-triage-report.sh (labkit.publish CLI)
+    assert not [c for c in fake.calls if c[0] in ("upload_file", "put_public_access_block")]
+    assert "未上传" in out and _names(fake).count("get_public_access_block") == 1  # stops at the first page
+    with pytest.raises(P.NotPrivateError):  # the same guard for 32-compare.sh / 34-triage-report.sh
         P.publish(str(tmp_path / FILES["catalog"]))
+
+
+def test_a_failed_build_uploads_the_failure_page(tmp_path, s3):
+    fake = s3()
+    assert _run(["--out-dir", tmp_path, "--only", "golden", "--golden", tmp_path / "nope.jsonl"]) == 1
+    body, args = fake.objects[f"reports/{FILES['golden']}"]
+    assert "这次没能生成" in body.decode("utf-8") and args == HTML_ARGS
 
 
 def test_one_failed_upload_is_reported_and_the_rest_still_go(tmp_path, s3, capsys):
@@ -386,12 +499,14 @@ def test_publish_cli_exits_1_when_the_bucket_is_not_private(tmp_path):
     page = tmp_path / "x.html"
     page.write_text("<p>x</p>", encoding="utf-8")
     code = ("import sys, runpy; sys.argv=['labkit.publish', %r]\n"
+            "from botocore.exceptions import ClientError\n"
             "from labkit import aws, runtime\n"
             "class S3:\n"
-            "    def head_bucket(self, Bucket): pass\n"
-            "    def get_public_access_block(self, Bucket): raise RuntimeError('NoSuchPublicAccessBlockConfiguration')\n"
+            "    def head_bucket(self, Bucket, **k): pass\n"
+            "    def get_public_access_block(self, Bucket, **k):\n"
+            "        raise ClientError({'Error': {'Code': 'AccessDenied'}}, 'GetPublicAccessBlock')\n"
             "    def upload_file(self, *a, **k): raise SystemExit('uploaded!')\n"
-            "aws.client=lambda n: S3(); aws.bucket_name=lambda: 'b'\n"
+            "aws.client=lambda n: S3(); aws.bucket_name=lambda: 'b'; aws.account_id=lambda: '1'\n"
             "runpy.run_module('labkit.publish', run_name='__main__')\n") % str(page)
     env = dict(os.environ, AWS_SHARED_CREDENTIALS_FILE="/dev/null", AWS_CONFIG_FILE="/dev/null", PYTHONPATH=str(ROOT),
                LAB_SUFFIX="test", AWS_REGION="us-west-2", AWS_EC2_METADATA_DISABLED="true")

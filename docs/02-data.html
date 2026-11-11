@@ -308,10 +308,10 @@ python3 data/tools/golden_tool.py freeze</code></pre>
   <ol class="clicks">
     <li>在笔记本浏览器打开打印的链接（需已登录这个实验账号的控制台），点右上角 <span class="ui">打开</span>。</li>
     <li>每页顶部写着“这是 EC2 上数据文件的当前版本”、生成时间、来源文件和 sha256；条数和分布就是你们改过之后的。黄金集页还会提示这一版有没有冻结（没冻结先做 <a href="#s-2-6">2.6</a>）。</li>
-    <li>黄金集页每条都列出期望标签、可接受建议、能否自动拒绝、拒绝要点、话术要点、五维和样例类型；还要改就回到 <a href="#s-2-5">2.5</a>，改完重跑本步。</li>
+    <li>黄金集页每条都列出期望标签、可接受建议、能否自动拒绝、拒绝要点、话术要点、五维和样例类型；页面顶部还会列出校验错误（如果有）。还要改就回到 <a href="#s-2-5">2.5</a>，改完再冻结（<a href="#s-2-6">2.6</a>；已经注册过评估器的，重跑 <code>./30-create-evaluators.sh</code>），然后重跑本步。</li>
   </ol>
-  <div class="note">只发布其中一页：<code>--only golden</code>（或 <code>catalog</code> / <code>mock</code>）。只生成本地文件、不上传：<code>--no-upload</code>（写到 <code>reports/data-pages/</code>）。用了客户数据（<a href="#s-2-3">2.3</a>）时，用 <code>--feedback</code> / <code>--catalog</code> / <code>--golden</code> 指定文件。脚本：<a data-repo="tools/publish-data-pages.sh">tools/publish-data-pages.sh</a> → <a data-repo="labkit/data_pages.py">labkit/data_pages.py</a>。</div>
-  <div class="warn">桶是私有的（四项“阻止公开访问”全部开启，脚本检查不通过就不上传），只有登录了这个账号控制台的人能打开。黄金集页就是标准答案：不要把对象改成公开，也不要把「打开」后的临时链接发给组外的人。</div>
+  <div class="note">只发布其中一页：<code>--only golden</code>（或 <code>catalog</code> / <code>mock</code>）。只生成本地文件、不上传：<code>--no-upload</code>（写到 <code>reports/data-pages/</code>）。用了客户数据（<a href="#s-2-3">2.3</a>）时，用 <code>--feedback</code> / <code>--catalog</code> / <code>--golden</code> 指定文件（页面不再标“合成数据”，并提示不要外传）。某一页生成失败时，会用一页“生成失败”说明替换旧页面，免得把旧数据当成当前版本。脚本：<a data-repo="tools/publish-data-pages.sh">tools/publish-data-pages.sh</a> → <a data-repo="labkit/data_pages.py">labkit/data_pages.py</a>。</div>
+  <div class="warn">桶是私有的（只传到本账号自己的桶，四项“阻止公开访问”全部开启，确认不了就不上传），只有登录了这个账号控制台的人能打开。黄金集页就是标准答案：不要把对象改成公开，也不要把「打开」后的临时链接发给组外的人。</div>
 </div>
 
 </section>

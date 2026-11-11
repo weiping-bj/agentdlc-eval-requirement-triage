@@ -2,7 +2,9 @@
 
 The bucket blocks all public access; the page opens from the S3 console with your own
 console login (Object -> Open). Nothing is made publicly reachable: the upload sets no ACL,
-and it is refused (fail closed) unless all four S3 Block Public Access settings are on.
+only goes to a bucket this account owns (ExpectedBucketOwner), and only after all four S3
+Block Public Access settings are confirmed on (re-applied if missing, the same rule as
+tools/pull-templates.sh). If that cannot be confirmed, nothing is uploaded (fail closed).
 
 Callers: 32-compare.sh, 34-triage-report.sh, labkit/data_pages.py (tools/publish-data-pages.sh).
 """
@@ -13,26 +15,21 @@ from pathlib import Path
 
 from . import aws
 
-PAB_KEYS = ("BlockPublicAcls", "IgnorePublicAcls", "BlockPublicPolicy", "RestrictPublicBuckets")
-
 
 class NotPrivateError(RuntimeError):
-    """The bucket is not provably private; nothing was uploaded."""
+    """The bucket could not be confirmed private and owned by this account; nothing was uploaded."""
 
 
-def check_private(s3, bucket: str) -> None:
-    """Raise NotPrivateError unless the bucket's own Block Public Access has all four settings on."""
-    fix = (f"aws s3api put-public-access-block --bucket {bucket} --public-access-block-configuration "
-           "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true")
+def check_private(s3, bucket: str, owner: str) -> None:
+    """Fail closed. Missing or partial Block Public Access is re-applied (the lab bucket is private by design);
+    an unreadable setting or a bucket owned by another account raises NotPrivateError."""
+    from .pull_templates import ensure_private
     try:
-        conf = s3.get_public_access_block(Bucket=bucket).get("PublicAccessBlockConfiguration") or {}
-    except Exception as e:  # noqa: BLE001 - not set, or not readable: either way not provably private
-        raise NotPrivateError(f"无法确认桶 {bucket} 已禁止公开访问（{type(e).__name__}），为避免页面被公开，未上传。"
-                              f"\n   确认是你自己的实验桶后，开启全部四项“阻止公开访问”再重试：\n   {fix}") from e
-    off = [k for k in PAB_KEYS if conf.get(k) is not True]
-    if off:
-        raise NotPrivateError(f"桶 {bucket} 没有完全禁止公开访问（未开启：{', '.join(off)}），为避免页面被公开，未上传。"
-                              f"\n   开启全部四项后重试：\n   {fix}")
+        if ensure_private(s3, bucket, owner) == "reapplied":
+            print(f"🔒 桶 {bucket} 的四项“阻止公开访问”没有全开，已重新开启")
+    except Exception as e:  # noqa: BLE001 - whatever went wrong, the bucket is not provably private
+        raise NotPrivateError(f"无法确认桶 {bucket} 是本账号的私有桶（{type(e).__name__}: {e}），为避免页面被公开，未上传。"
+                              "\n   网络或限流问题重试即可；否则请联系讲师") from e
 
 
 def publish(path: str) -> str:
@@ -40,9 +37,10 @@ def publish(path: str) -> str:
     p = Path(path)
     b = ensure_bucket()
     s3 = aws.client("s3")
-    check_private(s3, b)
+    owner = aws.account_id()
+    check_private(s3, b, owner)
     key = f"reports/{p.name}"
-    s3.upload_file(str(p), b, key, ExtraArgs={"ContentType": "text/html; charset=utf-8"})
+    s3.upload_file(str(p), b, key, ExtraArgs={"ContentType": "text/html; charset=utf-8", "ExpectedBucketOwner": owner})
     r = aws.cfg()["AWS_REGION"]
     url = f"https://{r}.console.aws.amazon.com/s3/object/{b}?region={r}&prefix={key}"
     print(f"☁️  已上传到私有桶 s3://{b}/{key}")

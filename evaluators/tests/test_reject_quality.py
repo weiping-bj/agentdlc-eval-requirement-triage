@@ -200,11 +200,13 @@ def test_quoted_sub_path_and_quote_marks():
     assert "- CAP-003 " in lf.capability_hints(req, k=1, quoted="在 列表页 → 导入 → 选择‘按唯一字段更新’ 即可")
     assert "- CAP-007 " not in lf.capability_hints(
         req, k=1, quoted="后台 → 流程管理 → 审批流 → 选择对应审批节点 → 节点设置 → 超时处理")  # a level inserted
+    assert "- CAP-007 " not in lf.capability_hints(req, k=1, quoted="后台 → 流程管理 → 超时处理")  # middle levels dropped
 
 
 def test_path_rule_in_both_judges():
     """Both judges read 编造…配置路径 against the catalog how_to: a catalog path is fine, a changed or uncatalogued one is not."""
-    assert "how_to" in rubric.PATH_RULE and "插入、追加或替换任何一级" in rubric.PATH_RULE
+    assert "how_to" in rubric.PATH_RULE and "插入、追加、替换或删去任何一级" in rubric.PATH_RULE
+    assert "话术所说功能" in rubric.PATH_RULE and "别的功能的路径" in rubric.PATH_RULE  # a real path on the wrong feature
     assert rubric.PATH_RULE in rubric.judge_user_prompt("r", "x", "y")
     cfg = json.load(open(os.path.join(EV, "llm_judge_config", "s12_reject_quality.json"), encoding="utf-8"))
     assert rubric.PATH_RULE in cfg["llmAsAJudge"]["instructions"].split("【评分档位】")[0]

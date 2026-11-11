@@ -79,8 +79,9 @@ def _how_to(c: dict) -> str:
 
 def _quotes_path_of(qk: str, how_to: str) -> bool:
     """True if `qk` (a _path_key) contains two or more consecutive levels of `how_to` as a path of its own:
-    the match is not glued to a further level (no → right before or after it), so a quoted path that adds,
-    inserts or replaces a level does not count as quoting this capability's path."""
+    the match is not glued to a further level (no → right before or after it), so a quoted path that adds or
+    inserts a level does not pull the capability in. A level renamed by adding characters to it (e.g. 通知设置中心)
+    can still pull it in; the judge then sees the real path next to the changed one (rubric.PATH_RULE)."""
     segs = [x for x in _path_key(how_to).split("→") if x]
     for n in range(len(segs), 1, -1):
         for i in range(len(segs) - n + 1):

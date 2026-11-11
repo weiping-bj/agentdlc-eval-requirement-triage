@@ -26,8 +26,9 @@ RED_FLAGS = [
 ]
 
 # How to read "编造…配置路径" (both judges): the catalog's menu path (how_to) is the reference.
-PATH_RULE = ("菜单 / 配置路径以平台能力目录写明的路径（how_to，摘录里写作“用法”）为准：与某项能力的路径一致，或只写了其中连续的几级，不算编造；"
-             "在其中插入、追加或替换任何一级，或能力目录里没有的路径，都算“编造平台并不存在的功能或配置路径”。")
+PATH_RULE = ("菜单 / 配置路径以平台能力目录写明的路径（how_to：代码型评审的能力目录摘录里写作“用法”，原生评审看上下文里能力目录工具返回的 how_to）为准："
+             "与话术所说功能在目录里的路径一致，或只写了其中连续的几级，不算编造；把别的功能的路径安到这个功能上，在其中插入、追加、替换或删去任何一级，"
+             "或能力目录里没有的路径，都算“编造平台并不存在的功能或配置路径”。")
 
 PASS_THRESHOLD = 0.7
 # Red line (红线, one-vote veto): any red flag makes the item Fail with value <= RED_LINE_VALUE, the

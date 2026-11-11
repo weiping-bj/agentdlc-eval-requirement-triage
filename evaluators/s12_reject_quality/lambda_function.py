@@ -6,7 +6,9 @@ rubric.py, judge.py, golden_set.json, capability_catalog.json next to this file)
 
 Only traces whose triage output has decision == 拒绝 are judged.
 Return:
-  {"label": "Pass"|"Fail", "value": 0..1, "explanation"}     rejection judged by the LLM
+  {"label": "Pass"|"Fail", "value": 0..1, "explanation"}     rejection judged by the LLM; any red flag
+                                                              (红线, one-vote veto) -> Fail, value <= 0.2,
+                                                              explanation carries "红线：…。"
   {"label": "不适用", "explanation"}                           decision is 迭代 / 待评估 (no value)
   {"label": "FormatError", "value": 0.0, ...}                 answer present but no triage JSON
   {"label": "Skipped", ...}                                   no triage output in the trace
@@ -121,6 +123,8 @@ def evaluate(event: dict, client=None) -> dict:
                                              (gold or {}).get("golden_id"))}
     vals = [r["result"]["value"] for _, _, r in outs]
     value = round(sum(vals) / len(vals), 4)
+    if any(r["result"]["red_flags"] for _, _, r in outs):  # red line in any judged item: the trace fails whole
+        value = min(value, judge.rubric.RED_LINE_VALUE)
     label = "Pass" if all(r["result"]["label"] == "Pass" for _, _, r in outs) else "Fail"
     expl = "\n".join(judge.explain(r["result"], r["verdict"], rec["feedback_id"], r["model"])[:380] for rec, _, r in outs)
     return {"label": label, "value": value, "explanation": f"批量拒绝 {len(outs)} 条，平均 {value}。\n{expl}"[:2000]}

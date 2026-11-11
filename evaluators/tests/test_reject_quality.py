@@ -65,17 +65,18 @@ def test_good_rejection_passes_and_prompt_has_gold_points(golden_rows):
     assert "m-primary" in r["explanation"]
 
 
-def test_red_flag_caps_score(golden_rows):
+def test_red_flag_is_red_line(golden_rows):
     c, _ = client([FLAGGED])
     r = lf.evaluate(event([triage_span(output_from_gold(g(golden_rows, "G02")))]), client=c)
-    assert r["label"] == "Fail" and r["value"] == 0.4 and "承诺" in r["explanation"]
+    assert r["label"] == "Fail" and r["value"] == 0.2 and "承诺" in r["explanation"] and "红线一票否决" in r["explanation"]
 
 
-def test_rejecting_non_rejectable_is_zero(golden_rows):
+def test_rejecting_non_rejectable_is_red_line(golden_rows):
     c, _ = client([GOOD])
     out = output_from_gold(g(golden_rows, "G03"), decision="拒绝", reject_reason="不做", customer_reply="抱歉")
     r = lf.evaluate(event([triage_span(out)]), client=c)
-    assert r["label"] == "Fail" and r["value"] == 0.0 and "不应自动拒绝" in r["explanation"]
+    # lowest failing grade (不合格 0.2), not 0.0: the native judge reserves 0.0 for 不适用
+    assert r["label"] == "Fail" and r["value"] == 0.2 and "不应自动拒绝" in r["explanation"]
 
 
 def test_fallback_model_on_access_denied(golden_rows):
@@ -163,7 +164,7 @@ def test_truncated_judge_output_falls_back_to_scores(golden_rows):
     assert v["_partial"] and v["scores"]["A"] == 2 and v["red_flags"] == ["编造功能"]
     c, _ = client([truncated])
     r = lf.evaluate(event([triage_span(output_from_gold(g(golden_rows, "G02")))]), client=c)
-    assert r["label"] == "Fail" and r["value"] == 0.4 and "截断" in r["explanation"]
+    assert r["label"] == "Fail" and r["value"] == 0.2 and "截断" in r["explanation"]
     with pytest.raises(ValueError):
         judge.parse_verdict('{"scores":{"A":2,"B"')
 

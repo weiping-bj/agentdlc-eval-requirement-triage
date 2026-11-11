@@ -9,12 +9,17 @@ Inputs are the results/eval-<run_id>.json files written by labkit.evaluate (regi
 chart, tiny inline filter script, no external assets) so it opens from a local file or from S3.
 Prints the output path on stdout (status lines go to stderr). Standard library only.
 
+Verdict and the three-pillar section (红线 / 门禁 / 观测) come from evaluators/shared/pillars.py, the
+same rule batch_score.py and labkit.evaluate use; it is applied to the stored evaluator results, so
+evaluations written by older evaluator versions are read under the current rule too.
+
 The page-building helpers at the top of this module are shared with labkit.report.
 """
 from __future__ import annotations
 
 import argparse
 import html
+import importlib.util
 import json
 import math
 import re
@@ -24,6 +29,18 @@ from pathlib import Path
 
 from labkit import config as labcfg
 from labkit import items as labitems
+
+
+def _load_pillars():
+    """evaluators/shared/pillars.py (canonical copy; loaded by path next to this package, not via sys.path)."""
+    path = Path(__file__).resolve().parent.parent / "evaluators" / "shared" / "pillars.py"
+    spec = importlib.util.spec_from_file_location("s12_shared_pillars", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+pillars = _load_pillars()
 
 # ----------------------------------------------------------------------------------------------
 # Shared page helpers (also used by labkit.report)
@@ -324,6 +341,12 @@ def feedback_index(extra_paths=()) -> dict:
                 acc = src.get("acceptable_decisions") or row.get("acceptable_decisions")
                 e["expected"] = {"important": src.get("important"), "urgent": src.get("urgent"),
                                  "decision": "/".join(map(str, acc)) if isinstance(acc, list) and acc else src.get("decision")}
+            for k in ("golden_id", "case_type", "can_auto_reject"):  # golden rows only (three-pillar view)
+                if k not in e and row.get(k) not in (None, ""):
+                    e[k] = row[k]
+            for k in ("dimensions", "matched_capabilities"):
+                if k not in e and isinstance(row.get(k), list):
+                    e[k] = [str(x) for x in row[k]]
     return idx
 
 
@@ -392,11 +415,11 @@ ALIASES = {"important": ("important", "是否重要"), "urgent": ("urgent", "是
 EVAL_ORDER = ["label_accuracy", "label_important", "label_urgent", "label_decision",
               "reject_quality", "reject_quality_llm", "Builtin.Correctness", "Builtin.Helpfulness"]
 EVAL_DESC = {
-    "label_accuracy": ("自定义 · 代码", "三项标签命中比例（0~1）；Pass = 三项全对，CriticalFail = 误拒了不可自动拒绝的需求"),
+    "label_accuracy": ("自定义 · 代码", "三项标签命中比例（0~1）；Pass = 三项全对，CriticalFail = 误拒了不可自动拒绝的需求（红线，整条记 0）"),
     "label_important": ("自定义 · 代码", "“是否重要”单项对错（0/1），平均分即准确率"),
     "label_urgent": ("自定义 · 代码", "“是否紧急”单项对错（0/1），平均分即准确率"),
     "label_decision": ("自定义 · 代码", "“处理建议”单项对错（0/1），平均分即准确率"),
-    "reject_quality": ("自定义 · Lambda 内 LLM 评审", "拒绝理由与客户话术质量（0~1，≥0.7 为 Pass），只评“拒绝”条目"),
+    "reject_quality": ("自定义 · Lambda 内 LLM 评审", "拒绝理由与客户话术质量（0~1，≥0.7 且无红线为 Pass；有红线 ≤0.2），只评“拒绝”条目"),
     "reject_quality_llm": ("自定义 · LLM-as-judge", "同一套中文评分标准的原生 LLM 评审（5 档），只评“拒绝”条目"),
     "Builtin.Correctness": ("内置", "回答正确性（对照期望输出）"),
     "Builtin.Helpfulness": ("内置", "回答有用性"),
@@ -406,6 +429,11 @@ BEFORE_COLOR = "#a3b0c2"   # de-emphasis gray for the baseline
 AFTER_COLOR = "#2f6fdc"    # accent blue for the optimized version
 TARGET_COLOR = "#d64545"
 FOOTER = "数据为合成数据；分数来自 AgentCore Evaluations（按需评估）"
+PILLAR_CSS = """
+.pillar { margin-top: 14px; }
+.pillar h3 { margin: 10px 0 4px; font-size: 15px; }
+.pillar table { margin-bottom: 8px; }
+"""
 STATUS_VIEW = {
     "fixed": ("↑ 修复", "g"), "regressed": ("↓ 退步", "r"), "wrong": ("= 仍错误", "o"),
     "kept": ("= 保持正确", "n"), "unknown": ("— 无评分", "n"), "new": ("仅优化后有", "b"), "dropped": ("仅优化前有", "b"),
@@ -550,19 +578,6 @@ def all_correct(ev: EvalRun) -> dict:
                 n += 1
                 ok += int(c["n"] == 3)
     return {"rate": ok / n if n else None, "n": n, "ok": ok, "critical": crit}
-
-
-def status_of(cb, ca) -> str:
-    if cb is None:
-        return "new"
-    if ca is None:
-        return "dropped"
-    nb, na = cb["n"], ca["n"]
-    if nb is None or na is None:
-        return "unknown"
-    if na == 3:
-        return "kept" if nb == 3 else "fixed"
-    return "regressed" if na < nb else "wrong"
 
 
 def _bar_path(x: float, y0: float, w: float, h: float, r: float = 4.0) -> str:
@@ -712,7 +727,202 @@ def _reject_cell(cb, ca, vb: str, va: str) -> str:
     return f'<td class="num">{one(cb, vb)}<span class="arr">→</span>{one(ca, va)}</td>'
 
 
-def _cases_section(b: EvalRun, a: EvalRun, fb: dict) -> tuple:
+LEVEL_SPEC = ("label_level", "level", "优先级")
+GATE_EVALS = ("label_accuracy", "label_important", "label_urgent", "label_decision", "label_level")
+
+
+def label_specs(*evs) -> tuple:
+    """The label gates of these runs: the three binary labels, plus 优先级 when a label_level evaluator ran."""
+    has_level = any("label_level" in as_dict(s.get("scores")) for ev in evs for s in ev.sessions)
+    return LABELS + ((LEVEL_SPEC,) if has_level else ())
+
+
+def _ok_of(v):
+    return None if v is None else (True if v >= 0.999 else (False if v <= 0.001 else None))
+
+
+def pillar_items(ev: EvalRun, fb: dict, specs: tuple) -> list:
+    """Per-session records for pillars.build, read from the stored evaluator results."""
+    out = []
+    for i, s in enumerate(ev.sessions):
+        sc = as_dict(s.get("scores"))
+        fid = str(s.get("feedback_id") or s.get("session_id") or f"#{i + 1}")
+        info = as_dict(fb.get(fid))
+        res = parse_obj(s.get("agent_output"))
+        fields = {key: (_ok_of(score_value(entry_of(sc.get(name)))) if name in sc else None) for name, key, _cn in specs}
+        labels = [str(entry_of(sc.get(n)).get("label") or "") for n in GATE_EVALS if n in sc]
+        dec = None if s.get("agent_error") else (text(first_present(res, ALIASES["decision"])).strip() or None)
+        caps = [str(c) for c in info.get("matched_capabilities") or []]
+        blob = " ".join(text(res.get(k)) for k in ("reasoning", "reject_reason", "customer_reply"))
+        out.append(pillars.new_item(
+            fid, golden_id=info.get("golden_id"), fields=fields, misreject="CriticalFail" in labels,
+            format_error="FormatError" in labels, no_output=bool(s.get("agent_error")),
+            reject=pillars.reject_entry(entry_of(sc["reject_quality"])) if "reject_quality" in sc else None,
+            rejected=dec == "拒绝", decision=dec, dimensions=info.get("dimensions") or [], case_type=info.get("case_type"),
+            capabilities=caps, cap_hit=(any(c in blob for c in caps) if caps and res else None)))
+    return out
+
+
+def pillars_of(ev: EvalRun, fb: dict, target: float, specs: tuple | None = None) -> dict:
+    """Three-pillar verdict of one evaluation (same rule as batch_score.py / labkit.evaluate)."""
+    specs = specs or label_specs(ev)
+    incomplete = []
+    n_err = sum(1 for s in ev.sessions if s.get("error"))
+    if n_err:
+        incomplete.append(f"{n_err} 个 session 评估失败")
+    gate_names = [n for n, _k, _c in specs] + ["label_accuracy"]
+    n_gate_err = sum(1 for s in ev.sessions if not s.get("error")
+                     and any(is_error(entry_of(as_dict(s.get("scores")).get(n))) for n in gate_names if n in as_dict(s.get("scores"))))
+    if n_gate_err:
+        incomplete.append(f"{n_gate_err} 条门禁评估器出错")
+    items = pillar_items(ev, fb, specs)
+    p = pillars.build(items, [k for _n, k, _c in specs], target, incomplete=incomplete)
+    p["_items"] = {it["feedback_id"]: it for it in items}
+    return p
+
+
+def _verdict_box(tag: str, p: dict) -> str:
+    cls = {"pass": "tip", "fail": "danger", "incomplete": "warn"}.get(p["verdict"], "note")
+    return f'<div class="{cls}"><b>{esc(tag)}</b>：{esc(pillars.verdict_line(p))}</div>'
+
+
+def _gate(p: dict, key: str) -> dict:
+    return next((g for g in p["gates"] if g["key"] == key), {"actual": None, "n": 0, "ok": 0, "status": "not_evaluated",
+                                                              "threshold": p.get("target"), "name": key})
+
+
+def _gate_txt(g: dict) -> str:
+    if g["actual"] is None:
+        return pillars.GATE_STATUS_CN.get(g["status"], "—")
+    return pct(g["actual"]) + (f"（{g['ok']}/{g['n']}）" if g["key"] == "reject_quality" else "")
+
+
+def _gate_badge(g: dict) -> str:
+    st = g["status"]
+    if st == "met":
+        return pill("✓ 达标", "g")
+    if st == "failed":
+        return pill("✗ 未达标", "r")
+    return pill(pillars.GATE_STATUS_CN.get(st, st), "n")
+
+
+def _rl_cell(n, ok: bool) -> str:
+    return f'{esc(n)} {pill("✓", "g") if ok else pill("✗ 一票否决", "r")}'
+
+
+def _pillars_section(b: EvalRun, a: EvalRun, pb: dict, pa: dict) -> str:
+    vb, va = b.vlabel, a.vlabel
+    # ---- 红线 ----
+    rows = []
+    for k, cn in pillars.KIND_CN.items():
+        nb, na = pb["red_line"]["by_kind"].get(k, 0), pa["red_line"]["by_kind"].get(k, 0)
+        rows.append(f'<tr><td>{esc(cn)}</td><td class="num">{nb}</td><td class="num">{na}</td>'
+                    f'<td class="num">{delta_html(nb, na, "count", higher_is_better=False)}</td></tr>')
+    cb, ca = pb["red_line"]["count"], pa["red_line"]["count"]
+    rows.append(f'<tr><td><b>合计（按条）</b>，要求 0 条</td><td class="num">{_rl_cell(cb, cb == 0)}</td>'
+                f'<td class="num">{_rl_cell(ca, ca == 0)}</td>'
+                f'<td class="num">{delta_html(cb, ca, "count", higher_is_better=False)}</td></tr>')
+    lst = {}
+    for tag, p in ((vb, pb), (va, pa)):
+        for x in p["red_line"]["items"]:
+            lst.setdefault(x["feedback_id"], {"gid": x.get("golden_id"), "by": {}})["by"][tag] = x["kinds"]
+    li = []
+    for fid, x in lst.items():
+        def cell(tag):
+            ks = x["by"].get(tag)
+            if not ks:
+                return '<td class="muted small">—</td>'
+            return "<td>" + "<br>".join(f'{pill(pillars.KIND_CN[k["kind"]].split("（")[0], "r")} '
+                                        f'<span class="small">{esc(clip(k["detail"], 120))}</span>' for k in ks) + "</td>"
+        li.append(f'<tr><td><span class="mono">{esc(fid)}</span> <span class="small muted">{esc(x["gid"] or "")}</span></td>'
+                  f'{cell(vb)}{cell(va)}</tr>')
+    incomplete = [f"{tag} 有 {len(_gate(p, 'reject_quality').get('unjudged') or [])} 条拒绝没有话术评审结果，话术红线可能没统计全。"
+                  for tag, p in ((vb, pb), (va, pa)) if not p["red_line"]["complete"]]
+    red = ('<h3>1. 红线（一票否决）</h3>'
+           '<p class="small muted">出现 1 条即整体不通过，该条需求整条判错（三项都按错计）。来源：误拒 = 标签评估器 CriticalFail；'
+           '话术红线 = reject_quality 评审列出的 red_flags（编造功能或配置路径、承诺上线时间、泄露其他客户或内部信息、话术为空或与理由矛盾）。</p>'
+           f'<table><thead><tr><th>红线</th><th>{esc(vb)} 优化前</th><th>{esc(va)} 优化后</th><th>变化</th></tr></thead>'
+           f'<tbody>{"".join(rows)}</tbody></table>'
+           + "".join(f'<div class="warn">{esc(t)}</div>' for t in incomplete)
+           + (f'<table id="redlines"><thead><tr><th style="width:18%">需求</th><th>{esc(vb)} 红线</th><th>{esc(va)} 红线</th></tr></thead>'
+              f'<tbody>{"".join(li)}</tbody></table>' if li else '<p class="muted">两次运行都没有红线。</p>'))
+    # ---- 门禁 ----
+    grows = []
+    for gb in pb["gates"]:
+        ga = _gate(pa, gb["key"])
+        thr = gb["threshold"] if gb["threshold"] is not None else pa.get("target")
+        grows.append(f'<tr><td>{esc(gb["name"])}</td><td class="num">≥ {esc(pct_short(thr))}</td>'
+                     f'<td class="num">{esc(_gate_txt(gb))} {_gate_badge(gb)}</td>'
+                     f'<td class="num">{esc(_gate_txt(ga))} {_gate_badge(ga)}</td>'
+                     f'<td class="num">{delta_html(gb["actual"], ga["actual"], "pct")}</td></tr>')
+    rule = _gate(pa, "reject_quality").get("rule") or ""
+    gate = ('<h3>2. 门禁（全部达标才通过）</h3>'
+            f'<p class="small muted">误拒（红线）的条目在三项里都按“错”计；Agent 出错、评估出错的条目不计入分母。拒绝话术通过率：{esc(rule)}。</p>'
+            f'<table><thead><tr><th>门禁</th><th>门槛</th><th>{esc(vb)} 优化前</th><th>{esc(va)} 优化后</th><th>变化</th></tr></thead>'
+            f'<tbody>{"".join(grows)}</tbody></table>')
+    # ---- 观测 ----
+    ob, oa = pb["observations"], pa["observations"]
+    orows = []
+
+    def orow(name, x, y, kind="pct", hib=True, fmt=None):
+        f = fmt or (pct if kind == "pct" else score_fmt)
+        orows.append(f'<tr><td>{esc(name)}</td><td class="num">{esc(f(x))}</td><td class="num">{esc(f(y))}</td>'
+                     f'<td class="num">{delta_html(x, y, kind, higher_is_better=hib)}</td></tr>')
+
+    orow("整条通过率（各项全对且无红线）", ob["all_correct_rate"], oa["all_correct_rate"])
+    orow("格式错误率（FormatError）", ob["format_error"]["rate"], oa["format_error"]["rate"], hib=False)
+    if ob["capability_hit"]["n"] or oa["capability_hit"]["n"]:
+        orow("能力目录命中率（输出引用了黄金集标注的能力编号）", ob["capability_hit"]["rate"], oa["capability_hit"]["rate"])
+    for d in dict.fromkeys([*ob["by_dimension"], *oa["by_dimension"]]):
+        orow(f"五维 · {d}：标签准确率", ob["by_dimension"].get(d), oa["by_dimension"].get(d))
+    for c in dict.fromkeys([*ob["by_case_type"], *oa["by_case_type"]]):
+        orow(f"用例类型 · {c}：整条答对率", ob["by_case_type"].get(c), oa["by_case_type"].get(c))
+    rb, ra = ob["reject"], oa["reject"]
+    orow(f"拒绝话术评审均分（{rb['n']} → {ra['n']} 条，红线条目按 ≤{pillars.REJECT_RED_VALUE:g} 计）", rb["mean"], ra["mean"], "score")
+    names = dict(pillars.JUDGE_DIMS)
+    for k in dict.fromkeys([*rb["scores"], *ra["scores"]]):
+        orow(f"话术分项 · {names.get(k, k)}（1~5）", rb["scores"].get(k), ra["scores"].get(k), "score")
+    if rb["missing_points"] or ra["missing_points"]:
+        orow("话术未覆盖的黄金集要点（条）", rb["missing_points"], ra["missing_points"], "count", hib=False, fmt=lambda v: f"{v:g}")
+
+    def dist(o):
+        return " · ".join(f"{k} {v}" for k, v in sorted(o["decisions"].items(), key=lambda kv: -kv[1])) or "—"
+    orows.append(f'<tr><td>处理建议分布</td><td class="small">{esc(dist(ob))}</td><td class="small">{esc(dist(oa))}</td>'
+                 '<td class="flat">—</td></tr>')
+    obs = ('<h3>3. 观测（只看趋势，不影响结论）</h3>'
+           '<p class="small muted">用于归因和看趋势；下方“全部评估器平均分”也属于观测。</p>'
+           f'<table><thead><tr><th>观测指标</th><th>{esc(vb)} 优化前</th><th>{esc(va)} 优化后</th><th>变化</th></tr></thead>'
+           f'<tbody>{"".join(orows)}</tbody></table>')
+    return ('<div class="card" id="pillars"><h2>三大支柱：红线 · 门禁 · 观测（优化前 → 优化后）</h2>'
+            '<p class="small muted">结论 = 没有红线 且 门禁全部达标；观测指标只看趋势，不影响结论。</p>'
+            f'<div class="pillar">{red}</div><div class="pillar">{gate}</div><div class="pillar">{obs}</div></div>')
+
+
+def _item_score(c, it) -> int | None:
+    """Labels right after the veto (red line = -1, worse than any label count)."""
+    if c is None or c["n"] is None:
+        return None
+    if it and pillars.red_line_kinds(it):
+        return -1
+    return c["n"]
+
+
+def status_of(cb, ca, ib=None, ia=None) -> str:
+    if cb is None:
+        return "new"
+    if ca is None:
+        return "dropped"
+    nb, na = _item_score(cb, ib), _item_score(ca, ia)
+    if nb is None or na is None:
+        return "unknown"
+    if na == 3:
+        return "kept" if nb == 3 else "fixed"
+    return "regressed" if na < nb else "wrong"
+
+
+def _cases_section(b: EvalRun, a: EvalRun, fb: dict, pb: dict | None = None, pa: dict | None = None) -> tuple:
+    ib = (pb or {}).get("_items") or {}
+    ia = (pa or {}).get("_items") or {}
     cases_b = {}
     for i, s in enumerate(b.sessions):
         c = case_of(s)
@@ -724,43 +934,50 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict) -> tuple:
     order = list(cases_b) + [k for k in cases_a if k not in cases_b]
     counts = {k: 0 for k in STATUS_VIEW}
     rows = []
-    n_crit = 0
+    n_red = 0
     for fid in order:
         cb, ca = cases_b.get(fid), cases_a.get(fid)
-        st = status_of(cb, ca)
+        itb, ita = ib.get(fid), ia.get(fid)
+        st = status_of(cb, ca, itb, ita)
         counts[st] += 1
         info = fb.get(fid, {})
         exp = as_dict(info.get("expected"))
         title = f'<div class="small muted">{esc(clip(info.get("title"), 40))}</div>' if info.get("title") else ""
         cells = "".join(_label_cell(cb, ca, key, cn, b.vlabel, a.vlabel, exp.get(key)) for _e, key, cn in LABELS)
 
-        def nfmt(c):
+        def nfmt(c, it):
             if c is None or c["n"] is None:
                 return "—"
+            kinds = pillars.red_line_kinds(it) if it else []
+            if any(k["kind"] == "misreject" for k in kinds):
+                return "0/3"
             return f"{c['n']}/3"
 
         crit = ""
         tags = [st]
-        for c, tag in ((cb, b.vlabel), (ca, a.vlabel)):
-            if c and c["critical"]:
-                crit += "<br>" + pill(f"⚠ {tag} 误拒", "r", "CriticalFail：拒绝了不可自动拒绝的需求（数据丢失/安全/合规/合同承诺/线上缺陷）")
-                tags.append("critical")
+        for c, it, tag in ((cb, itb, b.vlabel), (ca, ita, a.vlabel)):
+            kinds = pillars.red_line_kinds(it) if it else []
+            for k in kinds:
+                name = "误拒" if k["kind"] == "misreject" else "话术红线"
+                crit += "<br>" + pill(f"⛔ {tag} {name}", "r", f"红线（一票否决，整条判错）：{k['detail']}")
+            if kinds:
+                tags.append("redline")
             if c and c["format_error"]:
                 crit += "<br>" + pill(f"{tag} 格式错误", "r", "FormatError：有回答但解析不出分诊 JSON")
             if c and c["eval_error"]:
                 crit += "<br>" + pill(f"{tag} 评估出错", "n", clip(c["eval_error"], 200))
-        n_crit += int("critical" in tags)
+        n_red += int("redline" in tags)
         label, cls = STATUS_VIEW[st]
-        if st == "wrong" and cb and ca and (ca["n"] or 0) > (cb["n"] or 0):
+        if st == "wrong" and cb and ca and (_item_score(ca, ita) or 0) > (_item_score(cb, itb) or 0):
             label = "↗ 仍错误（部分改善）"
-        rows.append(f'<tr data-tags="{esc(" ".join(tags))}"><td><span class="mono">{esc(fid)}</span>{title}</td>{cells}'
-                    f'<td class="num">{esc(nfmt(cb))} → {esc(nfmt(ca))}{crit}</td>{_reject_cell(cb, ca, b.vlabel, a.vlabel)}'
+        rows.append(f'<tr data-tags="{esc(" ".join(dict.fromkeys(tags)))}"><td><span class="mono">{esc(fid)}</span>{title}</td>{cells}'
+                    f'<td class="num">{esc(nfmt(cb, itb))} → {esc(nfmt(ca, ita))}{crit}</td>{_reject_cell(cb, ca, b.vlabel, a.vlabel)}'
                     f'<td>{pill(label, cls)}</td></tr>')
     total = len(order)
     btn = []
     for f, lab, n in (("all", "全部", total), ("fixed", "修复", counts["fixed"]), ("regressed", "退步", counts["regressed"]),
-                      ("wrong", "仍错误", counts["wrong"]), ("critical", "含误拒", n_crit)):
-        if f == "critical" and not n:
+                      ("wrong", "仍错误", counts["wrong"]), ("redline", "含红线", n_red)):
+        if f == "redline" and not n:
             continue
         active = " active" if f == "all" else ""
         btn.append(f'<button type="button" class="fbtn{active}" data-target="#cases" data-f="{f}" '
@@ -776,12 +993,13 @@ def _cases_section(b: EvalRun, a: EvalRun, fb: dict) -> tuple:
         f'<p class="small muted">每格显示 {esc(b.vlabel)} → {esc(a.vlabel)} 的 Agent 输出：'
         '<span class="pill g">✓ 绿色</span>= 该项单项评估器判对，<span class="pill r">✗ 红色</span>= 判错，'
         '<span class="pill n">灰色</span>= 无评估结果 / 不适用。鼠标悬停查看理由；“拒绝”条目悬停可看客户话术。'
-        '“修复”= 优化后三项全对而优化前没有；“退步”= 优化后答对的项数减少；“仍错误”= 优化后仍未三项全对；'
-        '<span class="pill r">⚠ 误拒</span>= CriticalFail（拒绝了不可自动拒绝的需求）。</p>'
+        '<span class="pill r">⛔ 红线</span>= 一票否决（误拒不可自动拒绝的需求，或拒绝话术红线），这条需求整条判错；'
+        '误拒的条目“三项命中”记 0/3。“修复”= 优化后三项全对且无红线、而优化前不是；'
+        '“退步”= 优化后答对的项数减少，或新出现红线；“仍错误”= 优化后仍未三项全对或仍有红线。</p>'
         f'<p><b>{esc(summary)}</b></p>'
         f'<div class="filters">{"".join(btn)}<span class="small muted" data-status-for="#cases">全部：{total} 条</span></div>'
         '<table id="cases" class="cases"><thead><tr><th>需求</th><th>是否重要</th><th>是否紧急</th><th>处理建议</th>'
-        '<th>三项命中</th><th>拒绝话术</th><th>变化</th></tr></thead><tbody>' + "".join(rows) + "</tbody></table></div>"
+        '<th>三项命中 / 红线</th><th>拒绝话术</th><th>变化</th></tr></thead><tbody>' + "".join(rows) + "</tbody></table></div>"
     )
     return html_, counts
 
@@ -793,14 +1011,17 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
         b.vlabel, a.vlabel = vb, va
     t = pct_short(target)
     fb = feedback_index()
-    groups = [(cn, label_metric(b, ev_name, cn), label_metric(a, ev_name, cn)) for ev_name, _k, cn in LABELS]
+    specs = label_specs(b, a)
+    pb, pa = pillars_of(b, fb, target, specs), pillars_of(a, fb, target, specs)
 
-    failing = [cn for cn, _mb, ma in groups if ma["mean"] is None or ma["mean"] < target]
-    if not failing:
-        verdict = f'<div class="tip">✅ {esc(va)} 三项标签准确率均达到目标（各 ≥{esc(t)}）。</div>'
-    else:
-        verdict = (f'<div class="warn">⚠️ {esc(va)} 仍有 {len(failing)} 项未达到目标（各 ≥{esc(t)}）：'
-                   f'{esc("、".join(failing))}。</div>')
+    def gate_metric(ev, p, ev_name, key, cn):
+        g = _gate(p, key)
+        if g["actual"] is None:  # no per-session results: fall back to the summary means
+            return label_metric(ev, ev_name, cn)
+        return {"mean": g["actual"], "n": g["n"], "errors": 0, "skipped": 0}
+
+    groups = [(cn, gate_metric(b, pb, ev_name, key, cn), gate_metric(a, pa, ev_name, key, cn)) for ev_name, key, cn in specs]
+    verdict = _verdict_box(f"{va}（优化后）", pa) + _verdict_box(f"{vb}（优化前）", pb)
     notes = []
     if (b.run.get("model") or "") != (a.run.get("model") or ""):
         notes.append("两次运行使用的模型不同，对比结论同时包含模型变化的影响。")
@@ -810,27 +1031,28 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
         notes.append(f"两次评估的需求集合不完全一致（仅优化前 {len(fids_b - fids_a)} 条，仅优化后 {len(fids_a - fids_b)} 条）。")
     notes_html = "".join(f'<div class="note">{esc(n)}</div>' for n in notes)
 
-    ac_b, ac_a = all_correct(b), all_correct(a)
-    la_b, la_a = metric(b, "label_accuracy"), metric(a, "label_accuracy")
-    rq_b, rq_a = metric(b, "reject_quality"), metric(a, "reject_quality")
-    kpis = "".join(_kpi_label(cn, mb, ma, target) for cn, mb, ma in groups)
-    kpis += _kpi_plain("三项全对率", pct(ac_b["rate"]), pct(ac_a["rate"]), delta_html(ac_b["rate"], ac_a["rate"], "pct"),
-                       f"{ac_b['ok']}/{ac_b['n']} → {ac_a['ok']}/{ac_a['n']} 条全对 · "
-                       f"label_accuracy 均值 {score_fmt(la_b['mean'])} → {score_fmt(la_a['mean'])}")
-    kpis += _kpi_plain("⚠ 误拒（CriticalFail）", f"{ac_b['critical']} 条", f"{ac_a['critical']} 条",
-                       delta_html(ac_b["critical"], ac_a["critical"], "count", higher_is_better=False),
-                       "拒绝了不可自动拒绝的需求，越少越好")
-    kpis += _kpi_plain("拒绝话术质量", score_fmt(rq_b["mean"]), score_fmt(rq_a["mean"]),
-                       delta_html(rq_b["mean"], rq_a["mean"], "score"),
-                       f"reject_quality 均值，只计“拒绝”条目：{rq_b['n']} → {rq_a['n']} 条")
+    rb, ra = pb["red_line"], pa["red_line"]
+    kpis = _kpi_plain("⛔ 红线（一票否决）", f"{rb['count']} 条", f"{ra['count']} 条",
+                      delta_html(rb["count"], ra["count"], "count", higher_is_better=False),
+                      f"要求 0 条 · 误拒 {rb['by_kind']['misreject']} → {ra['by_kind']['misreject']} · "
+                      f"话术红线 {rb['by_kind']['reject_red_flag']} → {ra['by_kind']['reject_red_flag']}")
+    kpis += "".join(_kpi_label(cn, mb, ma, target) for cn, mb, ma in groups)
+    gb, ga = _gate(pb, "reject_quality"), _gate(pa, "reject_quality")
+    kpis += (f'<div class="kpi"><div class="k">拒绝话术通过率 {_gate_badge(ga)}</div>'
+             f'<div class="v"><span class="from">{esc(pct(gb["actual"]))}</span><span class="arrow">→</span>{esc(pct(ga["actual"]))}</div>'
+             f'<div class="d">{delta_html(gb["actual"], ga["actual"], "pct")} · 门槛 ≥{esc(t)} · {gb["ok"]}/{gb["n"]} → {ga["ok"]}/{ga["n"]} 条 Pass'
+             '（评审分 ≥0.7 且无红线）</div></div>')
+    ob, oa = pb["observations"], pa["observations"]
+    kpis += _kpi_plain("整条通过率（观测）", pct(ob["all_correct_rate"]), pct(oa["all_correct_rate"]),
+                       delta_html(ob["all_correct_rate"], oa["all_correct_rate"], "pct"), "三项全对且无红线的条目占比")
 
-    chart = ('<div class="card"><h2>三项标签准确率：优化前 vs 优化后</h2>'
+    chart = ('<div class="card"><h2>门禁 · 标签准确率：优化前 vs 优化后</h2>'
              f'<div class="legend"><span><span class="sw" style="background:{BEFORE_COLOR}"></span>{esc(vb)} · 优化前</span>'
              f'<span><span class="sw" style="background:{AFTER_COLOR}"></span>{esc(va)} · 优化后</span>'
-             f'<span><span class="dash"></span>目标 ≥{esc(t)}</span></div>'
+             f'<span><span class="dash"></span>门槛 ≥{esc(t)}</span></div>'
              f'<div class="chart">{bar_chart(groups, target, vb, va)}</div>'
-             '<p class="small muted">准确率 = 单项评估器（label_important / label_urgent / label_decision）的平均分；'
-             'Agent 出错、评估出错的条目不计入分母。悬停柱子可查看条数。</p></div>')
+             '<p class="small muted">准确率按门禁口径：单项评估器（label_important / label_urgent / label_decision）的判定，'
+             '误拒（红线）的条目三项都按错计；Agent 出错、评估出错的条目不计入分母。悬停柱子可查看条数。</p></div>')
 
     names = [n for n in EVAL_ORDER if n in (b.names() | a.names())]
     names += sorted((b.names() | a.names()) - set(names))
@@ -848,20 +1070,22 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
                    f'<td class="num">{esc(fmt(mb["mean"]))} <span class="muted small">（{mb["n"]}）</span></td>'
                    f'<td class="num">{esc(fmt(ma["mean"]))} <span class="muted small">（{ma["n"]}）</span></td>'
                    f'<td class="num">{delta_html(mb["mean"], ma["mean"], kind)}</td><td class="num small">{esc(errs)}</td></tr>')
-    table = ('<div class="card"><h2>全部评估器平均分</h2>'
-             '<p class="small muted">括号内为参与平均的条数；“不适用 / Skipped”的条目（例如非拒绝条目的话术评估）和评估出错的条目不计入。</p>'
+    table = ('<div class="card"><h2>观测 · 全部评估器平均分（评估器原始返回值）</h2>'
+             '<p class="small muted">评估器原样返回的平均分，只看趋势；结论以上面的三大支柱为准（红线否决、门禁口径在上面重新计算）。'
+             '括号内为参与平均的条数；“不适用 / Skipped”的条目（例如非拒绝条目的话术评估）和评估出错的条目不计入。</p>'
              f'<table><thead><tr><th>评估器</th><th>类型</th><th>说明</th><th>{esc(vb)} 优化前</th><th>{esc(va)} 优化后</th>'
              '<th>变化</th><th>评估出错</th></tr></thead><tbody>' + "".join(trs) + "</tbody></table></div>")
 
-    cases_html, _counts = _cases_section(b, a, fb)
+    cases_html, _counts = _cases_section(b, a, fb, pb, pa)
 
     region = a.data.get("region") or b.data.get("region") or "—"
-    bar = topbar(f"场景 12 · 评估对比 {vb} vs {va}", "需求反馈分诊 Agent · AgentCore Evaluations 前后对比",
+    bar = topbar(f"场景 12 · 评估对比 {vb} vs {va}", "需求反馈分诊 Agent · AgentCore Evaluations 前后对比（红线 · 门禁 · 观测）",
                  [("优化前", b.run_id), ("优化后", a.run_id), ("区域", region)])
-    head = (f'<div class="card"><h2>{esc(vb)}（基线）→ {esc(va)}（优化后）：三项标签目标各 ≥{esc(t)}</h2>'
+    head = (f'<div class="card"><h2>{esc(vb)}（基线）→ {esc(va)}（优化后）：红线 0 条，且门禁各 ≥{esc(t)}，才算通过</h2>'
             f'{verdict}{notes_html}<div class="kpis">{kpis}</div></div>'
             f'<div class="card"><h2>两次运行</h2><div class="runs">{_run_box(b, "优化前")}{_run_box(a, "优化后")}</div></div>')
-    return page(f"评估对比 {vb} vs {va} · 场景 12", bar, head + chart + table + cases_html, FOOTER)
+    return page(f"评估对比 {vb} vs {va} · 场景 12", bar, head + _pillars_section(b, a, pb, pa) + chart + table + cases_html,
+                FOOTER, PILLAR_CSS)
 
 
 def pick_default() -> tuple:

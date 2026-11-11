@@ -6,7 +6,10 @@ Fallback model (used when the primary is not accessible / not valid in the regio
   env FALLBACK_MODEL_ID -> config files (FALLBACK_MODEL_ID) -> us.amazon.nova-2-lite-v1:0
 Region: env JUDGE_REGION -> AWS_REGION -> AWS_DEFAULT_REGION -> config AWS_REGION -> us-west-2
 
-Score: each of 5 dimensions 1..5 -> value = mean((s-1)/4); any red flag caps value at 0.4.
+Score: each of 5 dimensions 1..5 -> value = mean((s-1)/4).
+Red line (one-vote veto): any red flag -- including rejecting an item the golden set marks
+can_auto_reject=false -- makes the item Fail with value <= rubric.RED_LINE_VALUE (0.2, 不合格, the
+lowest failing grade; 0.0 stays reserved for 不适用 in the native judge config).
 Label: Pass (value >= PASS_THRESHOLD and no red flag) | Fail.
 """
 from __future__ import annotations
@@ -24,6 +27,7 @@ DEFAULT_MODEL = "us.anthropic.claude-sonnet-5-5"
 DEFAULT_FALLBACK = "us.amazon.nova-2-lite-v1:0"
 FALLBACK_ERRORS = {"AccessDeniedException", "ValidationException", "ResourceNotFoundException",
                    "UnrecognizedClientException", "ModelNotReadyException"}
+MISREJECT_FLAG = "拒绝了不应自动拒绝的需求（黄金集标注）"  # == pillars.MISREJECT_FLAG
 RETRY_ERRORS = {"ThrottlingException", "TooManyRequestsException", "ServiceUnavailableException",
                 "InternalServerException", "ModelTimeoutException"}
 
@@ -205,7 +209,7 @@ def score_verdict(verdict: Dict[str, Any]) -> Dict[str, Any]:
     value = sum((s - 1.0) / 4.0 for s in scores.values()) / len(scores)
     flags = normalize_flags(verdict.get("red_flags"))
     if flags:
-        value = min(value, 0.4)
+        value = min(value, rubric.RED_LINE_VALUE)
     value = round(value, 4)
     label = "Pass" if (value >= rubric.PASS_THRESHOLD and not flags) else "Fail"
     return {"value": value, "label": label, "scores": scores, "red_flags": flags}
@@ -216,8 +220,9 @@ def explain(result: Dict[str, Any], verdict: Dict[str, Any], fid: str, model: Op
     names = {k: n for k, n, _ in rubric.DIMENSIONS}
     dims = "，".join(f"{names[k]} {int(v)}" for k, v in result["scores"].items())
     txt = f"需求 {fid}（{golden_id or '-'}）拒绝话术评审 {result['value']}：{dims}。"
-    if result["red_flags"]:
-        txt += "红线：" + "；".join(result["red_flags"]) + "。"
+    if result["red_flags"]:  # "红线：…。" is parsed by pillars.red_flags_from_text: keep the format
+        txt += "红线：" + "；".join(f.replace("。", "，").strip("，") for f in result["red_flags"]) + "。"
+        txt += "（红线一票否决，整条不通过）"
     miss = [m for m in (verdict.get("missing_points") or []) if isinstance(m, str)]
     if miss:
         txt += "未覆盖要点：" + "；".join(miss[:4]) + "。"
@@ -239,8 +244,8 @@ def judge_rejection(client, requirement: str, output: Dict[str, Any], gold: Opti
     verdict = parse_verdict(text)
     res = score_verdict(verdict)
     if gold and gold.get("can_auto_reject") is False:
-        res["red_flags"].append("拒绝了不应自动拒绝的需求（黄金集标注）")
-        res["value"] = min(res["value"], 0.0)
+        res["red_flags"].append(MISREJECT_FLAG)
+        res["value"] = min(res["value"], rubric.RED_LINE_VALUE)
         res["label"] = "Fail"
     return {"result": res, "verdict": verdict, "model": getattr(client, "used_model", None)}
 

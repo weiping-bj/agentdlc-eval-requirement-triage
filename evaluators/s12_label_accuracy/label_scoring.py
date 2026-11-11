@@ -7,8 +7,11 @@ Scoring rules (see data/golden/LABELING_GUIDE.md):
   - decision: correct if the predicted value is in the golden `acceptable_decisions`
     (ambiguous cases list more than one acceptable answer; default = [expected decision]).
   - level (only when scheme="level"): |rank(pred) - rank(gold)| <= tolerance (P0 < P1 < P2).
-  - CriticalFail: predicted 拒绝 for an item whose golden `can_auto_reject` is false
-    (data loss / security / compliance / contract / defect). Mis-rejecting is worse than missing.
+  - CriticalFail = red line (红线, one-vote veto): predicted 拒绝 for an item whose golden
+    `can_auto_reject` is false (data loss / security / compliance / contract / defect). The item fails
+    as a whole: every scored label counts as wrong (value 0), whichever labels are scored (also the
+    single-label evaluators). The per-field `raw_correct` keeps what the agent actually got right.
+Run-level verdict (red line / gate / observation): see pillars.py.
 """
 from __future__ import annotations
 
@@ -49,8 +52,13 @@ def score_record(pred: Dict[str, Any], gold: Dict[str, Any], scheme: str = "bina
             per[f] = {"expected": g, "predicted": p, "correct": ok}
         else:
             per[f] = {"expected": g, "predicted": p, "correct": p is not None and p == g}
-    n_ok = sum(1 for v in per.values() if v["correct"])
-    critical = "decision" in fields and pred.get("decision") == "拒绝" and not gold.get("can_auto_reject", True)
+    n_raw = sum(1 for v in per.values() if v["correct"])
+    critical = pred.get("decision") == "拒绝" and not gold.get("can_auto_reject", True)
+    for v in per.values():
+        v["raw_correct"] = v["correct"]
+        if critical:
+            v["correct"] = False  # red line: the whole item fails
+    n_ok = 0 if critical else n_raw
     value = round(n_ok / len(fields), 4) if fields else 0.0
     if critical:
         label = "CriticalFail"
@@ -59,7 +67,8 @@ def score_record(pred: Dict[str, Any], gold: Dict[str, Any], scheme: str = "bina
     else:
         label = "Fail"
     return {"feedback_id": gold.get("feedback_id"), "golden_id": gold.get("golden_id"), "fields": per,
-            "n_correct": n_ok, "n_fields": len(fields), "value": value, "label": label, "critical": critical}
+            "n_correct": n_ok, "n_correct_raw": n_raw, "n_fields": len(fields), "value": value, "label": label,
+            "critical": critical}
 
 
 def _mark(ok: bool) -> str:
@@ -70,11 +79,16 @@ def explain(scored: Dict[str, Any], pred: Dict[str, Any], extra: str = "") -> st
     parts = []
     for f, v in scored["fields"].items():
         exp = "/".join(v.get("acceptable") or [str(v.get("expected"))]) if f == "decision" else str(v.get("expected"))
-        parts.append(f"{FIELD_CN.get(f, f)} {_mark(v['correct'])}（期望 {exp}，实际 {v.get('predicted')}）")
-    head = f"需求 {scored.get('feedback_id')}（{scored.get('golden_id') or '-'}）：{scored['n_correct']}/{scored['n_fields']} 项正确。"
+        parts.append(f"{FIELD_CN.get(f, f)} {_mark(v.get('raw_correct', v['correct']))}（期望 {exp}，实际 {v.get('predicted')}）")
+    head = f"需求 {scored.get('feedback_id')}（{scored.get('golden_id') or '-'}）："
+    if scored.get("critical"):
+        head += (f"红线一票否决，整条记 0/{scored['n_fields']}"
+                 f"（各项原本 {scored.get('n_correct_raw', 0)}/{scored['n_fields']} 项正确）。")
+    else:
+        head += f"{scored['n_correct']}/{scored['n_fields']} 项正确。"
     txt = head + "；".join(parts) + "。"
     if scored.get("critical"):
-        txt += "严重错误：该需求属于不可自动拒绝（数据/安全/合规/合同/缺陷类），Agent 却判为拒绝。"
+        txt += "严重错误（红线）：该需求属于不可自动拒绝（数据/安全/合规/合同/缺陷类），Agent 却判为拒绝，整条判错。"
     if pred.get("_issues"):
         txt += "输出问题：" + "；".join(pred["_issues"]) + "。"
     if extra:
@@ -84,7 +98,8 @@ def explain(scored: Dict[str, Any], pred: Dict[str, Any], extra: str = "") -> st
 
 def aggregate(scored_list: Iterable[Dict[str, Any]], target: float = 0.70, scheme: str = "binary",
               missing: Iterable[str] = ()) -> Dict[str, Any]:
-    """Per-field accuracy / per-class recall / confusion / verdict vs target (each field >= target)."""
+    """Per-field accuracy (red-line items count as wrong) / per-class recall and confusion (raw agent
+    labels, for diagnosis) / label gates vs target (each field >= target)."""
     scored_list = list(scored_list)
     missing = list(missing)
     fields = fields_for(scheme)
@@ -112,20 +127,21 @@ def aggregate(scored_list: Iterable[Dict[str, Any]], target: float = 0.70, schem
             hit = 0
             for s in scored_list:
                 v = s["fields"].get(f)
-                if v and str(v.get("expected")) == g and v.get("correct"):
+                if v and str(v.get("expected")) == g and v.get("raw_correct", v.get("correct")):
                     hit += 1
             recall[f][g] = round(hit / tot, 4) if tot else 0.0
     overall = round(sum(acc.values()) / len(acc), 4) if acc else 0.0
     all_correct = sum(1 for s in scored_list if s["label"] == "Pass")
     critical = [s["feedback_id"] for s in scored_list if s["critical"]]
-    passed = all(acc[f] >= target for f in fields) and n > 0
+    label_gates = all(acc[f] >= target for f in fields) and n > 0
     return {
         "n_items": n, "n_scored": len(scored_list), "n_missing_output": len(missing), "missing_output": missing,
         "scheme": scheme, "target": target, "accuracy": acc, "overall_accuracy": overall,
         "all_three_correct_rate": round(all_correct / n, 4) if n else 0.0,
         "per_class_recall": recall,
         "confusion": {f: {g: dict(c) for g, c in rows.items()} for f, rows in confusion.items()},
-        "critical_misrejects": critical, "passed": passed,
+        "critical_misrejects": critical, "label_gates_passed": label_gates,
+        "passed": label_gates and not critical,  # batch_score.py replaces this with the three-pillar verdict
     }
 
 

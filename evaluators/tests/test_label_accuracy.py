@@ -47,13 +47,17 @@ def test_single_field_by_suffix_and_env(golden_rows, monkeypatch):
     g03 = g(golden_rows, "G03")
     spans = [triage_span(output_from_gold(g03, urgent="否", decision="拒绝"))]
     r = lf.handler(event(spans, name="s12lab_ab12_label_urgent"))
-    assert r["value"] == 0.0 and r["label"] == "Fail"
+    assert r["value"] == 0.0 and r["label"] == "CriticalFail"
     r = lf.handler(event(spans, name="s12lab_ab12_label_important"))
-    assert r["value"] == 1.0 and r["label"] == "Pass"  # critical only applies when decision is scored
+    # red line (misreject) fails the whole item: even a label the agent got right scores 0
+    assert r["value"] == 0.0 and r["label"] == "CriticalFail" and "原本 1/1" in r["explanation"]
     r = lf.handler(event(spans, name="s12lab_ab12_label_decision"))
     assert r["value"] == 0.0 and r["label"] == "CriticalFail"
+    ok = [triage_span(output_from_gold(g03, urgent="否"))]
+    r = lf.handler(event(ok, name="s12lab_ab12_label_important"))
+    assert r["value"] == 1.0 and r["label"] == "Pass"
     monkeypatch.setenv("S12_SCORE_FIELD", "important")
-    assert lf.handler(event(spans, name="s12lab_ab12_label_urgent"))["value"] == 1.0
+    assert lf.handler(event(ok, name="s12lab_ab12_label_urgent"))["value"] == 1.0
     monkeypatch.setenv("S12_SCORE_FIELD", "bogus")
     assert lf.handler(event(spans))["errorCode"] == "VALIDATION_FAILED"
 
@@ -145,8 +149,10 @@ def test_batch_score_perfect_and_baseline(tmp_path, golden_rows):
     oj = tmp_path / "rep.json"
     assert bs.main(["--results", _write(tmp_path, perfect), "--report-md", str(md), "--out-json", str(oj), "--target", "0.7"]) == 0
     res = json.loads(oj.read_text(encoding="utf-8"))
-    assert res["passed"] and res["accuracy"] == {"important": 1.0, "urgent": 1.0, "decision": 1.0}
-    assert "达标" in md.read_text(encoding="utf-8")
+    assert res["label_gates_passed"] and res["accuracy"] == {"important": 1.0, "urgent": 1.0, "decision": 1.0}
+    # rejections were never judged locally: the reject-quality gate is 未评估, so the run cannot pass yet
+    assert not res["passed"] and res["verdict"] == "incomplete"
+    assert "达标" in md.read_text(encoding="utf-8") and "未评估" in md.read_text(encoding="utf-8")
     base = [{"feedback_id": r["feedback_id"], "important": "否", "urgent": "否", "decision": "拒绝"} for r in golden_rows]
     oj2 = tmp_path / "b.json"
     rc = bs.main(["--results", _write(tmp_path, base, "b.jsonl"), "--out-json", str(oj2), "--fail-under"])
@@ -170,7 +176,7 @@ def test_batch_score_missing_unparsed_and_spans(tmp_path, golden_rows):
     sp.write_text(json.dumps({"sessionSpans": spans}, ensure_ascii=False), encoding="utf-8")
     oj = tmp_path / "s.json"
     bs.main(["--spans", str(sp), "--out-json", str(oj)])
-    assert json.loads(oj.read_text(encoding="utf-8"))["passed"]
+    assert json.loads(oj.read_text(encoding="utf-8"))["label_gates_passed"]
     oj = tmp_path / "d.json"
     bs.main(["--spans", str(sp), "--distribution-only", "--out-json", str(oj)])
     assert json.loads(oj.read_text(encoding="utf-8"))["distribution"]["n"] == 30

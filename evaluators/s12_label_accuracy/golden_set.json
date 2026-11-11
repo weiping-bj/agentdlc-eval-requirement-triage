@@ -20,6 +20,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-002"
+   ],
    "title": "列表页批量修改自定义字段"
   },
   "FB-2610-002": {
@@ -49,6 +52,10 @@
     "给出替代方案：网页组件嵌入 ERP 页面 + 按角色配置首页",
     "可安排实施顾问或伙伴协助落地"
    ],
+   "matched_capabilities": [
+    "CAP-006",
+    "OOS-006"
+   ],
    "title": "首页原样嵌入我们的 ERP 订单页并按审批流改布局"
   },
   "FB-2610-003": {
@@ -68,6 +75,10 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-015",
+    "CAP-007"
+   ],
    "title": "移动端提交审批后偶发明细行丢失"
   },
   "FB-2610-004": {
@@ -88,6 +99,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-011"
+   ],
    "title": "每月初全国业绩报表经常超时"
   },
   "FB-2610-005": {
@@ -116,6 +130,10 @@
     "推荐用财务软件连接器同步回款与开票数据",
     "可提供对接方案或伙伴支持"
    ],
+   "matched_capabilities": [
+    "OOS-001",
+    "CAP-010"
+   ],
    "title": "希望 CRM 内置完整的财务总账和凭证模块"
   },
   "FB-2610-007": {
@@ -135,6 +153,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-013"
+   ],
    "title": "字段级数据权限按项目成员动态计算"
   },
   "FB-2610-009": {
@@ -161,6 +182,9 @@
     "告知已有查重规则功能及配置路径（后台 → 对象管理 → 查重规则）",
     "可安排客户成功经理协助配置"
    ],
+   "matched_capabilities": [
+    "CAP-004"
+   ],
    "title": "录入客户时提示重复"
   },
   "FB-2610-011": {
@@ -185,6 +209,9 @@
     "理解交接效率诉求",
     "说明离职交接功能及入口（后台 → 员工管理 → 离职交接）",
     "提供操作指引"
+   ],
+   "matched_capabilities": [
+    "CAP-005"
    ],
    "title": "销售离职后客户要一条条改负责人"
   },
@@ -213,6 +240,11 @@
     "说明个人信息保护的合规要求与企业风险",
     "替代：移动端离线查看最近数据；按权限申请导出（脱敏、留痕）"
    ],
+   "matched_capabilities": [
+    "OOS-007",
+    "CAP-003",
+    "CAP-015"
+   ],
    "title": "一键导出全公司联系人手机号和身份证号到个人邮箱"
   },
   "FB-2610-014": {
@@ -239,6 +271,10 @@
     "说明审计日志不可删除的原因",
     "建议导出相关日志并附实施说明，向审计方解释误操作背景"
    ],
+   "matched_capabilities": [
+    "CAP-014",
+    "OOS-007"
+   ],
    "title": "客户 IT 要求删除一段时间的审计日志"
   },
   "FB-2610-015": {
@@ -258,6 +294,7 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [],
    "title": "系统最近太慢了"
   },
   "FB-2610-017": {
@@ -285,6 +322,9 @@
     "说明可通过品牌设置配置 Logo 与主题色",
     "说明登录页背景暂不开放个性化"
    ],
+   "matched_capabilities": [
+    "CAP-019"
+   ],
    "title": "登录页换成公司宣传图并加欢迎语"
   },
   "FB-2610-018": {
@@ -305,6 +345,10 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-011",
+    "CAP-025"
+   ],
    "title": "下周一必须上线商机赢单预测大屏"
   },
   "FB-2610-021": {
@@ -324,6 +368,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-026"
+   ],
    "title": "电子签章签署状态自动回写（合同约定）"
   },
   "FB-2610-022": {
@@ -345,6 +392,7 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [],
    "title": "报表支持 4 层以上跨对象关联"
   },
   "FB-2610-023": {
@@ -370,6 +418,10 @@
     "理解订单到生产打通的诉求",
     "说明 CRM 与 MES 的分工",
     "推荐 MES 连接器同步订单并回写交期"
+   ],
+   "matched_capabilities": [
+    "OOS-002",
+    "CAP-010"
    ],
    "title": "CRM 里直接做生产排产和车间报工"
   },
@@ -397,6 +449,10 @@
     "说明平台与企业 IM 集成的方式",
     "引导配置企业 IM 集成"
    ],
+   "matched_capabilities": [
+    "OOS-003",
+    "CAP-017"
+   ],
    "title": "CRM 自带聊天工具"
   },
   "FB-2610-025": {
@@ -416,6 +472,10 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-012",
+    "CAP-017"
+   ],
    "title": "报表订阅推送到企业 IM 群"
   },
   "FB-2610-026": {
@@ -435,6 +495,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-011"
+   ],
    "title": "报表外链过期后仍可访问且含手机号"
   },
   "FB-2610-027": {
@@ -459,6 +522,9 @@
     "感谢反馈",
     "给出配置路径：流程管理 → 审批流 → 节点设置 → 超时处理",
     "可由实施顾问协助配置"
+   ],
+   "matched_capabilities": [
+    "CAP-007"
    ],
    "title": "审批超过 48 小时自动提醒并转上级"
   },
@@ -488,6 +554,10 @@
     "说明平台不内置单一客户规则的原因",
     "给出自定义函数实现方案，或推荐实施伙伴"
    ],
+   "matched_capabilities": [
+    "CAP-008",
+    "CAP-001"
+   ],
    "title": "平台内置我们公司的三层佣金计算规则"
   },
   "FB-2610-029": {
@@ -509,6 +579,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-025"
+   ],
    "title": "AI 根据历史拜访记录生成下次拜访建议"
   },
   "FB-2610-030": {
@@ -529,6 +602,11 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-029",
+    "CAP-015",
+    "CAP-016"
+   ],
    "title": "一条反馈里的四个诉求"
   },
   "FB-2610-031": {
@@ -549,6 +627,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-015"
+   ],
    "title": "外勤完全离线录入并自动同步"
   },
   "FB-2610-032": {
@@ -579,6 +660,11 @@
     "给出批量接口、异步导入、申请提升配额等替代方案",
     "可安排技术支持协助大促前压测"
    ],
+   "matched_capabilities": [
+    "CAP-009",
+    "CAP-010",
+    "OOS-007"
+   ],
    "title": "大促期间取消接口限流"
   },
   "FB-2610-033": {
@@ -599,6 +685,10 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-028",
+    "CAP-014"
+   ],
    "title": "拜访记录 5 年不可篡改（行业新规）"
   },
   "FB-2610-037": {
@@ -619,6 +709,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-030"
+   ],
    "title": "商机阶段一推进就报错"
   },
   "FB-2610-039": {
@@ -639,6 +732,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-031"
+   ],
    "title": "列表页记住上次的筛选条件和列宽"
   },
   "FB-2610-041": {
@@ -666,6 +762,10 @@
     "说明租户隔离对数据安全的意义",
     "替代：集团合并到一个租户并使用多组织架构，或用集成平台在租户间同步"
    ],
+   "matched_capabilities": [
+    "CAP-027",
+    "CAP-010"
+   ],
    "title": "在 A 租户里直接查改 B、C 租户的客户数据"
   },
   "FB-2610-053": {
@@ -686,6 +786,9 @@
    ],
    "reject_points": [],
    "reply_points": [],
+   "matched_capabilities": [
+    "CAP-010"
+   ],
    "title": "ERP 订单同步从昨晚起全部失败"
   }
  }

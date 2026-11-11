@@ -101,7 +101,8 @@ def test_compare_page_from_fixtures(tmp_path, capsys):
     assert compare.main(["--before", str(V0), "--after", str(V1), "--out", str(out)]) == 0
     assert Path(last_line(capsys)) == out.resolve()
     page = out.read_text(encoding="utf-8")
-    for s in ("是否重要", "是否紧急", "处理建议", "70%", V0_ID, V1_ID, "三项全对率", "拒绝话术质量", "误拒（CriticalFail）",
+    for s in ("是否重要", "是否紧急", "处理建议", "70%", V0_ID, V1_ID, "整条通过率", "拒绝话术通过率", "红线（一票否决）",
+              "三大支柱", "门禁（全部达标才通过）", "观测（只看趋势，不影响结论）",
               "Builtin.Correctness", "Builtin.Helpfulness", "路线 B", "us.anthropic.claude-sonnet-5-5", "us-west-2",
               "数据为合成数据；分数来自 AgentCore Evaluations（按需评估）", "stroke-dasharray", "<svg"):
         assert s in page, s
@@ -113,8 +114,8 @@ def test_compare_page_from_fixtures(tmp_path, capsys):
     assert f"仍错误 {ch['wrong']} 条" in page and f"保持正确 {ch['kept']} 条" in page
     assert page.count('data-tags="fixed') == ch["fixed"]
     assert page.count('data-tags="regressed') == ch["regressed"]
-    assert "✓ 达标" in page                       # V1 meets the target in the fixture
-    assert "⚠ V0 误拒" in page                    # CriticalFail highlighted in the per-case matrix
+    assert "✓ 达标" in page                       # V1 meets the label gates in the fixture
+    assert "⛔ V0 误拒" in page                    # CriticalFail = red line, highlighted in the per-case matrix
     assert "不适用" in page                       # non-rejected items: gray not-applicable pill
     assert "期望 " in page                        # expected labels joined from the golden set
     assert well_formed(page).scripts == 1
@@ -170,7 +171,7 @@ def test_compare_tolerates_missing_keys_and_error_entries(tmp_path):
     page = out.read_text(encoding="utf-8")
     assert "R-after" in page and "A 版" in page
     assert "评估对比 ? vs V1" in page             # missing version -> "?", run_id falls back to the file name
-    assert "格式错误" in page and "⚠ V1 误拒" in page
+    assert "格式错误" in page and "⛔ V1 误拒" in page
     well_formed(page)
     # an empty object is still a renderable (if useless) eval file
     empty = tmp_path / "eval-empty.json"

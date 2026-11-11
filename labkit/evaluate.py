@@ -5,7 +5,9 @@
 
 For every session of the run: fetch its spans from CloudWatch, call the Evaluate API once
 per evaluator (custom + built-in) with the golden labels as reference input, and save
-results/eval-<run_id>.json (input to 32-compare.sh).
+results/eval-<run_id>.json (input to 32-compare.sh). The verdict follows the three pillars
+(evaluators/shared/pillars.py): no red line (误拒 / 话术红线, one-vote veto) AND every gate met;
+observation metrics are printed for the trend only.
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import aws, items, spans
+from . import aws, compare, items, spans
 
 BUILTINS = ["Builtin.Correctness", "Builtin.Helpfulness"]
 LABEL_KEYS = {"label_important": "important", "label_urgent": "urgent", "label_decision": "decision"}
@@ -99,7 +101,7 @@ def _evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str,
     return out
 
 
-def summarize(sessions: list, target: float) -> dict:
+def summarize(sessions: list, target: float, fb: dict | None = None) -> dict:
     def mean(name, only_numeric=True, skip_labels=("Skipped", "不适用")):
         vals = [s["scores"][name]["value"] for s in sessions
                 if name in s["scores"] and isinstance(s["scores"][name].get("value"), (int, float))
@@ -111,12 +113,52 @@ def summarize(sessions: list, target: float) -> dict:
     for n in names:
         m, k = mean(n)
         summ["metrics"][n] = {"mean": m, "n": k}
-    summ["three_labels"] = {CN[v]: summ["metrics"].get(k, {}).get("mean") for k, v in LABEL_KEYS.items()}
-    vals = [v for v in summ["three_labels"].values() if v is not None]
-    # an incomplete evaluation can never "meet the target": failed sessions are missing from the means
-    summ["meets_target"] = (bool(vals) and len(vals) == 3 and all(v >= target for v in vals)
-                            and summ["eval_errors"] == 0)
+    ev = compare.EvalRun({"sessions": sessions}, Path("eval-summary.json"))
+    p = compare.pillars_of(ev, compare.feedback_index() if fb is None else fb, target)
+    p.pop("_items", None)
+    summ["pillars"] = p
+    summ["verdict"] = p["verdict"]
+    # gate accuracies (a misrejected item is wrong in every label), falling back to the evaluator means
+    gates = {g["key"]: g["actual"] for g in p["gates"]}
+    summ["three_labels"] = {CN[v]: (gates.get(v) if gates.get(v) is not None else summ["metrics"].get(k, {}).get("mean"))
+                            for k, v in LABEL_KEYS.items()}
+    # an incomplete evaluation can never pass: failed sessions are missing from the means
+    summ["meets_target"] = bool(p["passed"]) and summ["eval_errors"] == 0
     return summ
+
+
+def _p(v) -> str:
+    return "—" if v is None else f"{v:.0%}"
+
+
+def summary_lines(summ: dict) -> list:
+    """Terminal summary: 红线 → 门禁 → 观测, then the verdict (also used by tests and the docs)."""
+    p = summ["pillars"]
+    rl, obs = p["red_line"], p["observations"]
+    by = rl["by_kind"]
+    L = [f"  红线（一票否决，要求 0 条）：{rl['count']} 条 {'✅' if rl['passed'] else '❌'}"
+         f"  误拒 {by.get('misreject', 0)} · 话术红线 {by.get('reject_red_flag', 0)}"]
+    for x in rl["items"][:10]:
+        for k in x["kinds"]:
+            name = "误拒" if k["kind"] == "misreject" else "话术红线"
+            L.append(f"    ⛔ {x['feedback_id']}（{x.get('golden_id') or '-'}）{name}：{compare.clip(k['detail'], 60)}")
+    if len(rl["items"]) > 10:
+        L.append(f"    …… 另有 {len(rl['items']) - 10} 条，见对比页或 eval JSON")
+    L.append(f"  门禁（各 ≥ {p['target']:.0%}）：")
+    for g in p["gates"]:
+        flag = {"met": "✅", "failed": "❌"}.get(g["status"], "—")
+        extra = f"（{g['ok']}/{g['n']} 条 Pass）" if g["key"] == "reject_quality" and g["n"] else ""
+        st = "" if g["status"] in ("met", "failed") else f" {compare.pillars.GATE_STATUS_CN[g['status']]}"
+        L.append(f"    {g['name']}：{_p(g['actual'])}{extra} {flag}{st}")
+    r = obs["reject"]
+    L.append(f"  观测（只看趋势，不影响结论）：整条通过率 {_p(obs['all_correct_rate'])} · "
+             f"格式错误 {obs['format_error']['n']} 条 · 话术均分 {'—' if r['mean'] is None else format(r['mean'], '.2f')}"
+             f"（{r['n']} 条）")
+    for n in ("label_accuracy", "reject_quality", "reject_quality_llm", *BUILTINS):
+        m = summ["metrics"].get(n)
+        if m and m["mean"] is not None:
+            L.append(f"    {n}: 平均 {m['mean']:.2f}（{m['n']} 条）")
+    return L
 
 
 def main(argv=None) -> int:
@@ -165,17 +207,12 @@ def main(argv=None) -> int:
                   "mode": run["mode"], "evaluated_at": report["evaluated_at"]})
     aws.save_state("evals", evals)
     print()
-    print(f"═══ 结果（{time.time()-t0:.0f}s）· 目标：三项各 ≥ {float(c['TARGET_ACCURACY']):.0%} ═══")
-    for k, v in summ["three_labels"].items():
-        flag = "—" if v is None else ("✅" if v >= float(c["TARGET_ACCURACY"]) else "❌")
-        print(f"  {k}：{'—' if v is None else f'{v:.0%}'} {flag}")
-    for n in ("label_accuracy", "reject_quality", "reject_quality_llm", *BUILTINS):
-        m = summ["metrics"].get(n)
-        if m and m["mean"] is not None:
-            print(f"  {n}: 平均 {m['mean']:.2f}（{m['n']} 条）")
+    print(f"═══ 结果（{time.time()-t0:.0f}s）· 三大支柱：红线 0 条 + 门禁各 ≥ {float(c['TARGET_ACCURACY']):.0%} 才通过 ═══")
+    for line in summary_lines(summ):
+        print(line)
     if summ["eval_errors"]:
         print(f"  ⚠️  {summ['eval_errors']} 个 session 评估失败（见上方错误），结论不完整：稍后运行 ./31-run-eval.sh --run {run['run_id']} 重试")
-    print(f"  {'✅ 达标' if summ['meets_target'] else '❌ 未达标或不完整'} · 详细结果：{out.relative_to(c['LAB_ROOT'])}")
+    print(f"  {compare.pillars.verdict_line(summ['pillars'])} · 详细结果：{out.relative_to(c['LAB_ROOT'])}")
     return 0
 
 

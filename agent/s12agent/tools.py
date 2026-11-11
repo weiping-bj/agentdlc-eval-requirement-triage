@@ -48,8 +48,9 @@ def search_capabilities(query: str) -> str:
     hits = _rank_caps(query, 5)
     out = []
     for c in hits:
-        # No menu path (catalog how_to): the reviewer checks replies against name / description / limits /
-        # workaround only, so a quoted path cannot be verified and is judged as fabricated (red line).
+        # No menu path (catalog how_to): the reviewer's catalog excerpt carries name / description / limits /
+        # workaround only, so a quoted path the golden reply points do not list cannot be verified there and
+        # tends to be judged as fabricated (a red line).
         out.append({
             "id": data.g(c, "id", "capability_id"),
             "name": data.g(c, "name", "title"),

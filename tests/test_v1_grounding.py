@@ -3,8 +3,8 @@
 The reject-quality judge checks a rejection against a catalog excerpt built from each capability's
 name / description / limits / workaround (evaluators/s12_reject_quality/lambda_function.capability_hints).
 A platform fact the agent states from any other source -- e.g. the catalog's menu path how_to, or the
-model's own knowledge -- cannot be verified there and is judged "编造平台并不存在的功能或配置路径" (a red
-line, one-vote veto). So V1's capability tool hands the model only those fields, and the V1 prompt keeps
+model's own knowledge -- cannot be verified there (unless the golden reply points happen to list it) and
+tends to be judged "编造平台并不存在的功能或配置路径" (a red line, one-vote veto). So V1's capability tool hands the model only those fields, and the V1 prompt keeps
 every platform fact in reject_reason / customer_reply to them. V0 stays the deliberately weak baseline.
 """
 import importlib
@@ -53,9 +53,10 @@ def test_v1_capability_search_gives_no_menu_paths():
     assert with_path and with_path <= seen  # the loop really covered every capability that has a menu path
 
 
-def test_every_v1_tool_fact_is_visible_to_the_judge():
-    """Each fact the V1 tool returns about a capability appears in the judge's excerpt line for it
-    (module / effort_hint are internal classification hints the agent does not quote)."""
+def test_v1_tool_fields_match_the_judge_excerpt_line():
+    """Each fact field the V1 tool returns for a capability is the same text the judge's excerpt line shows for
+    it, once that capability is in the excerpt (module / effort_hint are internal hints the agent does not quote).
+    Whether it gets into the top-5 excerpt is the citation test below."""
     pytest.importorskip("strands")
     from s12agent import tools
     hints = _judge_hints()
@@ -70,10 +71,13 @@ def test_every_v1_tool_fact_is_visible_to_the_judge():
 
 
 def test_citing_capabilities_in_reject_reason_puts_them_in_the_judge_excerpt():
-    """v1.md asks reject_reason to name every capability the reply relies on. The judge's excerpt is the
-    top 5 (default k) by overlap with requirement + reject_reason, so that citation is what brings each
-    capability into the excerpt; without it some golden capabilities fall outside the top 5."""
+    """v1.md asks reject_reason to name every capability the reply relies on, with its catalog wording. The
+    judge's excerpt is the top 5 (default k) by overlap with requirement + reject_reason, so a citation in that
+    form brings each golden capability into the excerpt; without it some fall outside the top 5. (A looser
+    citation in a real run can still miss: this checks the rule's intent, the runs check the behaviour.)"""
     pytest.importorskip("strands")
+    v1 = (ROOT / "agent" / "s12agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
+    assert "话术里用到的每一项平台能力，都在这里写出编号、名称和依据" in v1
     from s12agent.core import format_input
     hints = _judge_hints()
     caps = {c["id"]: c for c in _catalog()}
@@ -97,7 +101,8 @@ def test_v1_prompt_keeps_platform_facts_to_catalog_fields():
     v1 = (ROOT / "agent" / "s12agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
     assert "how_to" not in v1
     assert "不要写菜单路径" in v1 and "search_capabilities" in v1
-    assert "不出现能力编号" in v1  # internal capability ids stay out of the customer reply (rubric E)
+    assert "不出现能力编号" in v1 and "相似需求的客户数" in v1  # internal ids / demand counts stay out of replies
+    assert "暗示以后会做" in v1  # no "not yet" wording for capabilities the catalog marks as not planned
     for f in FACT_FIELDS:
         assert f in v1
     for key in ("feedback_id", "important", "urgent", "decision", "level", "reasoning", "reject_reason", "customer_reply"):

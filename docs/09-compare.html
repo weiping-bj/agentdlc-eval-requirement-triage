@@ -72,7 +72,22 @@ results/compare-B-v0-20261105T142708Z-vs-B-v1-20261105T144133Z.html
   <img class="shot" src="img/compare-sample.png" alt="实测对比页顶部：V0 与 V1 的结论（红线一票否决），红线条数、各门禁 V0→V1 的变化和 70% 门槛">
   <img class="shot" src="img/compare-matrix.png" alt="实测对比页的三大支柱卡片：红线条数与清单、门禁实际值对门槛、观测指标的前后变化">
   <p class="where">上面两张是 A 版实测对比页的截图（V0 → V1，本地打分，见 9.1；上：结论与关键指标；下：三大支柱的红线、门禁对比）。</p>
-  <p>先看看对比页长什么样：<a href="compare/sample-compare.html" target="_blank" rel="noopener">示例对比页（合成数据）</a>。页面内容：两个版本各自的结论（红线 0 条且门禁全部达标才算通过）；三大支柱对比——红线（误拒、话术红线的条数和清单，一票否决）、门禁（三项准确率和拒绝话术通过率对 70% 门槛）、观测（五维、用例类型、话术分项等的前后变化，不影响结论）；门禁柱状图（含 70% 门槛线）；所有评估器的原始平均分；逐条用例的“修复 / 退步 / 仍错误 / 含红线”筛选，红线条目标 ⛔。</p>
+  <h3 id="s-9-2-story">对比页开头的四块：评估发现了什么 → 改了什么 → 效果如何</h3>
+  <p>只看 V0 → V1 的分数，看不出评估发现了什么、据此改了哪里。对比页在三大支柱明细前面先回答四个问题（页首有“这一页怎么读”的链接）。下面是同一份 A 版实测对比页（V0 是 7.1 那次运行的输出，用现在的评估器重新打分；V1 是 9.1 表格里那一次运行）：</p>
+  <table>
+    <tr><th style="width:15%">块</th><th style="width:30%">回答什么</th><th>这次 V0 → V1 的结果</th></tr>
+    <tr><td>① 评估器清单</td><td>用了哪些评估器，各衡量什么，属于红线、门禁还是观测</td><td>本地打分用了 5 个：<code>label_accuracy</code>（误拒 = 红线）、<code>label_important</code> / <code>label_urgent</code> / <code>label_decision</code>（三项准确率门禁）、<code>reject_quality</code>（话术红线 + 拒绝话术通过率门禁）。在 AgentCore 上评估（7.2）时还有 <code>reject_quality_llm</code>、<code>Builtin.Correctness</code>、<code>Builtin.Helpfulness</code>，只作观测、不影响结论。</td></tr>
+    <tr><td>② V0 评估发现的问题</td><td>错在哪一项、属于哪一维、多半是哪里的问题（就是 7.5 的分析）</td><td>判错 22 条、格式错误 1 条。错得最多的是处理建议（16 条），维度上认知最多（10 条）→ 工具拿不到能力状态；质量、责任各 9 条 → 提示词缺判断口径和“不可自动拒绝”规则。</td></tr>
+    <tr><td>③ 改了什么</td><td>模型、提示词、工具、能力目录、评估器各改了什么；每处修改对应哪个失败原因、预期影响哪个指标</td><td>模型和能力目录没改；提示词 13 行 → 48 行；工具从 <code>lookup_capability</code> 换成 <code>search_capabilities</code> + <code>find_similar_requests</code>；之后又有两步：修 V1 红线、评审加入菜单路径。“失败原因 → 修改 → 预期影响的指标”的表格来自 <a data-repo="agent/s12agent/prompts/v1.changes.md">prompts/v1.changes.md</a>。</td></tr>
+    <tr><td>④ 效果验证</td><td>哪些需求 错 → 对、对 → 错，按字段和按五维看</td><td>错 → 对 20 条、对 → 错 3 条（都是“是否重要”或“是否紧急”判反了）、仍不对 3 条、保持对 4 条；处理建议 16 条错 → 对、没有对 → 错。② 里判错的 22 条，V1 整条答对 19 条。</td></tr>
+  </table>
+  <img class="shot" src="img/compare-story-evaluators.png" alt="对比页 ① 评估器清单：每个评估器衡量什么、属于红线 / 门禁 / 观测中的哪一个，以及怎样用进结论">
+  <img class="shot" src="img/compare-story-problems.png" alt="对比页 ② V0 评估发现的问题：按字段（处理建议 16 条最多）和按五维（认知 10 条最多）统计判错，旁边是 7.5 的“多半是哪里的问题”">
+  <img class="shot" src="img/compare-story-changes.png" alt="对比页 ③ 改了什么：模型、提示词、工具、能力目录、评估器的对比，以及“失败原因 → 修改 → 预期影响的指标”表格">
+  <img class="shot" src="img/compare-story-flips.png" alt="对比页 ④ 效果验证：错 → 对 20 条、对 → 错 3 条，按字段与按五维的翻转，以及逐条清单">
+  <p class="where">四张图依次是 ①–④（A 版实测，V0 → V1）。一次运行的翻转会有波动（9.1）：“对 → 错”的条目先看原始输出，同一版本多跑几次再下结论。</p>
+  <p>评估自己的 V2 时，8.2 会让 coding agent 把改动说明写进 <code>agent/s12agent/prompts/v2.changes.md</code>，对比 V0 → V2 或 V1 → V2 时“③ 改了什么”就显示它；没有这个文件也能对比，③ 里只显示模型、提示词、工具的差异和一行提示。对比自带 Agent 或导入的日志时，③ 不显示 mock agent 的提示词和工具。</p>
+  <p>先看看对比页长什么样：<a href="compare/sample-compare.html" target="_blank" rel="noopener">示例对比页（合成数据）</a>。页面内容：两个版本各自的结论（红线 0 条且门禁全部达标才算通过）；开头四块（评估器清单 / 优化前评估发现的问题 / 改了什么 / 效果验证，见上）；三大支柱对比——红线（误拒、话术红线的条数和清单，一票否决）、门禁（三项准确率和拒绝话术通过率对 70% 门槛）、观测（五维、用例类型、话术分项等的前后变化，不影响结论）；门禁柱状图（含 70% 门槛线）；所有评估器的原始平均分；逐条用例的“修复 / 退步 / 仍错误 / 含红线”筛选，红线条目标 ⛔。</p>
   <p>V1、V2 都评估过时，默认的“优化后”是<b>最后评估</b>的那个非 V0 版本，对比的是 V0 → 它（例如 V0 → V2）。要看 V1 → V2，指定两次评估（run_id 或 <code>results/eval-…json</code> 路径都可以）：</p>
 <pre><code>./32-compare.sh --before &lt;V1 的 run_id&gt; --after &lt;V2 的 run_id&gt;</code></pre>
   <div class="note">桶禁止公开访问，没有公开链接；同一实验账号里有 S3 权限的人（包括其他学员）能看到。</div>

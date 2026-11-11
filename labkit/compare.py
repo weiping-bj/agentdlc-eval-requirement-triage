@@ -13,6 +13,11 @@ Verdict and the three-pillar section (红线 / 门禁 / 观测) come from evalua
 same rule batch_score.py and labkit.evaluate use; it is applied to the stored evaluator results, so
 evaluations written by older evaluator versions are read under the current rule too.
 
+Above the score details the page tells the optimization story in four cards (labkit/compare_story.py):
+evaluators and their pillar, the problems the "before" evaluation found (the 7.5 analysis of labkit.failures),
+what changed (model, prompt and tool diff, change notes agent/s12agent/prompts/<version>.changes.md) and the
+per-item flips.
+
 The page-building helpers at the top of this module are shared with labkit.report.
 """
 from __future__ import annotations
@@ -1098,15 +1103,18 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
              '<th>变化</th><th>评估出错</th></tr></thead><tbody>' + "".join(trs) + "</tbody></table></div>")
 
     cases_html, _counts = _cases_section(b, a, fb, pb, pa)
+    from labkit import compare_story  # imported here: compare_story imports labkit.failures, which imports this module
+    story = compare_story.story_html(b, a, pb, pa, specs, target, fb)
 
     region = a.data.get("region") or b.data.get("region") or "—"
     bar = topbar(f"场景 12 · 评估对比 {vb} vs {va}", "需求反馈分诊 Agent · AgentCore Evaluations 前后对比（红线 · 门禁 · 观测）",
                  [("优化前", b.run_id), ("优化后", a.run_id), ("区域", region)])
     head = (f'<div class="card"><h2>{esc(vb)}（基线）→ {esc(va)}（优化后）：红线 0 条，且门禁各 ≥{esc(t)}，才算通过</h2>'
-            f'{verdict}{notes_html}<div class="kpis">{kpis}</div></div>'
+            f'{verdict}{notes_html}<div class="kpis">{kpis}</div>{compare_story.nav_html()}</div>'
             f'<div class="card"><h2>两次运行</h2><div class="runs">{_run_box(b, "优化前")}{_run_box(a, "优化后")}</div></div>')
-    return page(f"评估对比 {vb} vs {va} · 场景 12", bar, head + _pillars_section(b, a, pb, pa) + chart + table + cases_html,
-                FOOTER, PILLAR_CSS)
+    return page(f"评估对比 {vb} vs {va} · 场景 12", bar,
+                head + story + _pillars_section(b, a, pb, pa) + chart + table + cases_html,
+                FOOTER, PILLAR_CSS + compare_story.STORY_CSS)
 
 
 def pick_default() -> tuple:

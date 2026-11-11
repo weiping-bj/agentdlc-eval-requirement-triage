@@ -29,6 +29,17 @@ from .compare import parse_obj
 from .config import ROOT
 
 DIMS = ("认知", "质量", "责任", "成本", "性能")
+# The 7.5 reading table (docs/07-evaluate.html, "维度 / 典型失败现象 / 多半是哪里的问题"); the compare page shows it
+# next to the tally. tests/test_compare_story.py checks the chapter still prints the same text.
+DIM_HINTS = {
+    "认知": ("平台已支持的能力被判“迭代”；超出定位的需求没被拒绝；单客户定制被当成通用需求",
+             "工具拿不到能力状态 / 没查相似需求（V0 的工具缺陷）"),
+    "质量": ("拒绝理由空泛、话术没有替代方案；“重要”判断标准不一致", "提示词缺少判断口径和话术要求"),
+    "责任": ("数据丢失、安全、合规、合同承诺类被拒绝（CriticalFail）；被“下周必须上线”带偏判紧急",
+             "提示词缺少“不可自动拒绝”规则和紧急的事实标准"),
+    "成本": ("价值高但难度大的需求被直接承诺“迭代”，没有“待评估”", "缺少难度 / 影响面的判断口径"),
+    "性能": ("超时、单条耗时过长、token 过多", "模型选择、工具返回内容过长"),
+}
 # (golden key, per-field evaluator, short name, name in the evaluator explanation)
 FIELDS = (("important", "label_important", "重要", "是否重要"), ("urgent", "label_urgent", "紧急", "是否紧急"),
           ("decision", "label_decision", "建议", "处理建议"))

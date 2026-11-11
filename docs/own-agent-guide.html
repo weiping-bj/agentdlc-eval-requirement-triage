@@ -327,7 +327,7 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
         <tr><td>数据（<code>capability_catalog.json</code>）</td><td>知识库或能力数据源</td></tr>
         <tr><td>模型（<code>AGENT_MODEL_ID</code>）</td><td>模型配置</td></tr>
       </table></li>
-    <li><b>让 coding agent 帮忙改</b>：用 <a href="08-optimize.html#s-8-2">8.2</a> 的提示词，并这样调整：第 1 步的“最新的 eval-*.json”换成基线那次的 <code>results/eval-&lt;基线 run_id&gt;.json</code>；第 3 步的 <code>agent/s12agent/…</code> 换成你们的系统提示词和工具代码路径；第 4 步改成“在现有系统提示词基础上写出新版本，另存为新文件”，保留输出 JSON 字段那句；删掉第 5 步（<code>TOOLSETS</code> 只属于 mock agent）；第 6 步的“不要修改 v0.md / v1.md”改成“不要修改原来的系统提示词文件”。把你们的代码放到运行 coding agent 的机器上之前，先确认公司允许，只放需要的文件，用完删除。</li>
+    <li><b>让 coding agent 帮忙改</b>：用 <a href="08-optimize.html#s-8-2">8.2</a> 的提示词，并这样调整：第 1 步的“最新的 eval-*.json”换成基线那次的 <code>results/eval-&lt;基线 run_id&gt;.json</code>；第 3 步的 <code>agent/s12agent/…</code> 换成你们的系统提示词和工具代码路径；第 4 步改成“在现有系统提示词基础上写出新版本，另存为新文件”，保留输出 JSON 字段那句；删掉第 5 步（<code>TOOLSETS</code> 只属于 mock agent）；第 6 步的“不要修改 v0.md / v1.md / v1.changes.md”改成“不要修改原来的系统提示词文件”；第 7 步的改动说明可以写在你们自己的目录里（对比页只显示 mock agent 的改动说明）。把你们的代码放到运行 coding agent 的机器上之前，先确认公司允许，只放需要的文件，用完删除。</li>
     <li><b>不要改黄金集和评估器</b>，只改你们的 Agent，否则前后分数不可比。</li>
     <li><b>发布新版本</b>：按你们平时的方式发布到测试 / 预发环境（不要直接上生产）。<code>./40-switch-version.sh</code> 和 <code>./20-B-deploy-runtime.sh</code> 只作用于 mock agent，与你们的 Agent 无关。</li>
     <li><b>再评估</b>：同样的 30 条再跑一次，路线一登记时 <code>version</code> 写 <code>v1</code>；路线二再导出、<code>check</code>、<code>send</code>。然后 <code>./31-run-eval.sh --run &lt;新 run_id&gt;</code>。</li>

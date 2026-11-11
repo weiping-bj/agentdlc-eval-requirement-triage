@@ -22,12 +22,12 @@
   <p class="why">知道问题出在哪类，该改哪里：提示词、工具、能力目录还是模型。</p>
   <table>
     <tr><th>失败现象（来自 7.5）</th><th>五维</th><th>改哪里</th><th>V1 里的做法</th></tr>
-    <tr><td>分不清“已支持 / 真实缺口 / 明确不做”</td><td><span class="pill b">认知</span></td><td><b>工具输出</b>：<a data-repo="agent/s12agent/tools.py">tools.py</a></td><td><code>search_capabilities</code> 返回状态、限制、替代方案</td></tr>
+    <tr><td>分不清“已支持 / 真实缺口 / 明确不做”</td><td><span class="pill b">认知</span></td><td><b>工具输出</b>：<a data-repo="agent/s12agent/tools.py">tools.py</a></td><td><code>search_capabilities</code> 返回状态、限制、替代方案和菜单路径（<code>how_to</code>）</td></tr>
     <tr><td>单客户定制当成通用需求</td><td><span class="pill b">认知</span></td><td><b>新增工具</b></td><td><code>find_similar_requests</code> 统计上个月有几个不同客户提过</td></tr>
     <tr><td>“重要 / 紧急”标准不一致，被客户措辞带偏</td><td><span class="pill g">质量</span> <span class="pill r">责任</span></td><td><b>提示词口径</b>：<a data-repo="agent/s12agent/prompts/v1.md">prompts/v1.md</a></td><td>写明判断条款：≥3 个客户才算通用；“紧急”必须有影响正在发生或 30 天内硬性节点的事实</td></tr>
     <tr><td>数据丢失 / 安全 / 合规 / 合同承诺类被拒绝</td><td><span class="pill r">责任</span></td><td><b>提示词红线</b></td><td>“不能自动拒绝”清单，遇到必须判迭代或待评估</td></tr>
     <tr><td>话术空泛、没有替代方案</td><td><span class="pill g">质量</span></td><td><b>提示词输出要求</b></td><td>话术三段式：理解诉求 → 说明原因 → 替代方案 / 后续路径；不承诺上线时间</td></tr>
-    <tr><td>话术红线：写了评审在能力目录里核实不了的功能、菜单路径或细节（评审判为“编造”）</td><td><span class="pill r">责任</span> <span class="pill b">认知</span></td><td><b>提示词输出要求</b> + <b>工具输出</b></td><td>平台事实只用 <code>search_capabilities</code> 返回的功能名称、说明、限制、替代方案，用功能名称告诉客户用哪项已有功能、能做到什么，不写菜单路径（“后台 → …”）；工具也不再返回菜单路径；话术里不出现能力编号。原因：话术评审拿到的能力目录摘录只有名称、说明、限制、替代方案，没有菜单路径，黄金集要点里没列出的路径它核实不了，会判为编造（见 9.1）。代价：评审的“替代方案”一项要求写出功能入口，不写路径时它常点评“缺少入口”，G06 / G07 / G19 的黄金集要点本身还列了配置路径，所以话术分多在 0.75–0.85，离 0.7 的通过线不远（见 9.1）。7.5 里说 V0“没给配置路径”，V1 的做法是指明功能和它能做到什么，而不是菜单</td></tr>
+    <tr><td>话术红线：写了评审在能力目录里核实不了的功能、菜单路径或细节（评审判为“编造”）</td><td><span class="pill r">责任</span> <span class="pill b">认知</span></td><td><b>提示词输出要求</b> + <b>工具输出</b></td><td>平台事实只用 <code>search_capabilities</code> 返回的功能名称、说明、限制、替代方案和菜单路径 <code>how_to</code>；菜单路径只能原样照抄工具返回的 <code>how_to</code>（例如“后台 → 对象管理 → 查重规则”），不增减、不改写任何一级，工具没给路径的就不写；话术里不出现能力编号。话术评审拿到的能力目录摘录里也有菜单路径，照抄的路径它能核实；改写过或目录里没有的路径仍判为编造（见 9.1）。7.5 里说 V0“没给配置路径”，V1 给的就是能力目录里写明的路径。</td></tr>
     <tr><td>能力目录本身缺条目、写错状态</td><td><span class="pill b">认知</span></td><td><b>数据</b>：<a data-repo="data/capability_catalog.json">capability_catalog.json</a></td><td>（V1 未改数据；现场发现目录不准时改这里，B 版需重新部署）</td></tr>
     <tr><td>太慢、太贵、偶发超时</td><td><span class="pill o">成本</span> <span class="pill p">性能</span></td><td><b>模型</b>：<a data-repo="config/lab.env">config/lab.env</a> 的 <code>AGENT_MODEL_ID</code></td><td>可用 <code>./tools/use-model.sh &lt;模型ID&gt;</code> 试更快的模型，再用同一黄金集评估比较</td></tr>
   </table>

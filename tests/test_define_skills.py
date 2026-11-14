@@ -109,7 +109,8 @@ def test_fishbone_skill_is_generic():
     low = text.lower()
     assert "express" not in low and "standard" not in low  # user-facing mode names are 快速版 / 标准版
     assert "<skill>/scripts/generate_fishbone.py" in text and "绝对路径" in text
-    for feature in ("## 背景材料", "背景材料里提到过", "进度：第 3/6 个方面", "时间到", "not_asked", "这次大约有多少分钟"):
+    for feature in ("## 背景材料", "背景材料里提到过", "进度：第 3/6 个方面（懂不懂业务）", "前面已答到，跳过", "时间到",
+                    "not_asked", "这次大约有多少分钟", "我建议 X 先作备选"):
         assert feature in text, feature
     script = (FISH_DIR / "scripts" / "generate_fishbone.py").read_text(encoding="utf-8")
     for lab in ("publish-define-pages", "adlc-criteria", "role-card", "S3"):
@@ -926,7 +927,7 @@ def test_outputs_are_listed_with_absolute_paths(tmp_path):
     r = subprocess.run([sys.executable, str(FISH_DIR / "scripts" / "generate_fishbone.py"), str(d.relative_to(tmp_path))],
                        capture_output=True, text=True, timeout=60, cwd=str(tmp_path))
     res = json.loads(r.stdout)
-    assert r.returncode == 0 and res["output_dir"] == str(d.resolve())
+    assert r.returncode == 0 and res["output_dir"] == str(d.resolve()) and os.path.isabs(res["output_path"])
     assert set(res["files"]) == {str(d.resolve() / n) for n in GF.FILE_ROLES}
     assert all(os.path.isabs(p) and role for p, role in res["files"].items())
     _draft(d, ALL)

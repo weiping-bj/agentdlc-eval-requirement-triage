@@ -240,6 +240,7 @@ def write_validation_report(result: dict, report_path) -> str:
 def _finish(err: Dict[str, List[str]], warns: List[str], output_path: Optional[str], ran: set) -> dict:
     errors = [f"{k.upper()}: {e}" for k, _ in CHECKS for e in err.get(k, [])]
     checks = {k: ("FAIL" if err.get(k) else "PASS") if k in ran else "SKIP" for k, _ in CHECKS}
+    output_path = str(Path(output_path).resolve()) if output_path else output_path  # absolute, like output_dir / files
     out = {"success": not errors and all(v == "PASS" for v in checks.values()), "output_path": output_path,
            "validation_errors": errors, "warnings": warns, "checks": checks}
     if output_path:

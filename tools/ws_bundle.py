@@ -42,6 +42,7 @@ EXCLUDE = (
     "tools/set-repo-url.sh",
     "tools/build-ws-bundle.sh",      # this builder
     "tools/ws_bundle.py",
+    "tools/ws_flywheel.py",          # draws the Workshop Studio handbook images (maintainer)
     "ec2/adlc-ec2.yaml",             # CloudShell / manual EC2 path: Workshop Studio deploys static/adlc-lab.yaml
     "ec2/launch-from-cloudshell.sh",
     "ec2/manual-iam-inline-policy.json",

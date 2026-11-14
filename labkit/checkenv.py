@@ -82,9 +82,11 @@ def main() -> int:
             failed += 1
 
     print("④ CloudWatch Transaction Search")
+    ts_on = False
     try:
         d = aws.client("xray").get_trace_segment_destination()
         if d.get("Destination") == "CloudWatchLogs" and d.get("Status") == "ACTIVE":
+            ts_on = True
             ok("已开启（trace 写入 CloudWatch Logs 的 aws/spans）")
         else:
             print(f"  ⚠️  未开启（当前 {d.get('Destination')}/{d.get('Status')}）→ 运行 ./11-enable-observability.sh")
@@ -95,7 +97,10 @@ def main() -> int:
     if failed:
         print(f"❌ 有 {failed} 项检查未通过，请按提示处理后重跑 ./10-check-env.sh")
         return 1
-    print("✅ 环境检查通过。下一步：./11-enable-observability.sh（每个账号/区域只需一次）")
+    if ts_on:
+        print("✅ 环境检查通过。下一步：手册第 2 章（定义：什么是好）")
+    else:
+        print("✅ 环境检查通过。下一步：./11-enable-observability.sh（每个账号/区域只需一次），然后手册第 2 章")
     return 0
 
 

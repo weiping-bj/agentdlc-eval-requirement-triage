@@ -12,7 +12,7 @@
 | `02-criteria-preview.png` | 2.3 · 签字与预览 | 判据表网页：维度、档位、阈值、执行方式、覆盖（含“部分覆盖”） | 同一前缀下的 `criteria.html` → **打开** |
 | `03-runtime-console.png` | 3 · 3.4 | Runtime `adlc_ws_agent`：状态 Ready、版本号、DEFAULT 端点、环境变量 `AGENT_VERSION` | Amazon Bedrock AgentCore 控制台 → **Runtime** → `adlc_ws_agent` |
 | `03-trace-triage-span.png` | 3 · 3.4 | 一个 session 的调用树（`adlc.triage` → `invoke_agent` → `chat` / `execute_tool …`），右侧 `adlc.triage` 的属性里有 `adlc.triage_output` | CloudWatch → GenAI Observability → Bedrock AgentCore → Agents → `adlc_ws_agent` → Sessions → 任一 session → Traces |
-| `04-online-eval-tab.png` | 4 · 4.6 | Evaluations 页签：各评估器的平均分和分布（V0 那次运行的时间段） | 同上 Agent 页 → **Evaluations**，时间范围选 V0 黄金集运行前后（本次实测：2026-11-14 13:47 UTC 起约 5 分钟） |
+| `04-online-eval-tab.png` | 4 · 4.6 | Evaluations 页签：各评估器的平均分和分布（V0 那次运行的时间段） | 同上 Agent 页 → **Evaluations**，时间范围要盖住 V0 运行和它的打分（打分比 session 晚约 10 分钟）。本次重拍用的 V0 运行：session 2026-11-14 16:57:40–16:59:53 UTC，打分 17:06:17–17:11:16 UTC；选 2026-11-14T16:50Z 到 2026-11-14T17:20Z（北京时间 2026-11-15T00:50+08:00 到 2026-11-15T01:20+08:00） |
 | `05-claude-v1-summary.png` | 5 · 5.2 | Claude Code 写完 V1 后的终端总结：失败原因 → 修改 → 预期影响的指标 | 实验 EC2 上运行 5.2 的命令，交互式确认后截最后一屏（会覆盖 `v1.md`，不影响已经生成的对比页） |
 | `05-compare-top.png` | 5 · 5.5 | 对比页顶部：两个版本的结论、红线条数、各门禁前后值和 70% 门槛 | S3 控制台 → `reports/compare-runtime-v0-…-vs-runtime-v1-ref-….html` → **打开**（V0 → V1 参考版；也可截 V0 → V1） |
 | `05-compare-changes.png` | 5 · 5.5 | ③ 改了什么：提示词差异、工具变化、“失败原因 → 修改 → 预期影响的指标”表 | 同一对比页，滚到 ③ |

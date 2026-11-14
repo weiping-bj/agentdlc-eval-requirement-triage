@@ -52,7 +52,7 @@ weight: 60
 第 4.3 步开启的在线评估，一直在给 Runtime 上的每个新 session 打分，门禁和红线评估器与发布前的按需评估**相同**（只少了两个只作观测的）。这里的“⑤ 观测环”说的是上线后的持续打分，和判据三档里的“观测档”（只看趋势、不进结论）不是一回事。
 
 - **CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。
-- 右上角时间范围先选 V0 那次运行的时间段（第 4.4 步前后），记下 `label_important` / `label_urgent` / `label_decision` 的平均分；再选 V1 那次运行的时间段对比。时间范围同时包含两次运行时，看到的是混合平均，所以一定要分开看。
+- 右上角时间范围先选 V0 那次运行的时间段（从第 4.4 步开始前，到它跑完后 15 分钟左右：分数按打分时间归档，比 session 晚 10 分钟左右），记下 `label_important` / `label_urgent` / `label_decision` 的平均分；再选 V1 那次运行的时间段对比。时间范围同时包含两次运行时，看到的是混合平均，所以一定要分开看。
 - 在 **Sessions** 里也可以按 session 名区分：V0 的 session 名含 `-v0-`，V1 参考版的含 `-v1-ref-`，你自己的 V1 含 `-v1-FB-`（`-v1-` 也会匹配到参考版）。
 - （可选）**CloudWatch** → **Metrics** → 命名空间 `Bedrock-AgentCore/Evaluations`：各评估器的分数是指标，可以画成随时间变化的曲线，也可以配告警。
 

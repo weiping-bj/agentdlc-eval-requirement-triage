@@ -194,7 +194,7 @@ trace 写进 CloudWatch 有延迟。跑完 4.4 后先等 2–3 分钟再评估�
 
 这三层就是第 2.3 步判据表里的三档。但要分清**签字的判据**和**本实验自动执行的规则**：结论固定由上表的 2 类红线 + 4 个门禁决定，阈值是 `config/lab.env` 的 `TARGET_ACCURACY`（70%）。判据表里的其它门禁（成本、性能、待评估占比这类指标读数），以及签字时改过的阈值，**不会自动进结论**：它们要么在第 6 章人工对一眼，要么是将来要接上的评估器。规则代码在 `evaluators/shared/pillars.py`（终端结论、对比页共用）。
 
-**在控制台看同样的分数**：**CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。在线评估在 session 空闲 2 分钟后才开始打分，所以 4.4 跑完后约 5–10 分钟才陆续出现；能看到每个评估器的平均分、分布，以及每个 session 的得分与解释。
+**在控制台看同样的分数**：**CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。在线评估在 session 空闲 2 分钟后才开始打分，分数大约在 4.4 跑完后 10–15 分钟才陆续出现，而且按**打分的时间**归到时间段里（比 session 晚 10 分钟左右）。所以时间范围要从 4.4 开始之前一直选到打分完成之后，最简单的是右上角选“过去 1 小时”；只选 4.4 运行的那几分钟会显示“没有可显示的评估配置”。能看到每个评估器的平均分、分布，以及每个 session 的得分与解释。
 
 :image[CloudWatch GenAI Observability 里 adlc_ws_agent 的 Evaluations 页签：各评估器的平均分和分布]{src="/static/images/04-online-eval-tab.png" width=900}
 

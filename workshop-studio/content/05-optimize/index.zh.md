@@ -83,6 +83,7 @@ git diff --stat; git status --short agent/
 ```
 
 :image[Claude Code 写完 V1 后在终端输出的总结：失败原因、修改的文件、预期影响的指标]{src="/static/images/05-claude-v1-summary.png" width=900}
+
 *图 5-1 Claude Code 的总结：每个修改都对应一个评估发现*
 
 ## 5.3 切换版本并重新部署 {#s-5-3}
@@ -209,12 +210,15 @@ results/compare-runtime-v0-20261114T134711Z-vs-runtime-v1-20261114T135605Z.html
 | ④ 效果验证 | 哪些需求错 → 对、对 → 错，按字段和按五维看 |
 
 :image[对比页顶部：V0 与 V1 各自的结论、红线条数、各门禁 V0 到 V1 的变化和 70% 门槛]{src="/static/images/05-compare-top.png" width=900}
+
 *图 5-2 对比页顶部：两个版本的结论（红线一票否决）和关键指标*
 
 :image[对比页的 ③ 改了什么：提示词差异、工具变化，以及失败原因、修改、预期影响的指标表]{src="/static/images/05-compare-changes.png" width=900}
+
 *图 5-3 ③ 改了什么：每一处修改都能追溯到一个评估发现*
 
 :image[对比页的 ④ 效果验证：错到对、对到错的条数，按字段和按五维的翻转]{src="/static/images/05-compare-flips.png" width=900}
+
 *图 5-4 ④ 效果验证：“对 → 错”的条目要先看原始输出再下结论*
 
 桶禁止公开访问，没有公开链接；同一实验账号里有 S3 权限的人能看到。

@@ -224,7 +224,8 @@ def test_images_are_marker_svgs_or_planned_screenshots_with_captions():
                 continue
             used.add(name)
             assert name in planned or (WS / "static" / "images" / name).is_file(), name
-            assert lines[i + 1].startswith("*图 ") and lines[i + 1].endswith("*"), (rel(p), name)
+            # caption = its own paragraph right below (a blank line, else Workshop Studio renders it beside the image)
+            assert lines[i + 1] == "" and lines[i + 2].startswith("*图 ") and lines[i + 2].endswith("*"), (rel(p), name)
     assert used == planned, (sorted(planned - used), sorted(used - planned))
 
 

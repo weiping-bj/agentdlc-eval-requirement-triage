@@ -197,6 +197,7 @@ trace 写进 CloudWatch 有延迟。跑完 4.4 后先等 2–3 分钟再评估�
 **在控制台看同样的分数**：**CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。在线评估在 session 空闲 2 分钟后才开始打分，所以 4.4 跑完后约 5–10 分钟才陆续出现；能看到每个评估器的平均分、分布，以及每个 session 的得分与解释。
 
 :image[CloudWatch GenAI Observability 里 adlc_ws_agent 的 Evaluations 页签：各评估器的平均分和分布]{src="/static/images/04-online-eval-tab.png" width=900}
+
 *图 4-1 在线评估结果（V0）：和 4.5 的按需评估用的是同一组评估器*
 
 ## 4.7 失败归因：该修 Agent，还是该修评估体系 {#s-4-7}

@@ -96,11 +96,13 @@ AgentCore Runtime 支持直接部署代码包，不需要 Docker。一条命令�
 **Runtime**：控制台顶部搜索 `Bedrock AgentCore` → 左侧 **Runtime** → 列表里的 `adlc_ws_agent`，状态 Ready；点进去能看到版本号、**DEFAULT** 端点、执行角色，以及环境变量 `AGENT_VERSION=v0`。
 
 :image[Amazon Bedrock AgentCore 控制台的 Runtime 详情页：adlc_ws_agent 状态 Ready，版本号，DEFAULT 端点和环境变量]{src="/static/images/03-runtime-console.png" width=900}
+
 *图 3-1 AgentCore Runtime 详情页*
 
 **trace**：调用后等 2–3 分钟，打开 **CloudWatch** → 左侧 **GenAI Observability** → **Bedrock AgentCore** → **Agents** 里的 `adlc_ws_agent` → **Sessions** → 刚才那个 `adlc-ws-smoke-…` 会话 → **Traces**。调用树里有 `adlc.triage` → `invoke_agent` → `chat` 和 `execute_tool lookup_capability`。点 `adlc.triage`，在属性里找到 `adlc.triage_output`：就是 3.3 里看到的那段 JSON。
 
 :image[CloudWatch GenAI Observability 里一个 session 的 trace 调用树，选中 adlc.triage span，属性里能看到 adlc.triage_output]{src="/static/images/03-trace-triage-span.png" width=900}
+
 *图 3-2 trace 调用树：结论写在 adlc.triage 这个 span 上*
 
 Runtime 上的服务名是 `adlc_ws_agent.DEFAULT`；在线评估和指标都按这个名字聚合。控制台菜单名称可能随版本略有不同。

@@ -32,6 +32,7 @@ weight: 1
 AgentDLC（Agent Development Lifecycle）把 Agent 的生命周期画成一个**飞轮**而不是一条流水线：六个环首尾相接，生产不是终点，而是下一轮最有价值的输入。飞轮的**圆心是黄金标准**：一套版本化的黄金集，加一套五维（认知、质量、责任、成本、性能）判据。每一环都和圆心发生关系。
 
 :image[AgentDLC 六环飞轮：六个环围绕圆心“黄金标准”，以及修 Agent 和修评估体系两条回路]{src="/static/images/flywheel-overview.svg" width=900 height=560}
+
 *图 0-1 六环飞轮与两条回路*
 
 | 环 | 和圆心的关系 | 在本实验里你做什么 | 章节 |

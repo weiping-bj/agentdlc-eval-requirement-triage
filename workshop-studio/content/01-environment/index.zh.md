@@ -15,6 +15,7 @@ weight: 10
 2. 回到活动页面，在页面下方的 **Event Outputs** 里找到 `SessionManagerUrl`（登录链接）和 `FirstCommand`（登录后的第一条命令）。
 
 :image[Workshop Studio 活动页面底部的 Event Outputs，可以看到 SessionManagerUrl、FirstCommand、InstanceId 三个输出]{src="/static/images/01-event-outputs.png" width=900}
+
 *图 1-1 活动页面的 Event Outputs：SessionManagerUrl 就是登录链接*
 
 ## 1.2 用 Session Manager 登录，切换到实验用户 {#s-1-2}

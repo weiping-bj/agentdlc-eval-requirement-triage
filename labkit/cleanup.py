@@ -124,7 +124,7 @@ class Cleaner:
         return [b["Name"] for b in aws.client("s3").list_buckets().get("Buckets", [])
                 if b["Name"].startswith(self.dash) and b["Name"].endswith(f"-{r}")]
 
-    def roles(self):
+    def _all_lab_roles(self):
         iam = aws.client("iam")
         out = []
         for page in iam.get_paginator("list_roles").paginate():
@@ -132,8 +132,23 @@ class Cleaner:
             # region suffix existed (legacy names) so nothing is left behind.
             legacy = ("-runtime-role", "-eval-lambda-role", "-online-eval-role")
             out += [r["RoleName"] for r in page["Roles"] if r["RoleName"].startswith(self.dash)
+                    and not r["RoleName"].startswith("adlc-ec2-")
                     and (r["RoleName"].endswith(f"-{self.c['AWS_REGION']}") or r["RoleName"].endswith(legacy))]
         return out
+
+    def _managed(self, name: str) -> bool:
+        """Pre-created by an EC2 stack (tag adlc:managed-by=cloudformation): deleted with the stack, never here."""
+        try:
+            return aws.stack_managed(aws.client("iam").get_role(RoleName=name)["Role"])
+        except Exception:  # noqa: BLE001 - unreadable: treat as a lab-created role (deleting it then reports)
+            return False
+
+    def roles(self):
+        """Lab roles this cleanup deletes (stack-managed roles excluded)."""
+        return [r for r in self._all_lab_roles() if not self._managed(r)]
+
+    def managed_roles(self):
+        return [r for r in self._all_lab_roles() if self._managed(r)]
 
     def log_groups(self, runtime_ids=()):
         logs = aws.client("logs")
@@ -223,8 +238,6 @@ class Cleaner:
                 for ap in iam.list_attached_role_policies(RoleName=name).get("AttachedPolicies", []):
                     iam.detach_role_policy(RoleName=name, PolicyArn=ap["PolicyArn"])
                 iam.delete_role(RoleName=name)
-            if rn.startswith("adlc-ec2-"):
-                continue  # owned by the EC2 CloudFormation stack
             self.act(f"删除 IAM 角色 {rn}", del_role)
         if delete_stacks:
             cfn = aws.client("cloudformation")
@@ -304,6 +317,9 @@ class Cleaner:
             left += len(stacks)
         elif stacks:
             print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：最后在第 10.3 步删除）")
+        managed = self.safe('IAM 角色（堆栈管理）', self.managed_roles)
+        if managed:
+            print(f"  ℹ️  {len(managed)} 个实验角色由 EC2 堆栈预先创建，删除堆栈时一并删除（不算残留）：{managed}")
         if self.list_errors:
             print(f"⚠️  有 {len(self.list_errors)} 类资源无法列出（权限不足）：{self.list_errors}，结论不完整")
             return 3

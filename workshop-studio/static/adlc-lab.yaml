@@ -1,0 +1,595 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  AgentDLC lab for AWS Workshop Studio - one participant EC2 (Amazon Linux 2023),
+  SSM Session Manager only (no inbound ports, no key pair), instance role for
+  Bedrock / AgentCore / CloudWatch lab work. UserData downloads the lab bundle from
+  the Workshop Studio assets bucket into ~ec2-user/adlc-lab, runs ec2/setup-ec2.sh,
+  enables CloudWatch Transaction Search, then signals CloudFormation.
+  Derived from ec2/adlc-ec2.yaml (tests/test_ws_infra.py keeps the shared parts in sync).
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: "Workshop Studio assets (magic variables from contentspec.yaml)" }
+        Parameters: [AssetsBucketName, AssetsBucketPrefix, BundleName]
+      - Label: { default: "Participant" }
+        Parameters: [LabSuffix, InstanceType]
+      - Label: { default: "Network (leave empty to create a small dedicated VPC)" }
+        Parameters: [VpcId, SubnetId, NewSubnetAz]
+      - Label: { default: "Advanced" }
+        Parameters: [LatestAmiId]
+
+Parameters:
+  AssetsBucketName:
+    Type: String
+    Description: Workshop Studio assets bucket (magic variable AssetsBucketName in contentspec.yaml).
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+    ConstraintDescription: an S3 bucket name
+  AssetsBucketPrefix:
+    Type: String
+    Description: Workshop Studio assets prefix (magic variable AssetsBucketPrefix, always ends with "/"). Empty = bucket root.
+    Default: ""
+    AllowedPattern: "^([A-Za-z0-9._!*'()-]+/)*$"
+    ConstraintDescription: "empty, or key segments that each end with / (e.g. abc123/assets/)"
+  BundleName:
+    Type: String
+    Description: Lab bundle object name under the prefix (built by tools/build-ws-bundle.sh).
+    Default: adlc-lab.zip
+    AllowedPattern: "^[A-Za-z0-9._-]+\\.zip$"
+  LabSuffix:
+    Type: String
+    Description: >-
+      Resource-name suffix, lowercase letters/digits, 2-12 chars, starts with a letter.
+      One participant per Workshop Studio account, so the default is fine.
+    Default: ws
+    AllowedPattern: "^[a-z][a-z0-9]{1,11}$"
+    ConstraintDescription: "2-12 chars, lowercase letters/digits, must start with a letter (e.g. zhang3)."
+  InstanceType:
+    Type: String
+    Default: t3.large
+    AllowedValues: [t3.large, t3.xlarge, m7i.large]
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  VpcId:
+    Type: String
+    Default: ""
+    Description: Optional existing VPC (e.g. the default VPC). Set together with SubnetId, or leave both empty.
+  SubnetId:
+    Type: String
+    Default: ""
+    Description: >-
+      Optional existing subnet with a route to an internet gateway (e.g. a default-VPC subnet).
+      Empty = create a minimal VPC (note the default quota of 5 VPCs per Region).
+  NewSubnetAz:
+    Type: String
+    Default: ""
+    Description: Only used when a new VPC is created. Empty = first AZ of the Region.
+
+Rules:
+  SubnetRequiresVpc:
+    RuleCondition: !Not [!Equals [!Ref SubnetId, ""]]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref VpcId, ""]]
+        AssertDescription: VpcId must be set when SubnetId is set.
+  VpcRequiresSubnet:
+    RuleCondition: !Not [!Equals [!Ref VpcId, ""]]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref SubnetId, ""]]
+        AssertDescription: SubnetId must be set when VpcId is set.
+
+Conditions:
+  # Both empty -> create a VPC; both set -> use the existing subnet (Rules forbid one without the other).
+  CreateVpc: !Or [!Equals [!Ref VpcId, ""], !Equals [!Ref SubnetId, ""]]
+  HasNewSubnetAz: !Not [!Equals [!Ref NewSubnetAz, ""]]
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Minimal network (only when no SubnetId is given): 1 VPC, 1 public subnet,
+  # IGW, route table. Outbound internet is needed for dnf/pip/npm/git and SSM.
+  # ---------------------------------------------------------------------------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Condition: CreateVpc
+    Properties:
+      CidrBlock: 10.12.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Condition: CreateVpc
+    Properties:
+      Tags:
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Condition: CreateVpc
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: CreateVpc
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.12.0.0/24
+      AvailabilityZone: !If [HasNewSubnetAz, !Ref NewSubnetAz, !Select [0, !GetAZs ""]]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}-public" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: CreateVpc
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}-public" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateVpc
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateVpc
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Conditional DependsOn: the instance waits for the internet route only when
+  # this stack creates the VPC (DependsOn cannot point at a conditional resource).
+  NetworkReady:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Metadata:
+      DefaultRoute: !If [CreateVpc, !Ref PublicDefaultRoute, !Ref AWS::NoValue]
+      SubnetAssociation: !If [CreateVpc, !Ref PublicSubnetRouteTableAssociation, !Ref AWS::NoValue]
+
+  # ---------------------------------------------------------------------------
+  # Security group: NO inbound rules at all. Access is via SSM Session Manager
+  # (the agent dials out over HTTPS). Egress is open for package installs.
+  # ---------------------------------------------------------------------------
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "adlc ${LabSuffix} - no inbound, SSM only"
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref VpcId]
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+          Description: All outbound (dnf/pip/npm/git, SSM, AWS APIs)
+      Tags:
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+  # ---------------------------------------------------------------------------
+  # Instance role.
+  # NOTE: the inline policy is INTENTIONALLY BROAD. It is meant for a 1-day
+  # workshop in a dedicated, disposable lab account, so that participants (and
+  # the coding agent running on this EC2) can create AgentCore resources,
+  # adlc-* IAM roles, Lambda functions, S3 buckets and observability config
+  # without permission friction. Do not reuse it for real workloads.
+  # ---------------------------------------------------------------------------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "adlc-ec2-${LabSuffix}-${AWS::Region}"
+      Description: !Sub "AgentDLC lab EC2 role for ${LabSuffix}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      Policies:
+        - PolicyName: adlc-workshop
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Converse/ConverseStream are authorized by InvokeModel /
+              # InvokeModelWithResponseStream (there is no bedrock:Converse* IAM action).
+              - Sid: BedrockModels
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel*
+                  - bedrock:CountTokens
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                  - bedrock:ListInferenceProfiles
+                  - bedrock:GetInferenceProfile
+                Resource: "*"
+              # First invocation of a marketplace-backed model auto-subscribes;
+              # only allowed when Bedrock makes the call on our behalf.
+              - Sid: BedrockMarketplaceAutoSubscribe
+                Effect: Allow
+                Action:
+                  - aws-marketplace:ViewSubscriptions
+                  - aws-marketplace:Subscribe
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:CalledViaLast: bedrock.amazonaws.com
+              - Sid: AgentCore
+                Effect: Allow
+                Action: bedrock-agentcore:*
+                Resource: "*"
+              # Lab roles (Runtime / evaluator Lambda / online evaluation) may only be
+              # created WITH the lab permissions boundary below, so an inline policy on
+              # them can never exceed what the lab needs (no privilege escalation).
+              - Sid: LabIamCreateWithBoundary
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:PutRolePolicy
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Ref LabRoleBoundary
+              - Sid: LabIamRoles
+                Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:DeleteRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:DetachRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListInstanceProfilesForRole
+                  - iam:TagRole
+                  - iam:UpdateAssumeRolePolicy
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
+              - Sid: LabIamPassRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
+                Condition:
+                  StringEquals:
+                    iam:PassedToService:
+                      - bedrock-agentcore.amazonaws.com
+                      - lambda.amazonaws.com
+              - Sid: LabIamReadBoundary
+                Effect: Allow
+                Action: iam:GetPolicy
+                Resource: !Ref LabRoleBoundary
+              - Sid: ListForCleanup
+                Effect: Allow
+                Action:
+                  - iam:ListRoles
+                  - lambda:ListFunctions
+                Resource: "*"
+              - Sid: KeepBoundary
+                Effect: Deny
+                Action:
+                  - iam:DeleteRolePermissionsBoundary
+                  - iam:PutRolePermissionsBoundary
+                  - iam:AttachRolePolicy
+                  - iam:CreatePolicyVersion
+                  - iam:SetDefaultPolicyVersion
+                Resource: "*"
+              # Service-linked roles for bedrock-agentcore / application-signals /
+              # observability are created on first use.
+              - Sid: ServiceLinkedRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                  - iam:GetRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*"
+              # Guardrail: nobody's lab tooling (or a prefix-based cleanup) may
+              # change or delete the participants' own EC2 roles.
+              - Sid: ProtectParticipantEc2Roles
+                Effect: Deny
+                Action:
+                  - iam:DeleteRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:UpdateAssumeRolePolicy
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-ec2-*"
+              - Sid: LabLambda
+                Effect: Allow
+                Action: lambda:*
+                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
+              - Sid: LabS3Buckets
+                Effect: Allow
+                Action: s3:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:s3:::adlc-*"
+                  - !Sub "arn:${AWS::Partition}:s3:::adlc-*/*"
+              - Sid: S3ListBuckets
+                Effect: Allow
+                Action: s3:ListAllMyBuckets
+                Resource: "*"
+              - Sid: LabLogGroups
+                Effect: Allow
+                Action: logs:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/adlc-*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans:*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/application-signals/data"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/application-signals/data:*"
+              - Sid: LogsAccountLevel
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:DescribeResourcePolicies
+                  - logs:PutResourcePolicy
+                  - logs:StopQuery
+                  - logs:GetQueryResults
+                  - logs:DescribeQueries
+                Resource: "*"
+              # logs:StartQuery is granted only on the lab log groups (LabLogGroups above), so the
+              # lab role cannot read other log groups in the account.
+              - Sid: Observability
+                Effect: Allow
+                Action:
+                  - xray:*
+                  - application-signals:*
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:ListMetrics
+                  - observabilityadmin:Get*
+                  - observabilityadmin:List*
+                Resource: "*"
+              - Sid: ReadOnlyHelpers
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                  - ec2:Describe*
+                  - cloudformation:Describe*
+                  - cloudformation:List*
+                Resource: "*"
+              # Workshop Studio only: read exactly the lab bundle object (UserData downloads it once).
+              - Sid: LabAssetsRead
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${AssetsBucketName}/${AssetsBucketPrefix}${BundleName}"
+      Tags:
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+  # Permissions boundary for every IAM role the lab scripts create (see labkit/aws.py).
+  LabRoleBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "adlc-boundary-${LabSuffix}-${AWS::Region}"
+      Description: Upper bound for roles created by the adlc scripts
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ModelsAndAgentCore
+            Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+              - bedrock-agentcore:GetWorkloadAccessToken
+              - bedrock-agentcore:GetWorkloadAccessTokenForJWT
+              - bedrock-agentcore:GetWorkloadAccessTokenForUserId
+            Resource: "*"
+          - Sid: Telemetry
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+              - logs:PutResourcePolicy
+              - logs:StartQuery
+              - logs:StopQuery
+              - logs:GetQueryResults
+              - logs:FilterLogEvents
+              - logs:GetLogEvents
+              - logs:DescribeIndexPolicies
+              - logs:DescribeFieldIndexes
+              - logs:PutIndexPolicy
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+              - xray:GetSamplingRules
+              - xray:GetSamplingTargets
+              - cloudwatch:PutMetricData
+            Resource: "*"
+          - Sid: InvokeLabEvaluators
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+              - lambda:GetFunction
+            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
+          - Sid: ReadLabBuckets
+            Effect: Allow
+            Action: s3:GetObject
+            Resource: !Sub "arn:${AWS::Partition}:s3:::adlc-*/*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "adlc-ec2-${LabSuffix}-${AWS::Region}"
+      Roles: [!Ref InstanceRole]
+
+  # ---------------------------------------------------------------------------
+  # The EC2 instance (no key pair; login via SSM only).
+  # ---------------------------------------------------------------------------
+  Instance:
+    Type: AWS::EC2::Instance
+    DependsOn: NetworkReady
+    # CREATE_COMPLETE only after UserData has unpacked the bundle and ec2/setup-ec2.sh succeeded
+    # (cfn-signal at the end of UserData); a failed setup signals FAILURE with the log tail as the reason.
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT40M
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          SubnetId: !If [CreateVpc, !Ref PublicSubnet, !Ref SubnetId]
+          GroupSet: [!Ref InstanceSecurityGroup]
+          # Public IPv4 is only for OUTBOUND traffic (no NAT gateway needed);
+          # the security group has no inbound rules.
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 2
+      PropagateTagsToVolumeOnCreation: true
+      # No secrets in here: UserData is readable by anyone with ec2:DescribeInstanceAttribute.
+      # Bash variables are written without braces because !Sub owns ${...}.
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # AgentDLC lab (Workshop Studio) bootstrap, run once as root by cloud-init.
+          # Log: /var/log/adlc-bootstrap.log (kept on the instance); setup-ec2.sh also writes
+          # /home/ec2-user/adlc-setup.log. The lab user is ec2-user: participants open Session Manager
+          # (they land as ssm-user) and run `sudo su - ec2-user`.
+          set -uo pipefail
+          LOG=/var/log/adlc-bootstrap.log
+          exec > >(tee -a "$LOG") 2>&1
+          LAB_USER=ec2-user
+          LAB_DIR=/home/ec2-user/adlc-lab
+          BUNDLE_URI='s3://${AssetsBucketName}/${AssetsBucketPrefix}${BundleName}'
+          STEP=start
+          SIGNALED=0
+          cfn_signal() {  # cfn_signal <exit-code> <reason>
+            [ "$SIGNALED" = 1 ] && return 0
+            SIGNALED=1
+            /opt/aws/bin/cfn-signal --exit-code "$1" --reason "$2" \
+              --stack '${AWS::StackName}' --resource Instance --region '${AWS::Region}' \
+              || echo "cfn-signal failed: CloudFormation will report a timeout"
+          }
+          fail() {  # fail <message>: signal FAILURE; the log tail goes into the reason (a rollback terminates the instance)
+            echo "!! adlc bootstrap FAILED at step $STEP: $1"
+            sleep 1
+            local tail_txt
+            tail_txt="$(tail -n 6 "$LOG" | tr -cd '[:print:]\n' | tr '\n' ' ' | cut -c1-700)"
+            cfn_signal 1 "adlc bootstrap failed at step $STEP: $1 | full log $LOG | $tail_txt"
+            exit 1
+          }
+          trap 'rc=$?; [ "$SIGNALED" = 1 ] || cfn_signal 1 "adlc bootstrap exited (rc=$rc) at step $STEP; see $LOG"' EXIT
+          as_lab_user() { runuser -l "$LAB_USER" -c "$1"; }
+
+          echo "===== adlc bootstrap start $(date -u +%FT%TZ) bundle $BUNDLE_URI ====="
+          STEP=profile
+          cat > /etc/profile.d/adlc.sh <<'EOF'
+          export AWS_REGION=${AWS::Region}
+          export AWS_DEFAULT_REGION=${AWS::Region}
+          export LAB_SUFFIX=${LabSuffix}
+          EOF
+          chmod 0644 /etc/profile.d/adlc.sh
+
+          STEP=packages
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            dnf install -y git jq tar gzip unzip aws-cfn-bootstrap && { ok=1; break; }
+            echo "dnf install failed (attempt $attempt), retrying in 15s"
+            sleep 15
+          done
+          [ "$ok" = 1 ] || fail "dnf install failed"
+
+          STEP=download
+          WORK="$(mktemp -d /tmp/adlc-bundle.XXXXXX)"
+          chmod 0755 "$WORK"
+          ok=0
+          for attempt in 1 2 3 4 5 6; do
+            # instance-profile credentials can lag a few seconds behind boot
+            aws s3 cp --only-show-errors --region '${AWS::Region}' "$BUNDLE_URI" "$WORK/bundle.zip" && { ok=1; break; }
+            echo "bundle download failed (attempt $attempt), retrying in 10s"
+            sleep 10
+          done
+          [ "$ok" = 1 ] || fail "cannot download $BUNDLE_URI"
+          chmod 0644 "$WORK/bundle.zip"
+          echo "bundle sha256 $(sha256sum "$WORK/bundle.zip" | cut -d' ' -f1)"
+          unzip -tq "$WORK/bundle.zip" >/dev/null || fail "bundle is not a valid zip"
+
+          STEP=unpack
+          install -d -m 0755 -o "$LAB_USER" -g "$LAB_USER" "$LAB_DIR"
+          runuser -u "$LAB_USER" -- unzip -q -o "$WORK/bundle.zip" -d "$LAB_DIR" || fail "unzip into $LAB_DIR failed"
+          rm -rf "$WORK"
+          [ -f "$LAB_DIR/ec2/setup-ec2.sh" ] || fail "bundle has no ec2/setup-ec2.sh"
+          as_lab_user "cd ~/adlc-lab && ./tools/set-suffix.sh ${LabSuffix}" || fail "tools/set-suffix.sh failed"
+
+          STEP=setup
+          as_lab_user "cd ~/adlc-lab && bash ec2/setup-ec2.sh" \
+            || fail "ec2/setup-ec2.sh failed, see /home/ec2-user/adlc-setup.log"
+
+          # Same as the participant step ./02-enable-observability.sh (once per account and Region; a no-op
+          # when it is already on). Not fatal: 01-check-env.sh shows the state and the handbook keeps the step.
+          STEP=observability
+          TS=enabled
+          if ! as_lab_user "cd ~/adlc-lab && ./02-enable-observability.sh"; then
+            echo "WARNING: Transaction Search not confirmed; run ./02-enable-observability.sh in the lab"
+            TS=not-confirmed
+          fi
+
+          STEP=shell
+          BASHRC=/home/ec2-user/.bashrc
+          touch "$BASHRC"
+          sed -i '/^# >>> adlc-ws >>>$/,/^# <<< adlc-ws <<<$/d' "$BASHRC"
+          cat >> "$BASHRC" <<'EOF'
+          # >>> adlc-ws >>>
+          # Workshop Studio: an interactive login (sudo su - ec2-user) starts in the lab with .venv active.
+          if [[ $- == *i* ]] && [ "$PWD" = "$HOME" ] && [ -d "$HOME/adlc-lab" ]; then
+            cd "$HOME/adlc-lab" && [ -f .venv/bin/activate ] && source .venv/bin/activate
+          fi
+          # <<< adlc-ws <<<
+          EOF
+          chown "$LAB_USER:$LAB_USER" "$BASHRC"
+
+          STEP=done
+          echo "===== adlc bootstrap done $(date -u +%FT%TZ) transaction-search $TS ====="
+          cfn_signal 0 "adlc lab ready in $LAB_DIR (transaction search $TS)"
+      Tags:
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+Outputs:
+  InstanceId:
+    Description: EC2 instance id
+    Value: !Ref Instance
+  SessionManagerUrl:
+    Description: Open this URL in the AWS console to get a shell (Session Manager)
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${Instance}?region=${AWS::Region}"
+  FirstCommand:
+    Description: Run this first in the Session Manager shell (switches to the lab user, opens ~/adlc-lab)
+    Value: sudo su - ec2-user
+  LabDirectory:
+    Description: Lab directory on the instance (setup log /home/ec2-user/adlc-setup.log)
+    Value: /home/ec2-user/adlc-lab
+  RoleName:
+    Description: Instance role name
+    Value: !Ref InstanceRole

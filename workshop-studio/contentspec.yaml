@@ -1,0 +1,51 @@
+# AWS Workshop Studio content spec for the AgentDLC lab (Chinese handbook, one AWS account per participant).
+# Schema: ContentSpecV2 in EEContentCatalogBuilderLib (contentspec/contentspec.go); choices in workshop-studio/README.md.
+version: 2.0
+defaultLocaleCode: zh-CN
+localeCodes:
+  - zh-CN
+
+awsAccountConfig:
+  accountSources:
+    - workshop_studio
+  # Created by the lab on first use; listed so Workshop Studio provisions them up front.
+  serviceLinkedRoles:
+    - runtime-identity.bedrock-agentcore.amazonaws.com
+    - application-signals.cloudwatch.amazonaws.com
+  # Participants work on the lab EC2 (its instance role does the lab work). In the console they read
+  # CloudWatch / AgentCore / S3 results and open a Session Manager shell on the lab instance.
+  participantRole:
+    managedPolicies:
+      - arn:aws:iam::aws:policy/ReadOnlyAccess
+    iamPolicies:
+      - static/iam-policy.json
+  ec2KeyPair: false
+  # Bedrock is enabled in us-west-2 and us-east-1 in event accounts; the lab supports both, us-west-2 first.
+  regionConfiguration:
+    minAccessibleRegions: 1
+    maxAccessibleRegions: 2
+    accessibleRegions:
+      recommended:
+        - us-west-2
+      optional:
+        - us-east-1
+    deployableRegions:
+      recommended:
+        - us-west-2
+      optional:
+        - us-east-1
+
+infrastructure:
+  cloudformationTemplates:
+    # Workshop Studio names the stack after the file: stack "adlc-lab".
+    - templateLocation: static/adlc-lab.yaml
+      label: AgentDLC lab EC2
+      parameters:
+        - templateParameter: AssetsBucketName
+          defaultValue: "{{.AssetsBucketName}}"
+        - templateParameter: AssetsBucketPrefix
+          defaultValue: "{{.AssetsBucketPrefix}}"
+      participantVisibleStackOutputs:
+        - SessionManagerUrl
+        - FirstCommand
+        - InstanceId

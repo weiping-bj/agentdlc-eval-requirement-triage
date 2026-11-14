@@ -1,0 +1,3 @@
+# S3 Assets are uploaded separately, never committed (the built bundle lives here)
+/assets/*
+!/assets/README.md

@@ -253,7 +253,12 @@ def test_use_model_rejects_ids_outside_the_allowlist(tmp_path):
 
 
 # ---------------------------------------------------------------------------------------------- round-6 guards
-IAM_WRITE = re.compile(r"^iam:(Create|Put|Attach|Update|Delete|Detach|Add|Remove|Tag|Untag|Upload|Set|Reset|Change|PassRole)")
+# Representative IAM writes; a statement "grants" one when any of its (case-insensitive, wildcard) actions match.
+IAM_WRITES = ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:UpdateAssumeRolePolicy", "iam:PassRole",
+              "iam:DeleteRole", "iam:DeleteRolePolicy", "iam:DetachRolePolicy", "iam:TagRole", "iam:CreatePolicy",
+              "iam:CreatePolicyVersion", "iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary",
+              "iam:CreateUser", "iam:CreateAccessKey", "iam:UpdateRole", "iam:CreateServiceLinkedRole",
+              "iam:AddRoleToInstanceProfile", "iam:CreateInstanceProfile"]
 IAM_SIDS = {"LabIamCreateWithBoundary": {"iam:CreateRole", "iam:PutRolePolicy"},
             "LabIamRoles": {"iam:DeleteRole", "iam:DeleteRolePolicy", "iam:DetachRolePolicy", "iam:TagRole",
                             "iam:UpdateAssumeRolePolicy"},
@@ -291,7 +296,7 @@ def test_iam_writes_only_in_the_named_statements(template):
     for s in st:
         if s["Effect"] != "Allow":
             continue
-        writes = {a for a in _acts(s) if IAM_WRITE.match(a) or a in ("iam:*", "*")}
+        writes = {w for w in IAM_WRITES if _grants(s, w)}
         assert writes <= IAM_SIDS.get(s.get("Sid"), set()), (s.get("Sid"), writes)
     sids = {s.get("Sid"): s for s in st}
     keep = sids["KeepBoundary"]
@@ -315,7 +320,8 @@ def test_deny_statements_are_unconditional_and_cover_the_exposure_paths(template
         "lambda:CreateFunctionUrlConfig", "lambda:UpdateFunctionUrlConfig", "lambda:AddPermission",
         "bedrock-agentcore:PutResourcePolicy", "bedrock-agentcore:CreateGateway*", "bedrock-agentcore:UpdateGateway*",
         "bedrock-agentcore:CreateHarness*", "bedrock-agentcore:UpdateHarness*", "s3:PutBucketPolicy", "s3:PutBucketAcl",
-        "s3:PutObjectAcl", "s3:PutBucketWebsite", "logs:PutSubscriptionFilter", "logs:PutDestination"}
+        "s3:PutObjectAcl", "s3:PutBucketWebsite", "s3:DeleteBucketPolicy", "logs:PutSubscriptionFilter",
+        "logs:PutDestination", "logs:PutDestinationPolicy", "logs:CreateExportTask"}
     fed = boundary["DenyFederatedSessions"]
     assert fed == {"Sid": "DenyFederatedSessions", "Effect": "Deny", "Action": "*", "Resource": "*",
                    "Condition": {"Null": {"aws:FederatedProvider": "false"}}}
@@ -347,8 +353,16 @@ def test_suffix_rule_reserves_ec2_everywhere(bad, tmp_path):
     (tmp_path / "tools" / "set-suffix.sh").write_text((ROOT / "tools" / "set-suffix.sh").read_text(encoding="utf-8"))
     r = subprocess.run(["bash", "tools/set-suffix.sh", bad], cwd=tmp_path, capture_output=True, text=True)
     assert r.returncode == 1 and not (tmp_path / "config" / "local.env").exists()
-    for f in ("ec2/launch-from-cloudshell.sh", "ec2/setup-ec2.sh"):
-        assert '= ec2 ]' in (ROOT / f).read_text(encoding="utf-8") or '!= ec2 ]' in (ROOT / f).read_text(encoding="utf-8"), f
+    # launch-from-cloudshell.sh validates its argument before any AWS call
+    r = subprocess.run(["bash", str(ROOT / "ec2" / "launch-from-cloudshell.sh"), bad], cwd=tmp_path,
+                       capture_output=True, text=True, stdin=subprocess.DEVNULL, env={"PATH": "/usr/bin:/bin"})
+    assert r.returncode == 1 and "ec2 保留" in r.stderr, r.stderr
+    # setup-ec2.sh: run its suffix line on its own
+    line = next(x for x in (ROOT / "ec2" / "setup-ec2.sh").read_text(encoding="utf-8").splitlines()
+                if 'SUFFIX=""' in x and "[[" in x)
+    for value, kept in ((bad, ""), ("zhang3", "zhang3"), ("ec2x", "ec2x")):
+        out = subprocess.run(["bash", "-c", f'SUFFIX={value}; {line}; printf %s "$SUFFIX"'], capture_output=True, text=True)
+        assert out.stdout == kept, (value, out.stdout)
 
 
 def test_online_enable_repoints_an_existing_config_at_the_refreshed_role(monkeypatch, tmp_path):
@@ -368,6 +382,8 @@ def test_online_enable_repoints_an_existing_config_at_the_refreshed_role(monkeyp
     monkeypatch.setattr(online, "find", lambda name: {"onlineEvaluationConfigId": "cfg-1"})
     monkeypatch.setattr(online, "role_arn", lambda: "arn:aws:iam::123456789012:role/adlc-zhang3-online-eval-role-us-west-2")
     monkeypatch.setattr(online, "data_source", lambda path: {})
-    online.enable("b")
+    try:
+        online.enable("b")
+    finally:
+        aws.cfg.cache_clear()
     assert seen["evaluationExecutionRoleArn"].endswith("adlc-zhang3-online-eval-role-us-west-2")
-    aws.cfg.cache_clear()

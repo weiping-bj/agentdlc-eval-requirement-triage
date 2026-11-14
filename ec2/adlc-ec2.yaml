@@ -19,7 +19,7 @@ Parameters:
     Type: String
     Description: Personal suffix, lowercase letters/digits, 2-12 chars, starts with a letter (e.g. zhang3).
     AllowedPattern: "^(?!ec2$)[a-z][a-z0-9]{1,11}$"
-    ConstraintDescription: "2-12 chars, lowercase letters/digits, must start with a letter (e.g. zhang3)."
+    ConstraintDescription: "2-12 chars, lowercase letters/digits, must start with a letter (e.g. zhang3); ec2 is reserved."
   InstanceType:
     Type: String
     Default: t3.large
@@ -321,7 +321,8 @@ Resources:
               # Nothing the lab creates may be reachable from outside the account, or serve an allowlisted
               # model to anyone: no Lambda function URLs or resource-based grants, no AgentCore resource
               # policies, gateways or harnesses (the lab uses none), no bucket policies / ACLs / websites (so
-              # nothing can be made public even if a public access block is lifted), no log export to other accounts. Residual: an AgentCore Runtime
+              # nothing can be made public even if a public access block is lifted), no log subscriptions,
+              # destinations or export tasks (which can target another account's bucket). Residual: an AgentCore Runtime
               # can still be given a custom JWT authorizer (no IAM condition key for it).
               - Sid: DenyPublicExposure
                 Effect: Deny
@@ -342,6 +343,7 @@ Resources:
                   - logs:PutSubscriptionFilter
                   - logs:PutDestination
                   - logs:PutDestinationPolicy
+                  - logs:CreateExportTask
                 Resource: "*"
               # Service-linked roles for bedrock-agentcore / application-signals /
               # observability are created on first use.
@@ -461,7 +463,8 @@ Resources:
               - bedrock-agentcore:GetWorkloadAccessTokenForJWT
               - bedrock-agentcore:GetWorkloadAccessTokenForUserId
             Resource: "*"
-          # A lab role is only ever used by AWS services; never by a federated (web identity / SAML) session.
+          # A lab role is only ever used by AWS services; never by a web-identity (OIDC, incl. Cognito)
+          # federated session. (Cross-account trust is not covered: see DECISIONS residuals.)
           - Sid: DenyFederatedSessions
             Effect: Deny
             Action: "*"

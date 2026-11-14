@@ -70,7 +70,7 @@ def load(require_suffix: bool = True) -> dict:
     suffix = cfg.get("LAB_SUFFIX", "")
     if require_suffix and not SUFFIX_RE.match(suffix or ""):
         raise ConfigError(
-            "LAB_SUFFIX 未设置或格式不对（小写字母开头，2-12 位小写字母/数字）。"
+            "LAB_SUFFIX 未设置或格式不对（小写字母开头，2-12 位小写字母/数字；ec2 保留不能用）。"
             "请先运行: ./tools/set-suffix.sh <你的后缀>   例如 ./tools/set-suffix.sh zhang3"
         )
     cfg.update(derive(cfg))

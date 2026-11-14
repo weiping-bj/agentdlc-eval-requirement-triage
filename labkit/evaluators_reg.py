@@ -223,15 +223,19 @@ def remove_online() -> list:
     from . import online
     ctl = aws.client("bedrock-agentcore-control")
     modes = []
+    gone = []
     for mode in online.MODES:
-        x = online.find(online.config_name(mode))
-        if x:
-            ctl.delete_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"])
-            modes.append(mode)
-            print(f"  ⏸  临时删除在线评估配置 {x['onlineEvaluationConfigName']}（更新被锁定的评估器需要）")
-    for mode in modes:
+        for name in (online.config_name(mode), online.legacy_name(mode)):  # legacy: a lab set up before the rename
+            x = online.find(name)
+            if x:
+                ctl.delete_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"])
+                gone.append(name)
+                if mode not in modes:
+                    modes.append(mode)
+                print(f"  ⏸  临时删除在线评估配置 {x['onlineEvaluationConfigName']}（更新被锁定的评估器需要）")
+    for name in gone:
         for _ in range(30):
-            if not online.find(online.config_name(mode)):
+            if not online.find(name):
                 break
             time.sleep(3)
     return modes

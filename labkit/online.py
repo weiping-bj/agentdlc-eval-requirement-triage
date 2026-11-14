@@ -53,6 +53,13 @@ def config_name(mode: str) -> str:
     return f"{aws.cfg()['ONLINE_EVAL_NAME']}_{mode}"
 
 
+LEGACY = {"runtime": "b", "local": "a"}  # names before the rename (<prefix>_online_b / _online_a)
+
+
+def legacy_name(mode: str) -> str:
+    return f"{aws.cfg()['ONLINE_EVAL_NAME']}_{LEGACY[mode]}"
+
+
 def data_source(mode: str) -> dict:
     c = aws.cfg()
     if mode == "local":

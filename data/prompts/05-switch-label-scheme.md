@@ -6,7 +6,7 @@
 1. 读取 `discussion-feedback.md` 第 1.1 节和 1.2 节（没有填就按默认）：
    - 等级怎么算对：完全一致 → `--tolerance 0`（默认）；相差一级也算对 → `--tolerance 1`；
    - P0、P1、P2 各自的口径。默认推导：重要且紧急 = P0，重要不紧急 = P1，其它 = P2。
-2. 先预览，再执行一条命令（它依次改：标准 `config/local.env` → 黄金集补优先级并冻结 → 重新部署评估器（多一个 `label_level`）→ 重新部署 Runtime（提示词要求输出 `level`）→ 重新启用在线评估）：
+2. 先把版本切回 V0（新口径下要重新跑 V0 基线）：`./50-switch-version.sh v0`。再预览、执行一条命令（它依次改：标准 `config/local.env` → 黄金集补优先级并冻结 → 重新部署评估器（多一个 `label_level`）→ 重新部署 Runtime（提示词要求输出 `level`）→ 重新启用在线评估）：
    ```bash
    ./ext-switch-label-scheme.sh level --tolerance <0|1> --dry-run
    ./ext-switch-label-scheme.sh level --tolerance <0|1>

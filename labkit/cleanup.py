@@ -303,7 +303,7 @@ class Cleaner:
             print(f"  {'✅' if not stacks else '❌'} EC2 堆栈: {len(stacks)} {stacks if stacks else ''}")
             left += len(stacks)
         elif stacks:
-            print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：这台 EC2 最后删除）")
+            print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：实验 EC2 最后删除；Workshop Studio 活动结束时随账号回收）")
         if self.list_errors:
             print(f"⚠️  有 {len(self.list_errors)} 类资源无法列出（权限不足）：{self.list_errors}，结论不完整")
             return 3

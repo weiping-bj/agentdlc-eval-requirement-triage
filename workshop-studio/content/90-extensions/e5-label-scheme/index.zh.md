@@ -78,9 +78,9 @@ TODO-LIVE-E5
 ./ext-switch-label-scheme.sh binary
 ```
 
-切回之后同样要重新跑一次黄金集和评估，才有“是 / 否”口径下的当前分数。
+切回之后同样要重新跑一次黄金集和评估，才有“是 / 否”口径下的当前分数。切换命令会按配置里的版本（现在是 v0）重新部署 Runtime：做完后用第 5.3 步的两条命令把线上恢复到你发布的版本（例如 `./50-switch-version.sh v1-ref`、`./30-deploy-runtime.sh`）。
 
-如果讨论给的 P0/P1/P2 口径和默认推导不同，交给 Claude Code：`claude "$(cat data/prompts/05-switch-label-scheme.md)"`，它会读讨论结论、逐条复核优先级，再用同一条命令完成切换。
+如果讨论给的 P0/P1/P2 口径和默认推导不同，先 `./50-switch-version.sh v0`，再交给 Claude Code：`claude "$(cat data/prompts/05-switch-label-scheme.md)"`，它会读讨论结论、逐条复核优先级，再用同一条命令完成切换。
 
 ## 检查一下 {#e5-check}
 

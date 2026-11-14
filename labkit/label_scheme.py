@@ -61,6 +61,19 @@ def _state(name: str):
         return None
 
 
+def configured_version() -> str:
+    """AGENT_VERSION that ./30-deploy-runtime.sh will deploy (config/local.env, else config/lab.env)."""
+    for f in (local_env_path(), ROOT / "config" / "lab.env"):
+        try:
+            for line in f.read_text(encoding="utf-8").splitlines():
+                k, _, v = line.strip().partition("=")
+                if k.strip().removeprefix("export ").strip() == "AGENT_VERSION" and v.strip():
+                    return v.strip().strip("\"'")
+        except OSError:
+            continue
+    return "v0"
+
+
 def plan(scheme: str, tolerance: int, golden: Path = GOLDEN, state=None) -> list:
     """[(what, argv or None)]: argv None = a step done in-process (config/local.env)."""
     state = state or _state
@@ -73,8 +86,12 @@ def plan(scheme: str, tolerance: int, golden: Path = GOLDEN, state=None) -> list
                   [py, "data/tools/golden_tool.py", "--scheme", scheme, "freeze"]))
     if state("evaluators"):
         steps.append(("评估器：重新部署 Lambda 并注册（分级口径多一个 label_level）", ["./40-create-evaluators.sh"]))
-    if state("runtime"):
-        steps.append(("提示词：重新部署 Runtime（环境变量 ADLC_LABEL_SCHEME 决定是否要求输出 level）", ["./30-deploy-runtime.sh"]))
+    rt = state("runtime")
+    if rt:
+        want, live = configured_version(), (rt or {}).get("agentVersion") or "?"
+        note = "" if want == live else f"；注意：线上现在是 {live}，这一步会部署配置里的 {want}"
+        steps.append((f"提示词：重新部署 Runtime，Agent 版本 {want}（环境变量 ADLC_LABEL_SCHEME 决定是否要求输出 level{note}）",
+                      ["./30-deploy-runtime.sh"]))
     online = state("online") or {}
     for mode in ("runtime", "local"):
         if mode in online:
@@ -107,6 +124,7 @@ def run(scheme: str, tolerance: int, dry_run: bool = False) -> int:
     print(f"✅ 标签方案已切换为 {label}。")
     if scheme == "level":
         print(f"   优先级怎么算对：{'完全一致' if tolerance == 0 else '相差不超过一级'}；门禁多一项“优先级准确率”。")
+    print(f"   Runtime 上现在是 Agent {configured_version()}；要换版本用 ./50-switch-version.sh <版本> 再 ./30-deploy-runtime.sh")
     print("   下一步：./42-run-golden.sh，等 2–3 分钟后 ./43-run-eval.sh（切换前的评估结果和切换后不可直接比较）")
     return 0
 

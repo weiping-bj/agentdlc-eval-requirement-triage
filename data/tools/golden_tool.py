@@ -252,10 +252,33 @@ def cmd_freeze(a) -> int:
     return rc
 
 
+def _lab_scheme() -> str:
+    """The lab's current label scheme: LABEL_SCHEME from the environment, else config/local.env, else config/lab.env
+    (ext-switch-label-scheme.sh writes it), so a bare `freeze` validates in the scheme the evaluators use."""
+    v = os.environ.get("LABEL_SCHEME", "")
+    if not v:
+        for name in ("local.env", "lab.env"):
+            path = os.path.join(C.REPO, "config", name)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    for line in f:
+                        k, _, val = line.strip().partition("=")
+                        if k.strip().removeprefix("export ").strip() == "LABEL_SCHEME" and val.strip():
+                            v = val.strip().strip("\"'")
+                            break
+            except OSError:
+                continue
+            if v:
+                break
+    v = v.strip().lower()
+    return v if v in ("binary", "level") else "binary"
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--golden", default=C.GOLDEN_PATH)
-    ap.add_argument("--scheme", choices=["binary", "level"], default="binary", help="标签口径：二元（默认）或分级")
+    ap.add_argument("--scheme", choices=["binary", "level"], default=_lab_scheme(),
+                    help="标签口径：二元或分级（默认取实验配置的 LABEL_SCHEME，见 ./ext-switch-label-scheme.sh）")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("validate")
     s = sub.add_parser("stats")

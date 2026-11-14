@@ -114,7 +114,7 @@
   - 属性路径直接取到输出；
   - 去掉 `adlc.triage_output` 后，仍能从 log record 的 `body.output.messages` 和 `需求编号:` 行还原。
   - `test_span_adapter.py` 有针对这份样例的测试。
-- **原生 LLM-as-judge 配置**：由 `./40-create-evaluators.sh` 注册为 `…_reject_quality_llm`（手册第 6 章）；如果服务拒绝档位或模型 ID，调整 `evaluators/adlc_reject_quality/rubric.py`，运行 `python3 evaluators/sync_shared.py` 重新生成配置，再运行 `./40-create-evaluators.sh`。
+- **原生 LLM-as-judge 配置**：由 `./40-create-evaluators.sh` 注册为 `…_reject_quality_llm`（手册第 4 章）；如果服务拒绝档位或模型 ID，调整 `evaluators/adlc_reject_quality/rubric.py`，运行 `python3 evaluators/sync_shared.py` 重新生成配置，再运行 `./40-create-evaluators.sh`。
 
 ## 5. 待确认问题（已按默认值处理）
 

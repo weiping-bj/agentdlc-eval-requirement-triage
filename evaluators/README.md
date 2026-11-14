@@ -137,7 +137,7 @@
 
 ```bash
 python3 evaluators/adlc_label_accuracy/batch_score.py --results results/v0.jsonl --report-md results/v0-score.md --out-json results/v0-score.json
-python3 evaluators/adlc_label_accuracy/batch_score.py --results results/run-A-v1-<时间>.jsonl --reject-eval results/eval-A-v1-<时间>.json
+python3 evaluators/adlc_label_accuracy/batch_score.py --results results/run-local-v1-ref-<时间>.jsonl --reject-eval results/eval-local-v1-ref-<时间>.json
 python3 evaluators/adlc_label_accuracy/batch_score.py --spans results/v0-spans.json
 python3 evaluators/adlc_label_accuracy/batch_score.py --results results/all-60.jsonl --distribution-only
 ```

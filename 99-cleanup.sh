@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 第 10 章：删除实验资源并检查残留
+# 第 9 章（清理）：删除实验资源并检查残留
 #   ./99-cleanup.sh                 # 删除我的资源（adlc-<后缀>-*），然后列出残留
 #   ./99-cleanup.sh --dry-run       # 只显示将删除什么
 #   ./99-cleanup.sh --verify-only   # 只检查残留

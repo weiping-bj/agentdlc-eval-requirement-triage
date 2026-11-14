@@ -1,7 +1,7 @@
 """Step 4.7: list the failed golden items of one evaluation with their five-dimension labels.
 
   python -m labkit.failures                              # latest results/eval-*.json
-  python -m labkit.failures results/eval-A-v0-....json   # a specific evaluation
+  python -m labkit.failures results/eval-local-v0-....json   # a specific evaluation
   python -m labkit.failures <eval.json> --golden data/golden/golden_set.jsonl
 
 For every session whose label_accuracy is Fail / CriticalFail it prints the wrong fields (expected ->

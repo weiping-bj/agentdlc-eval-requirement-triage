@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -227,6 +228,11 @@ def main(argv=None) -> int:
     i.add_argument("--one")
     sub.add_parser("status")
     a = ap.parse_args(argv)
+    if a.cmd in (None, "deploy"):
+        v = getattr(a, "version", None) or aws.cfg()["AGENT_VERSION"]
+        if not re.fullmatch(r"v\d{1,3}(?:-ref)?", v or "") or not (ROOT / "agent" / "adlc_agent" / "prompts" / f"{v}.md").is_file():
+            raise SystemExit(f"❌ 没有 agent/adlc_agent/prompts/{v}.md，不能部署这个版本。可用的版本用 ./50-switch-version.sh 切换"
+                             "（v0、v1-ref；你自己的 v1 要先做第 5.2 步）")
     if a.cmd in (None, "deploy"):
         deploy(getattr(a, "version", None) or aws.cfg()["AGENT_VERSION"])
         return 0

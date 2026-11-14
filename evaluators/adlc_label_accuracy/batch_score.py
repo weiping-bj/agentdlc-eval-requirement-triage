@@ -6,7 +6,7 @@
     # 用从 CloudWatch 导出的 spans（JSON 数组 / JSONL / {"sessionSpans": [...]}），按 trace 拆分
     python3 evaluators/adlc_label_accuracy/batch_score.py --spans results/v0-spans.json
     # 带上 43-run-eval.sh 已有的话术评审结果（不重新调用评审模型），三大支柱才完整
-    python3 evaluators/adlc_label_accuracy/batch_score.py --results results/run-A-v1-....jsonl --reject-eval results/eval-A-v1-....json
+    python3 evaluators/adlc_label_accuracy/batch_score.py --results results/run-local-v1-ref-....jsonl --reject-eval results/eval-local-v1-ref-....json
     # 只看分布（不打分，例如跑完 60 条全量输入后）
     python3 evaluators/adlc_label_accuracy/batch_score.py --results results/all.jsonl --distribution-only
 

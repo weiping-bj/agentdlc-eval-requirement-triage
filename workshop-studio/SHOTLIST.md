@@ -2,7 +2,7 @@
 
 页面里的截图都用 `:image[...]{src="/static/images/<文件名>"}` 引用，文件放在 `workshop-studio/static/images/`。
 文件还没有时，Workshop Studio 页面上显示为图片缺失（构建不会失败）；`tests/test_ws_handbook.py` 检查每个引用都在这张清单里。
-飞轮图（`flywheel-*.svg`）不是截图，由 `python3 tools/ws_flywheel.py` 生成。截图前把账号 ID、实例 ID 以外的个人信息遮掉；PNG，宽度 1600 px 左右。
+飞轮图（`flywheel-*.svg`）不是截图，由 `python3 tools/ws_flywheel.py` 生成。截图前遮掉账号 ID、实例 ID 和其他个人信息；PNG，宽度 1600 px 左右。
 
 | 文件名 | 页面 · 步骤 | 截图里必须看得到 | 需要的状态 / 在哪里截 |
 |---|---|---|---|

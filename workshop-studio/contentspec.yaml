@@ -12,7 +12,7 @@ awsAccountConfig:
   # first use through the instance role (iam:CreateServiceLinkedRole).
   # Participants work on the lab EC2 (its instance role does the lab work). In the console they read
   # CloudWatch / AgentCore / S3 results, open a Session Manager shell on the lab instance, and upload or
-  # delete files in their own adlc-* S3 bucket (handbook step 2.0).
+  # delete files in their own adlc-* S3 bucket (handbook extension 6).
   participantRole:
     managedPolicies:
       - arn:aws:iam::aws:policy/ReadOnlyAccess

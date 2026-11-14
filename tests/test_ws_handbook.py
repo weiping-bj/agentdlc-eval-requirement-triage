@@ -15,7 +15,7 @@ FENCE = re.compile(r"^(`{3,})[^\n]*\n.*?^\1\s*$", re.S | re.M)
 MAIN = {"01-environment": 1, "02-define": 2, "03-build": 3, "04-evaluate": 4, "05-optimize": 5,
         "06-release-observe": 6, "08-summary": 8, "09-cleanup": 9}
 CHECKED = {"", "01-environment", "02-define/25-discussion", "03-build", "04-evaluate", "05-optimize",
-           "06-release-observe", "08-summary"} | {f"90-extensions/{d.name}" for d in (CONTENT / "90-extensions").glob("e*")}
+           "06-release-observe", "08-summary", "09-cleanup"} | {f"90-extensions/{d.name}" for d in (CONTENT / "90-extensions").glob("e*")}
 
 
 def rel(p: Path) -> str:
@@ -237,13 +237,48 @@ def test_flywheel_svgs_are_current_and_self_contained():
         assert "href" not in s and "http" not in s.replace("http://www.w3.org/2000/svg", ""), svg.name
 
 
-@pytest.mark.parametrize("version", ["v1", "v1-ref"])
-def test_version_names_in_the_handbook_are_the_switch_command_names(version):
-    t = all_text()
-    assert f"./50-switch-version.sh {version}" in t
-    assert re.fullmatch(r"v[0-9]+(-ref)?", version)
-    src = text(ROOT / "50-switch-version.sh")
-    assert "^v[0-9]+(-ref)?$" in src
+def test_switch_version_command_accepts_the_handbook_version_names(tmp_path):
+    """0.6 / 5.3: v1-ref and v0 switch; v1 is refused (with the 5.2 hint) until prompts/v1.md exists; junk is refused."""
+    import shutil
+    (tmp_path / "agent" / "adlc_agent" / "prompts").mkdir(parents=True)
+    (tmp_path / "config").mkdir()
+    shutil.copy(ROOT / "50-switch-version.sh", tmp_path / "50-switch-version.sh")
+    for v in ("v0", "v1-ref"):
+        shutil.copy(ROOT / "agent" / "adlc_agent" / "prompts" / f"{v}.md", tmp_path / "agent" / "adlc_agent" / "prompts")
+    run = lambda v: subprocess.run(["bash", str(tmp_path / "50-switch-version.sh"), v], capture_output=True, text=True)  # noqa: E731
+    assert run("v1-ref").returncode == 0
+    assert (tmp_path / "config" / "local.env").read_text(encoding="utf-8").splitlines() == ["AGENT_VERSION=v1-ref"]
+    r = run("v1")
+    assert r.returncode == 1 and "5.2" in r.stderr and "v1-ref" in r.stderr
+    (tmp_path / "agent" / "adlc_agent" / "prompts" / "v1.md").write_text("x", encoding="utf-8")
+    assert run("v1").returncode == 0 and "AGENT_VERSION=v1" in (tmp_path / "config" / "local.env").read_text(encoding="utf-8")
+    assert run("../x").returncode == 1 and run("V1").returncode == 1
+    for v in ("v1", "v1-ref"):
+        assert f"./50-switch-version.sh {v}" in all_text()
+
+
+def _sources_for(cmd: str) -> str:
+    """The script plus every python module / tool it runs (labkit.X, data/tools/*.py) as one text."""
+    out = text(ROOT / cmd)
+    for mod in re.findall(r"-m labkit\.(\w+)", out):
+        out += text(ROOT / "labkit" / f"{mod}.py")
+    if "label_scheme" in out:
+        out += text(ROOT / "labkit" / "label_scheme.py")
+    return out
+
+
+def test_every_flag_in_a_handbook_command_exists_in_what_it_runs():
+    bad = []
+    for p in PAGES:
+        for block in re.findall(r"^```bash\n(.*?)^```", body(p), re.S | re.M):
+            for line in block.splitlines():
+                for m in re.finditer(r"(?:^|&&|;)\s*(\./[\w./-]+\.sh|python3 [\w./-]+\.py)([^;&|]*)", line):
+                    target, args = m.group(1), m.group(2)
+                    src = _sources_for(target[2:]) if target.startswith("./") else text(ROOT / target.split()[1])
+                    for flag in re.findall(r"(?<![\w-])--[a-z][a-z-]*", args):
+                        if flag not in src:
+                            bad.append(f"{rel(p)}: {target} {flag}")
+    assert not bad, bad
 
 
 def test_expected_outputs_use_the_current_output_format():

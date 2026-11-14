@@ -48,6 +48,10 @@ DIM_CN = {"cognition": "认知", "quality": "质量", "responsibility": "责任"
           "performance": "性能", "other": "其他"}
 ALL_REQUIRED_IDS = list(META_CELLS.values()) + [cid for slots in DIMENSION_SLOTS.values() for cid in slots]
 PLACEHOLDER_TEXTS = ("请填写", "请填写具体 Use Case", "YYYY-MM-DD", "双击填写障碍", "示例（可删除）", "对内 / To B / To C")
+PLACEHOLDER_MARKS = ("双击填写障碍", "示例（可删除）")  # never part of real content; checked in every output cell
+CURRENT_LAYER_PREFIX = "3QwRYIxs2djGdYka4jAl-"  # the 2400x1350 editable layer; the template also carries two older
+# full copies (bB5O89TeUSKUgIe8cjWL-*) hidden behind it, still holding placeholders. They are dropped from the output.
+KEEP_CELLS = ("0", "1")
 COVERAGE_STATES = ("confirmed", "explored_empty", "unresolved")
 STICKY_SOFT_LIMIT = 50  # display width (CJK = 1, ASCII = 0.5); wider notes may overflow the 340x82 sticky
 
@@ -62,6 +66,7 @@ CHECKS = [  # (key, text) in report order
     ("filled", "All selected sticky texts appear in their target cells"),
     ("empty", "All unused target cells are empty"),
     ("placeholder", "No placeholder text remains in any target cell"),
+    ("layers", "Stale template layers are removed; no cell anywhere still holds a placeholder"),
     ("xml", "Generated drawio reparses as valid XML"),
     ("nonempty", "Output file is non-empty"),
 ]
@@ -94,9 +99,14 @@ def validate_template(root) -> Tuple[bool, List[str]]:
     return not errors, errors
 
 
+def _items(data, dim: str) -> list:
+    barriers = data.get("barriers") if isinstance(data, dict) and isinstance(data.get("barriers"), dict) else {}
+    items = barriers.get(dim)
+    return [b for b in items if isinstance(b, dict)] if isinstance(items, list) else []
+
+
 def selected_of(data: dict, dim: str) -> list:
-    barriers = (data.get("barriers") or {}).get(dim) or []
-    return [b for b in barriers if isinstance(b, dict) and b.get("selected")]
+    return [b for b in _items(data, dim) if b.get("selected") is True]
 
 
 def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
@@ -114,14 +124,30 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
     for field in META_CELLS:
         if not str(meta.get(field) or "").strip():
             err["metadata"].append(f"metadata.{field} is empty")
-    coverage = data.get("coverage") if isinstance(data.get("coverage"), dict) else {}
-    barriers = data.get("barriers") if isinstance(data.get("barriers"), dict) else {}
+    coverage, barriers = data.get("coverage"), data.get("barriers")
+    for name, obj in (("coverage", coverage), ("barriers", barriers)):
+        if not isinstance(obj, dict):
+            err["json"].append(f"{name} must be an object keyed by dimension")
+        else:
+            unknown = sorted(set(obj) - set(DIMENSION_SLOTS))
+            if unknown:  # a confirmed obstacle under an unknown key would silently vanish from every output
+                err["json"].append(f"{name} has unknown dimension(s) {unknown}; use {', '.join(DIMENSION_SLOTS)}")
+    coverage = coverage if isinstance(coverage, dict) else {}
+    barriers = barriers if isinstance(barriers, dict) else {}
     for dim in DIMENSION_SLOTS:
-        items = barriers.get(dim) or []
+        items = barriers.get(dim, [])
         if not isinstance(items, list):
             err["json"].append(f"barriers.{dim} must be a list")
             items = []
-        confirmed = [b for b in items if isinstance(b, dict) and b.get("confirmed")]
+        for i, b in enumerate(items):
+            if not isinstance(b, dict):
+                err["json"].append(f"barriers.{dim}[{i}] must be an object")
+                continue
+            for flag in ("confirmed", "selected"):
+                if flag in b and not isinstance(b[flag], bool):
+                    err["json"].append(f"barriers.{dim}[{i}].{flag} must be true or false, got {b[flag]!r}")
+        items = [b for b in items if isinstance(b, dict)]
+        confirmed = [b for b in items if b.get("confirmed") is True]
         state = coverage.get(dim)
         if state is None:
             err["coverage"].append(f"coverage.{dim} missing")
@@ -131,14 +157,14 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
             err["coverage"].append(f"coverage.{dim} is 'confirmed' but no barrier is confirmed")
         elif state != "confirmed" and confirmed:
             err["coverage"].append(f"coverage.{dim} is {state!r} but {len(confirmed)} barrier(s) are confirmed")
-        sel = [b for b in items if isinstance(b, dict) and b.get("selected")]
+        sel = [b for b in items if b.get("selected") is True]
         if len(sel) > 3:
             err["max3"].append(f"{dim}: {len(sel)} selected barriers (max 3)")
         if confirmed and not sel:
             warns.append(f"{dim}: {len(confirmed)} confirmed barrier(s) but none selected for the diagram")
         for b in sel:
             text = str(b.get("sticky_text") or "").strip()
-            if not b.get("confirmed"):
+            if b.get("confirmed") is not True:
                 err["confirmed"].append(f"{dim}: selected barrier not confirmed: {text or '?'}")
             if not text:
                 err["confirmed"].append(f"{dim}: selected barrier has empty sticky_text")
@@ -201,6 +227,8 @@ def generate_fishbone(json_path, template_path=TEMPLATE_PATH, output_path=None) 
     if any(err[k] for k in json_keys | {"template"}):
         return _finish(err, warns, None, json_keys | {"template"})
 
+    original = {cid: _cells(root, cid)[0].get("value", "") for cid in ALL_REQUIRED_IDS}
+    removed = drop_stale_layers(root)
     meta = data["metadata"]
     for field, cid in META_CELLS.items():
         _cells(root, cid)[0].set("value", cell_text(meta.get(field)))
@@ -222,11 +250,21 @@ def generate_fishbone(json_path, template_path=TEMPLATE_PATH, output_path=None) 
     except ET.ParseError as e:
         err["xml"].append(f"output XML invalid: {e}")
         return _finish(err, warns, output_path, ran)
-    for cid in ALL_REQUIRED_IDS:
+    for cid in ALL_REQUIRED_IDS:  # unchanged from the template, or exactly a placeholder (a real note may say 请填写)
         val = _cells(out_root, cid)[0].get("value", "")
-        for ph in PLACEHOLDER_TEXTS:
-            if ph in val:
-                err["placeholder"].append(f"placeholder remains in {cid}: {val!r}")
+        if val and (val == original[cid] or html.unescape(val) in PLACEHOLDER_TEXTS):
+            err["placeholder"].append(f"placeholder remains in {cid}: {val!r}")
+    stale = [c.get("id") for c in out_root.iter("mxCell") if c.get("id") not in KEEP_CELLS
+             and not str(c.get("id") or "").startswith(CURRENT_LAYER_PREFIX)]
+    if stale:
+        err["layers"].append(f"{len(stale)} cell(s) of older template layers remain, e.g. {stale[:3]}")
+    target = set(ALL_REQUIRED_IDS)
+    for c in out_root.iter("mxCell"):
+        val = c.get("value", "")
+        if c.get("id") not in target and any(m in val for m in PLACEHOLDER_MARKS):
+            err["layers"].append(f"placeholder text in {c.get('id')}: {val!r}")
+    if not removed and stale:
+        err["layers"].append("the stale layers were not found where expected; check the template")
     for field, cid in META_CELLS.items():
         if _cells(out_root, cid)[0].get("value", "") != cell_text(meta.get(field)):
             err["filled"].append(f"metadata.{field} not written to {cid}")
@@ -238,6 +276,18 @@ def generate_fishbone(json_path, template_path=TEMPLATE_PATH, output_path=None) 
             if not want and got:
                 err["empty"].append(f"{dim} slot {i + 1} ({cid}) should be empty, has {got!r}")
     return _finish(err, warns, output_path, ran)
+
+
+def drop_stale_layers(root) -> int:
+    """Remove every cell that is not in the current editable layer (ids 0 / 1 stay); returns how many were removed."""
+    n = 0
+    for parent in list(root.iter()):
+        for child in list(parent):
+            if child.tag == "mxCell" and child.get("id") not in KEEP_CELLS \
+                    and not str(child.get("id") or "").startswith(CURRENT_LAYER_PREFIX):
+                parent.remove(child)
+                n += 1
+    return n
 
 
 def _out_dir(arg: str) -> Path:

@@ -36,7 +36,7 @@ description: AgentDLC 定义环第二步“障碍 → 判据 → 黄金集”：
 ls -td outputs/fishbone/*/ | head -5
 ```
 
-用刚做完的那个目录（有多个、拿不准时问一句“用哪一个？”）。目录里要有 `fishbone-data.json` 且 `status` 是 `approved_for_render`；没有就先用 `adlc-fishbone` skill。
+用刚做完的那个目录（有多个、拿不准时问一句“用哪一个？”）。目录里要有 `fishbone-data.json` 且 `status` 是 `approved_for_render`（脚本会检查）；没有就先用 `adlc-fishbone` skill。鱼骨图改过之后，判据表要重新 build 才能发布（发布命令会比对两者）。
 实验场景（`metadata.scenario` 是 `lab`）读一下 `data/scenario/role-card.md` 末尾的“数据对照”，它告诉你每类障碍对应能力目录、需求反馈和黄金集里的哪些条目。
 
 ### 第 1 步：草稿骨架（不提问）
@@ -104,11 +104,12 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
     "expected": {"important": "否", "urgent": "否", "decision": "迭代", "level": "P2"},
     "acceptable_decisions": ["迭代"], "can_auto_reject": false,
     "dimensions": ["责任"], "case_type": "简单", "reject_points": [], "reply_points": [],
-    "rationale": "线上功能缺陷不可自动拒绝；影响小、有临时办法，不重要不紧急。", "matched_capabilities": ["CAP-003"]}
+    "rationale": "线上功能缺陷不可自动拒绝；影响小、有临时办法，不重要不紧急。"}
    ```
 
    新写的条目把 `feedback_id` 换成 `"category": "incident", "new_feedback": {"title": …, "content": …, "customer": "…（示例）", "industry": …, "customer_tier": …, "channel": …, "module": …, "submitted_at": "2026-10-xx", "feedback_type": …, "contract_commitment": "否"}`。
    判“拒绝”的样本必须写 `reject_points` 和 `reply_points`（话术要点至少覆盖：理解诉求、说明立场和原因、给出替代方案）。
+   `can_auto_reject` 必须明确写 `true` / `false`（功能缺陷一律 `false`）；列表字段写字符串列表。`matched_capabilities` 不会写进黄金集（填写模板没有这一列），所以补样本补不了“能力目录命中率”。
 4. 再 `build`：它按 `golden_tool.py apply-feedback` 的规则在内存里试运行，通过后写出**预览**（不动 `data/`）：
    `golden-proposals.csv`（`golden-set-feedback.csv` 格式，操作 = 新增）、新写条目的 `extra-feedback.proposed.jsonl`（`extra-feedback.jsonl` 格式），`criteria.md` 末尾有提议表和写入步骤。
 5. 把提议读给业务方（每条：需求标题、期望标签、为什么补），并**跳出角色、对小组里的技术同学明确说**（这句对业务方角色没有意义）：
@@ -116,7 +117,7 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
    然后只问一个问题：“要把这 N 条写进黄金集吗？”
 6. **同意后**才按 `criteria.md` 的“写入步骤”逐条执行，任何一步报错就停下来报告：
    - 有新写条目时：把 `extra-feedback.proposed.jsonl` 的每一行追加到 `data/templates/extra-feedback.jsonl`，按提示改 `data/templates/mock-data-params.yaml` 的 `count`，运行 `python3 data/tools/generate_mock_data.py`；
-   - `criteria.py verify` → `golden_tool.py apply-feedback --feedback <目录>/golden-proposals.csv --dry-run` → 去掉 `--dry-run` 再运行 → `golden_tool.py freeze` → `criteria.py verify`；
+   - `criteria.py verify <目录> --before-apply`（只查需求编号都在需求反馈里）→ `golden_tool.py apply-feedback --feedback <目录>/golden-proposals.csv --dry-run` → 去掉 `--dry-run` 再运行 → `golden_tool.py freeze` → `criteria.py verify <目录>`（这次要全部 ✅）；
    - 在 `criteria-draft.json` 里把这几条提议从 `golden_proposals` 挪到 `golden_applied`（留作记录），把新黄金编号（verify 会打印）填进对应判据的 `golden_ids`，删掉已补上的 `golden_gap`，再 `build`，再 `./tools/publish-define-pages.sh` 更新预览；
    - 提醒（或经他们同意后运行）`./30-create-evaluators.sh`。
    不同意：什么都不写，预览文件留在输出目录里即可。

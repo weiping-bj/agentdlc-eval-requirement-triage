@@ -29,6 +29,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -81,12 +82,26 @@ def obstacles(fishbone: dict) -> List[dict]:
     out = []
     barriers = fishbone.get("barriers") if isinstance(fishbone.get("barriers"), dict) else {}
     for key, cn in DIM_KEYS.items():
-        for i, b in enumerate(barriers.get(key) or [], 1):
-            if isinstance(b, dict) and b.get("confirmed"):
+        items = barriers.get(key) if isinstance(barriers.get(key), list) else []
+        for i, b in enumerate(items, 1):
+            if isinstance(b, dict) and b.get("confirmed") is True:
                 out.append({"obstacle_id": f"{key}-{i}", "dimension_key": key, "fishbone_dimension": cn,
                             "sticky_text": str(b.get("sticky_text") or "").strip(),
-                            "evidence": str(b.get("evidence") or "").strip(), "selected": bool(b.get("selected"))})
+                            "evidence": str(b.get("evidence") or "").strip(), "selected": b.get("selected") is True})
     return out
+
+
+def check_fishbone(fishbone) -> None:
+    """Criteria are only written from a fishbone the business owner approved (adlc-fishbone step 3)."""
+    if not isinstance(fishbone, dict) or fishbone.get("schema_version") != "1.0":
+        raise CriteriaError("fishbone-data.json 不是 schema 1.0 的鱼骨图数据")
+    if fishbone.get("status") != "approved_for_render":
+        raise CriteriaError(f"鱼骨图还没被业务方最终确认（status={fishbone.get('status')!r}）：先完成 adlc-fishbone 第 3 步")
+
+
+def scenario_of(fishbone: dict) -> str:
+    meta = fishbone.get("metadata") if isinstance(fishbone.get("metadata"), dict) else {}
+    return str(meta.get("scenario") or "lab")
 
 
 def golden_rows(path: str = C.GOLDEN_PATH) -> List[dict]:
@@ -104,8 +119,20 @@ def _blank(v) -> bool:
 
 def check_rules(c: dict, catalog: Dict[str, dict]) -> Tuple[List[str], List[str]]:
     """The handbook's criterion rules (1.10.3) for one draft entry: (errors, warnings)."""
-    cid = c.get("id") or "?"
+    cid = c.get("id") if isinstance(c.get("id"), str) else "?"
     errors, warns = [], []
+    for field, ok in (("id", isinstance(c.get("id"), str)), ("obstacle_id", isinstance(c.get("obstacle_id"), str)),
+                      ("text", isinstance(c.get("text"), str)), ("dimension", isinstance(c.get("dimension"), str)),
+                      ("tier", isinstance(c.get("tier"), str)), ("executor", isinstance(c.get("executor"), str)),
+                      ("threshold", c.get("threshold") is None or isinstance(c.get("threshold"), (str, int, float))),
+                      ("golden_ids", isinstance(c.get("golden_ids", []), list)
+                       and all(isinstance(g, str) for g in c.get("golden_ids", []))),
+                      ("golden_gap", isinstance(c.get("golden_gap", ""), str)), ("note", isinstance(c.get("note", ""), str)),
+                      ("sticky_text", isinstance(c.get("sticky_text", ""), str))):
+        if not ok:
+            errors.append(f"{cid}：{field} 的类型不对（文字写字符串，golden_ids / checks 写字符串列表）")
+    if errors:
+        return errors, warns
     text = str(c.get("text") or "").strip()
     if not text:
         errors.append(f"{cid}：判据文字为空")
@@ -125,13 +152,13 @@ def check_rules(c: dict, catalog: Dict[str, dict]) -> Tuple[List[str], List[str]
         errors.append(f"{cid}：红线不打分，threshold 要留空（0 违例）")
     if tier in ("门禁", "观测") and _blank(c.get("threshold")):
         errors.append(f"{cid}：{tier}要写阈值（观测写“只看趋势”也可以）")
-    if tier == "红线" and ex == "裁判":
-        errors.append(f"{cid}：红线要一票否决，需要裁判才能判的东西判不成红线；改用代码断言，或降为门禁 / 观测")
+    if tier == "红线" and ex in ("裁判", "内置评估器"):  # the built-in evaluators are LLM judges too
+        errors.append(f"{cid}：红线要一票否决，需要裁判（含内置评估器）才能判的东西判不成红线；改用代码断言，或降为门禁 / 观测")
     if dim in METRIC_DIMS and ex != "指标读数":
         errors.append(f"{cid}：{dim}维从 trace / 运行记录读数（执行方式写“指标读数”），不交给评估器或裁判")
     checks = c.get("checks") if isinstance(c.get("checks"), list) else None
-    if checks is None:
-        errors.append(f"{cid}：checks 要写成列表（可以是空列表 []）")
+    if checks is None or not all(isinstance(x, str) for x in checks):
+        errors.append(f"{cid}：checks 要写成检查编号的列表（可以是空列表 []）")
         checks = []
     for x in checks:
         if x not in catalog:
@@ -153,6 +180,8 @@ def _golden_ok(row: dict, req: Optional[dict]) -> bool:
         decs = set(row.get("acceptable_decisions") or []) | {(row.get("expected") or {}).get("decision")}
         if not decs & set(req["decision_in"]):
             return False
+    if req.get("has_capabilities") and not row.get("matched_capabilities"):
+        return False  # batch_score._cap_hit skips items without matched_capabilities
     return True
 
 
@@ -258,13 +287,14 @@ def proposals(draft: dict, crit_ids: set, golden: List[dict], feedback: List[dic
     in_golden = {str(r.get("feedback_id")) for r in golden}
     cats = _mock_categories()
     taken = set(pool)
-    summary, csv_rows, extra, errors = [], [], [], []
+    summary, csv_rows, extra, errors, pwarns, seen = [], [], [], [], [], set()
+    seeds = _seed_index()
     for i, p in enumerate(props, 1):
         tag = f"golden_proposals 第 {i} 条"
         if not isinstance(p, dict):
             errors.append(f"{tag}：要写成对象")
             continue
-        if p.get("criterion") not in crit_ids:
+        if not isinstance(p.get("criterion"), str) or p.get("criterion") not in crit_ids:
             errors.append(f"{tag}：criterion {p.get('criterion')!r} 不在判据表里")
         new = p.get("new_feedback")
         if new is not None:
@@ -290,19 +320,49 @@ def proposals(draft: dict, crit_ids: set, golden: List[dict], feedback: List[dic
             source = "extra"
             item = G.input_of(new)
         else:
-            fid = str(p.get("feedback_id") or "")
+            fid = p.get("feedback_id") if isinstance(p.get("feedback_id"), str) else ""
             if fid not in pool:
                 errors.append(f"{tag}：上个月的需求反馈里没有 {fid!r}；要新写一条就用 new_feedback")
                 continue
             source, item = "pool", G.input_of(pool[fid])
         if fid in in_golden:
             errors.append(f"{tag}：{fid} 已经在黄金集里")
-        row = {"golden_id": "", "feedback_id": fid, "input": item, "expected": dict(p.get("expected") or {}),
-               "acceptable_decisions": list(p.get("acceptable_decisions") or []),
-               "can_auto_reject": p.get("can_auto_reject", True), "reject_points": list(p.get("reject_points") or []),
-               "reply_points": list(p.get("reply_points") or []), "rationale": str(p.get("rationale") or ""),
-               "dimensions": list(p.get("dimensions") or []), "case_type": p.get("case_type") or "",
-               "matched_capabilities": list(p.get("matched_capabilities") or [])}
+        if fid in seen:  # apply-feedback would silently skip the second one
+            errors.append(f"{tag}：{fid} 在提议里出现了两次")
+        seen.add(fid)
+        expected = p.get("expected")
+        if not isinstance(expected, dict) or not all(isinstance(v, (str, type(None))) for v in expected.values()):
+            errors.append(f"{tag}：expected 要写成对象，例如 {{\"important\": \"否\", \"urgent\": \"否\", \"decision\": \"迭代\"}}")
+            continue
+        auto = _yes_no(p.get("can_auto_reject", None))
+        if auto is None:
+            errors.append(f"{tag}：can_auto_reject 必须明确写 true / false（或 是 / 否），现在是 {p.get('can_auto_reject')!r}")
+            continue
+        if auto and item.get("feedback_type") == "功能缺陷":
+            errors.append(f"{tag}：{fid} 是功能缺陷，按标注标准第 4 节不可自动拒绝（can_auto_reject 要写 false）")
+        lists = {}
+        for key, seps in (("acceptable_decisions", C.TAG_SEPS), ("dimensions", C.TAG_SEPS),
+                          ("reject_points", C.LIST_SEPS), ("reply_points", C.LIST_SEPS),
+                          ("matched_capabilities", C.TAG_SEPS)):
+            v = _str_list(p.get(key), seps)
+            if v is None:
+                errors.append(f"{tag}：{key} 要写成字符串列表")
+            lists[key] = v or []
+        seed = seeds.get((item.get("title"), item.get("content")))  # by text: ids change when 2.4 renumbers
+        if seed is not None and seed.get("can_auto_reject", True) is not auto:
+            pwarns.append(f"警告：{tag}（{fid}）的 can_auto_reject={auto} 和种子库标注 {seed.get('can_auto_reject')} 不一致，确认理由")
+        if seed is not None and any(seed.get(k) != expected.get(k) for k in ("important", "urgent", "decision")):
+            pwarns.append(f"警告：{tag}（{fid}）的期望标签和种子库标注不一致（种子：重要{seed.get('important')} 紧急{seed.get('urgent')} "
+                          f"{seed.get('decision')}），确认理由")
+        if lists["matched_capabilities"]:
+            pwarns.append(f"警告：{tag}（{fid}）的 matched_capabilities 不会写进黄金集（golden-set-feedback.csv 没有“相关能力”这一列），"
+                          "这条样本不计入能力目录命中率")
+        row = {"golden_id": "", "feedback_id": fid, "input": item, "expected": dict(expected),
+               "acceptable_decisions": lists["acceptable_decisions"], "can_auto_reject": auto,
+               "reject_points": lists["reject_points"], "reply_points": lists["reply_points"],
+               "rationale": str(p.get("rationale") or ""), "dimensions": lists["dimensions"],
+               "case_type": p.get("case_type") if isinstance(p.get("case_type"), str) else "",
+               "matched_capabilities": lists["matched_capabilities"]}
         csv_row = G.to_feedback_rows([row])[0]
         csv_row.update({"golden_id": "", "操作": "新增", "备注": f"adlc-criteria：补 {p.get('criterion')}"})
         csv_rows.append(csv_row)
@@ -327,7 +387,10 @@ def proposals(draft: dict, crit_ids: set, golden: List[dict], feedback: List[dic
     if gerrs:
         raise CriteriaError("按 golden_tool.py 的规则试运行没通过：\n  " + "\n  ".join(gerrs[:10]))
     before = set(G.validate(golden, "binary", _catalog_ids())[1])
-    warns = [w for w in log if w.startswith("警告")] + [w for w in gwarns if w not in before]
+    warns = pwarns + [w for w in log if w.startswith("警告")] + [w for w in gwarns if w not in before]
+    added = sum(1 for w in log if w.startswith("新增 "))
+    if added != len(csv_rows):
+        raise CriteriaError(f"试运行只新增了 {added} 条（提议 {len(csv_rows)} 条）：\n  " + "\n  ".join(log))
     return summary, csv_rows, extra, warns
 
 
@@ -344,12 +407,44 @@ def applied_rows(draft: dict, crit_ids: set, golden: List[dict]) -> List[dict]:
         if not g:
             errors.append(f"golden_applied 第 {i} 条：黄金集里没有 {fid!r}（还没写入就放回 golden_proposals）")
             continue
-        if p.get("criterion") not in crit_ids:
+        if not isinstance(p.get("criterion"), str) or p.get("criterion") not in crit_ids:
             errors.append(f"golden_applied 第 {i} 条：criterion {p.get('criterion')!r} 不在判据表里")
         out.append({"criterion": p.get("criterion"), "feedback_id": fid, "golden_id": g.get("golden_id"),
                     "title": (g.get("input") or {}).get("title"), "labels": _labels(g), "version": g.get("version")})
     if errors:
         raise CriteriaError("已写入的黄金样本对不上：\n  " + "\n  ".join(errors))
+    return out
+
+
+def _yes_no(v) -> Optional[bool]:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return {"是": True, "否": False}.get(C.norm_yes_no(v) or "")
+    return None
+
+
+def _str_list(v, seps) -> Optional[List[str]]:
+    """A list of strings, or one string split like the CSV columns; None = wrong type."""
+    if v is None:
+        return []
+    if isinstance(v, str):
+        return C.split_list(v, seps)
+    if isinstance(v, list) and all(isinstance(x, str) for x in v):
+        return [x.strip() for x in v if x.strip()]
+    return None
+
+
+def _seed_index() -> dict:
+    """Seed / extra-feedback labels (_meta) by id and by (title, content)."""
+    seed = C.read_jsonl(C.POOL_PATH) if os.path.exists(C.POOL_PATH) else []
+    extra_path = os.path.join(C.templates_dir(), "extra-feedback.jsonl")
+    seed += C.read_jsonl(extra_path) if os.path.exists(extra_path) else []
+    out: dict = {}
+    for r in seed:
+        m = r.get("_meta") if isinstance(r.get("_meta"), dict) else None
+        if m:
+            out.setdefault((r.get("title"), r.get("content")), m)
     return out
 
 
@@ -368,6 +463,7 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
     golden = golden if golden is not None else golden_rows()
     feedback = feedback if feedback is not None else feedback_rows()
     fishbone = _read_json(d / "fishbone-data.json")
+    check_fishbone(fishbone)
     draft = _read_json(d / DRAFT)
     if not isinstance(draft, dict) or not isinstance(draft.get("criteria"), list):
         raise CriteriaError(f"{DRAFT} 要有 criteria 列表（先运行 criteria.py skeleton）")
@@ -379,15 +475,19 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
         if not isinstance(c, dict):
             errors.append("criteria 里每一项都要是对象")
             continue
-        cid = str(c.get("id") or "").strip()
+        e, w = check_rules(c, catalog)  # types first: an unhashable id must not crash the checks below
+        cid = c.get("id").strip() if isinstance(c.get("id"), str) else ""
+        oid = c.get("obstacle_id") if isinstance(c.get("obstacle_id"), str) else None
         if not cid or cid in seen_ids:
             errors.append(f"判据编号为空或重复：{cid!r}")
         seen_ids.add(cid)
-        oid = c.get("obstacle_id")
         if oid not in obs:
-            errors.append(f"{cid}：obstacle_id {oid!r} 不是鱼骨图里已确认的障碍（可选：{', '.join(obs) or '无'}）")
-        used[oid] += 1
-        e, w = check_rules(c, catalog)
+            errors.append(f"{cid}：obstacle_id {c.get('obstacle_id')!r} 不是鱼骨图里已确认的障碍（可选：{', '.join(obs) or '无'}）")
+        elif str(c.get("sticky_text") or "").strip() not in ("", obs[oid]["sticky_text"]):
+            errors.append(f"{cid}：{oid} 现在的便签是“{obs[oid]['sticky_text']}”，和草稿里的“{c.get('sticky_text')}”不一致："
+                          "鱼骨图改过，核对 obstacle_id（或 skeleton --force 重来）")
+        if oid is not None:
+            used[oid] += 1
         errors += e
         warns += w
         if e:
@@ -416,6 +516,9 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
     if errors:
         raise CriteriaError("判据草稿有问题，没有写入：\n  " + "\n  ".join(errors))
     applied = applied_rows(draft, {r["id"] for r in rows}, golden)
+    if draft.get("golden_proposals") and scenario_of(fishbone) != "lab":
+        raise CriteriaError("这是小组自己的场景（metadata.scenario 不是 lab）：实验的黄金集是需求分诊 Agent 的数据契约，"
+                            "不要往里补样本，把 golden_proposals 清空")
     summary, csv_rows, extra, pwarns = proposals(draft, {r["id"] for r in rows}, golden, feedback)
     warns += pwarns
     planned = Counter(p["criterion"] for p in summary)
@@ -456,15 +559,16 @@ def _rel(p: Path) -> str:
 
 def apply_steps(d: Path, n_extra: int) -> List[Dict[str, str]]:
     """The existing tools, in order: [{cmd, note}] (cmd empty = a manual edit described by note)."""
-    verify_cmd = f"python3 .claude/skills/adlc-criteria/scripts/criteria.py verify {_rel(d)}"
+    q = shlex.quote
+    verify_cmd = f"python3 .claude/skills/adlc-criteria/scripts/criteria.py verify {q(_rel(d))}"
     steps = []
     if n_extra:
         steps += [{"cmd": "", "note": h} for h in mock_params_hint(n_extra)]
         steps.append({"cmd": "python3 data/tools/generate_mock_data.py", "note": "重新生成上个月的需求反馈（第 2.4 步的工具）"})
-    steps += [{"cmd": verify_cmd, "note": "确认需求编号都在需求反馈里"},
-              {"cmd": f"python3 data/tools/golden_tool.py apply-feedback --feedback {_rel(d / PROPOSAL_CSV)} --dry-run",
+    steps += [{"cmd": verify_cmd + " --before-apply", "note": "确认需求编号都在需求反馈里"},
+              {"cmd": f"python3 data/tools/golden_tool.py apply-feedback --feedback {q(_rel(d / PROPOSAL_CSV))} --dry-run",
                "note": "试运行，看分布和警告"},
-              {"cmd": f"python3 data/tools/golden_tool.py apply-feedback --feedback {_rel(d / PROPOSAL_CSV)}",
+              {"cmd": f"python3 data/tools/golden_tool.py apply-feedback --feedback {q(_rel(d / PROPOSAL_CSV))}",
                "note": "写入黄金集（自动备份）"},
               {"cmd": "python3 data/tools/golden_tool.py freeze", "note": "冻结并同步到 evaluators/*/golden_set.json"},
               {"cmd": verify_cmd, "note": "确认已写入、已冻结、已同步"},
@@ -516,7 +620,8 @@ def render_md(doc: dict) -> str:
 
 
 # ---------------------------------------------------------------- verify (after applying)
-def verify(out_dir) -> Tuple[bool, List[str]]:
+def verify(out_dir, before_apply: bool = False) -> Tuple[bool, List[str]]:
+    """before_apply: only the feedback items must exist (ok before golden_tool.py apply-feedback has run)."""
     d = Path(out_dir)
     doc = _read_json(d / OUT_JSON)
     props = doc.get("golden_proposals") or []
@@ -530,7 +635,7 @@ def verify(out_dir) -> Tuple[bool, List[str]]:
         fid = p["feedback_id"]
         in_fb = fid in fb
         g = by_fid.get(fid)
-        ok = ok and in_fb and g is not None
+        ok = ok and in_fb and (before_apply or g is not None)
         lines.append(f"{'✅' if in_fb else '❌'} {fid} 在上个月的需求反馈里" + ("" if in_fb else "（新写的条目要先追加并运行 generate_mock_data.py）"))
         lines.append(f"{'✅' if g else '⏳'} {fid} 在黄金集里" + (f"：{g.get('golden_id')}（把它填进 {p['criterion']} 的 golden_ids 后重新 build）" if g else "（还没运行 apply-feedback）"))
     man = Path(C.GOLDEN_DIR) / "MANIFEST.json"
@@ -539,7 +644,7 @@ def verify(out_dir) -> Tuple[bool, List[str]]:
         frozen = json.loads(man.read_text(encoding="utf-8")).get("sha256") == hashlib.sha256(Path(C.GOLDEN_PATH).read_bytes()).hexdigest()
     except (OSError, ValueError):
         pass
-    ok = ok and frozen
+    ok = ok and (before_apply or frozen)
     lines.append(f"{'✅' if frozen else '⏳'} 黄金集已冻结（MANIFEST.json 与 golden_set.jsonl 一致）" + ("" if frozen else "：运行 golden_tool.py freeze"))
     synced = True
     for lam in ("adlc_label_accuracy", "adlc_reject_quality"):
@@ -549,7 +654,7 @@ def verify(out_dir) -> Tuple[bool, List[str]]:
         except (OSError, ValueError, AttributeError):
             ids = set()
         synced = synced and all(x["feedback_id"] in ids for x in props)
-    ok = ok and synced
+    ok = ok and (before_apply or synced)
     lines.append(f"{'✅' if synced else '⏳'} 已同步到 evaluators/*/golden_set.json" + ("" if synced else "（freeze 会自动同步）"))
     lines.append("👉 最后一步（本脚本查不到）：./30-create-evaluators.sh 重新部署评估器，新黄金集才在评估里生效"
                  + ("；B 版新增了需求反馈时还要 ./20-B-deploy-runtime.sh" if any(x["source"] == "extra" for x in props) else ""))
@@ -560,6 +665,7 @@ def verify(out_dir) -> Tuple[bool, List[str]]:
 def skeleton(out_dir, force: bool = False) -> Path:
     d = Path(out_dir)
     fishbone = _read_json(d / "fishbone-data.json")
+    check_fishbone(fishbone)
     obs = obstacles(fishbone)
     if not obs:
         raise CriteriaError("鱼骨图里没有已确认的障碍，没有可写的判据")
@@ -629,6 +735,7 @@ def main(argv=None) -> int:
     s.add_argument("out_dir")
     s = sub.add_parser("verify")
     s.add_argument("out_dir")
+    s.add_argument("--before-apply", action="store_true", help="写入黄金集之前：只检查需求编号都在需求反馈里")
     a = ap.parse_args(argv)
     try:
         if a.cmd == "catalog":
@@ -657,11 +764,14 @@ def main(argv=None) -> int:
                 print(f"   黄金样本提议 {len(doc['golden_proposals'])} 条（预览，未写入 data/）→ {_rel(d / PROPOSAL_CSV)}"
                       + (f"、{_rel(d / PROPOSAL_EXTRA)}" if (d / PROPOSAL_EXTRA).exists() else ""))
         elif a.cmd == "verify":
-            ok, lines = verify(a.out_dir)
+            ok, lines = verify(a.out_dir, a.before_apply)
             print("\n".join(lines))
             return 0 if ok else 1
     except CriteriaError as e:
         print(f"❌ {e}")
+        return 1
+    except (TypeError, ValueError, AttributeError, KeyError) as e:  # a malformed draft must end in a message
+        print(f"❌ 草稿或数据文件格式不对，没有写入（{type(e).__name__}: {e}）：按 SKILL.md 第 2 步的字段说明检查 {DRAFT}")
         return 1
     return 0
 

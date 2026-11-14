@@ -30,7 +30,7 @@ from typing import Dict, List, Optional, Tuple
 
 from labkit import config as labcfg
 from labkit.compare import load_css, topbar
-from labkit.data_pages import BEIJING, CSP, E, _CSP_META, external_refs
+from labkit.data_pages import BEIJING, CSP, E, _CSP_META, external_refs, shown as _shown, source_info
 
 ROOT = Path(labcfg.ROOT)
 GENERATOR = ROOT / ".claude" / "skills" / "adlc-fishbone" / "scripts" / "generate_fishbone.py"
@@ -86,6 +86,14 @@ class DefineError(RuntimeError):
     """The session directory cannot be rendered (missing / invalid file, generator check failed)."""
 
 
+class StaleCriteria(DefineError):
+    """criteria.json was built from another fishbone-data.json; the fishbone files are still publishable."""
+
+    def __init__(self, msg: str, files: list):
+        super().__init__(msg)
+        self.files = files
+
+
 # ---------------------------------------------------------------- helpers
 def _now(now: Optional[datetime]) -> str:
     return (now or datetime.now(timezone.utc)).astimezone(BEIJING).strftime("%Y-%m-%d %H:%M")
@@ -104,13 +112,17 @@ def _pill(text, cls: str) -> str:
 
 
 def sha12(path) -> str:
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:12]
+    return source_info(path)["sha"][:12]
 
 
 def session_slug(out_dir) -> str:
-    """The session directory name as one safe S3 key segment (letters incl. CJK, digits, '.', '_', '-')."""
-    s = re.sub(r"[^\w.-]+", "-", Path(out_dir).resolve().name).strip("-.")
-    return s or "session"
+    """The session directory name as one safe S3 key segment (letters incl. CJK, digits, '.', '_', '-').
+    A name that had to be changed gets a short hash of the original, so two sessions never share a key."""
+    name = Path(out_dir).resolve().name
+    s = re.sub(r"[^\w.-]+", "-", name).strip("-.")
+    if s != name or not s:
+        s = f"{s or 'session'}-{hashlib.sha256(name.encode('utf-8')).hexdigest()[:6]}"
+    return s
 
 
 def finish(page: str, label: str) -> str:
@@ -258,14 +270,6 @@ def render_criteria(doc: dict, src: dict, now: Optional[datetime] = None) -> str
 
 
 # ---------------------------------------------------------------- session directory
-def _shown(p: Path) -> str:
-    p = p.resolve()
-    try:
-        return str(p.relative_to(ROOT.resolve()))
-    except ValueError:
-        return str(p)
-
-
 def _generator():
     spec = importlib.util.spec_from_file_location("adlc_generate_fishbone", GENERATOR)
     if spec is None or spec.loader is None:
@@ -293,8 +297,12 @@ def build(out_dir, now: Optional[datetime] = None) -> List[Tuple[str, Path, str]
         raise DefineError(f"{_shown(d)} 里没有 fishbone-data.json：先用 adlc-fishbone skill 完成鱼骨图")
     data = _read_json(data_path, "鱼骨图")
     gen = _generator()
-    result = gen.generate_fishbone(data_path, gen.TEMPLATE_PATH, d / "fishbone.drawio")
-    gen.write_validation_report(result, d / "validation-report.txt")
+    try:
+        result = gen.generate_fishbone(data_path, gen.TEMPLATE_PATH, d / "fishbone.drawio")
+        gen.write_validation_report(result, d / "validation-report.txt")
+    except Exception as e:  # noqa: BLE001 - a malformed JSON must end in a message, never a traceback
+        raise DefineError(f"鱼骨图生成脚本出错（{type(e).__name__}: {e}），什么都没有上传；先运行 "
+                          f"generate_fishbone.py {_shown(d)} --check-json 查看") from e
     if not result["success"]:
         raise DefineError("鱼骨图校验没通过，什么都没有上传：\n   " + "\n   ".join(result["validation_errors"][:8])
                           + f"\n   详见 {_shown(d / 'validation-report.txt')}")
@@ -306,6 +314,13 @@ def build(out_dir, now: Optional[datetime] = None) -> List[Tuple[str, Path, str]
     crit_path = d / "criteria.json"
     if crit_path.is_file():
         doc = _read_json(crit_path, "判据表")
+        built_from = str(_dict(doc.get("source")).get("fishbone_sha256") or "")
+        if built_from != sha12(data_path):
+            stale = d / "criteria.html"
+            if stale.exists():
+                stale.unlink()  # never publish a criteria page built from an older fishbone
+            raise StaleCriteria(f"criteria.json 是按旧的鱼骨图生成的（{built_from or '?'} ≠ {sha12(data_path)}），判据表没有发布："
+                                f"重新运行 criteria.py build {_shown(d)} 后再发布", out)
         page = render_criteria(doc, {"path": _shown(crit_path), "sha": sha12(crit_path)}, now)
         (d / "criteria.html").write_text(page, encoding="utf-8")
         out.append(("判据表预览", d / "criteria.html", "text/html; charset=utf-8"))
@@ -318,8 +333,12 @@ def main(argv=None) -> int:
     ap.add_argument("out_dir", help="会话目录，例如 outputs/fishbone/<组名>-<日期>")
     ap.add_argument("--no-upload", action="store_true", help="只生成本地网页，不上传（不调用任何 AWS 接口）")
     a = ap.parse_args(argv)
+    rc = 0
     try:
         files = build(a.out_dir)
+    except StaleCriteria as e:
+        print(f"⚠️ {e}")
+        files, rc = e.files, 1
     except DefineError as e:
         print(f"❌ {e}")
         return 1
@@ -327,10 +346,10 @@ def main(argv=None) -> int:
         print(f"  ✅ {label} → {_shown(path)}")
     if a.no_upload:
         print("--no-upload：只写了本地文件，没有上传。EC2 上打不开这些文件；去掉 --no-upload 重跑即可上传到你的私有桶。")
-        return 0
+        return rc
     from labkit import publish as P  # boto3 only on the upload path
     prefix = f"reports/define/{session_slug(a.out_dir)}"
-    links, rc = [], 0
+    links = []
     for label, path, ctype in files:
         try:
             links.append((label, P.publish(str(path), key=f"{prefix}/{path.name}", content_type=ctype)))

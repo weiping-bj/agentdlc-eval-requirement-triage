@@ -188,7 +188,8 @@ mkdir -p outputs/fishbone && mkdir outputs/fishbone/<组名>-<YYYY-MM-DD>   # �
 }
 ```
 
-- `coverage` 只能是 `confirmed`（至少 1 条已确认障碍）、`explored_empty`（问过、对方确认为空）、`unresolved`（没问清楚）。
+- `coverage` 只能是 `confirmed`（至少 1 条已确认障碍）、`explored_empty`（问过、对方确认为空）、`unresolved`（没问清楚）；`barriers` / `coverage` 只用这六个键。
+- `confirmed` / `selected` 写 JSON 的 `true` / `false`（不要写 "是"、"false" 这类字符串）；改动便签后不要调换已有条目的顺序（判据环节按位置引用）。
 - `participants` 只写组名和人数，不写人名。`scenario` 为 `lab`（角色卡）或 `own`（自己的场景）。
 - 先校验：`python3 .claude/skills/adlc-fishbone/scripts/generate_fishbone.py outputs/fishbone/<目录> --check-json`
 
@@ -214,7 +215,7 @@ mkdir -p outputs/fishbone && mkdir outputs/fishbone/<组名>-<YYYY-MM-DD>   # �
 python3 .claude/skills/adlc-fishbone/scripts/generate_fishbone.py outputs/fishbone/<目录>
 ```
 
-退出码 0、`success: true` 才算完成；它写 `fishbone.drawio` 和 `validation-report.txt`（12 项检查各自的 PASS / FAIL）。
+退出码 0、`success: true` 才算完成；它写 `fishbone.drawio` 和 `validation-report.txt`（13 项检查各自的 PASS / FAIL；模板里两层旧版画布会从输出里去掉）。
 失败就按 `validation_errors` 改 JSON 后重跑，不要手改 drawio。便签过长会有 warning：拆短后重新确认。
 
 ### 第 6 步：预览（代替 PNG 导出）

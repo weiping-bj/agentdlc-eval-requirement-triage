@@ -126,7 +126,7 @@ def test_generate_fills_slots_clears_placeholders_and_reports_every_check(tmp_pa
                        capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stdout
     res = json.loads(r.stdout)
-    assert res["success"] and set(res["checks"].values()) == {"PASS"} and len(res["checks"]) == 12
+    assert res["success"] and set(res["checks"].values()) == {"PASS"} and len(res["checks"]) == 13
     root = ET.parse(str(d / "fishbone.drawio")).getroot()
     data = sample()
     for cid in GF.ALL_REQUIRED_IDS:
@@ -139,7 +139,19 @@ def test_generate_fills_slots_clears_placeholders_and_reports_every_check(tmp_pa
         vals = [_cell(root, cid).get("value", "") for cid in slots]
         assert [html.unescape(v) for v in vals[:len(sel)]] == sel and vals[len(sel):] == [""] * (3 - len(sel))
     report = (d / "validation-report.txt").read_text(encoding="utf-8")
-    assert "Overall: PASS" in report and report.count("[PASS]") == 12
+    assert "Overall: PASS" in report and report.count("[PASS]") == 13
+    ids = [c.get("id") for c in root.iter("mxCell")]  # the template's two stale layers are gone, nothing else
+    assert all(i in ("0", "1") or i.startswith(GF.CURRENT_LAYER_PREFIX) for i in ids)
+    assert len(ids) == len([i for i in ids if i.startswith(GF.CURRENT_LAYER_PREFIX)]) + 2
+    for c in root.iter("mxCell"):
+        assert not any(m in (c.get("value") or "") for m in GF.PLACEHOLDER_MARKS), c.get("id")
+
+
+def test_a_note_may_contain_placeholder_words(tmp_path):
+    data = sample()
+    data["barriers"]["cost"][0]["sticky_text"] = "表单里写着“请填写”，它就当成空值"
+    d = session(tmp_path, data)
+    assert GF.generate_fishbone(d / "fishbone-data.json", TEMPLATE, d / "fishbone.drawio")["success"]
 
 
 def test_untrusted_sticky_text_is_escaped_for_html_cells(tmp_path):
@@ -168,6 +180,13 @@ def test_untrusted_sticky_text_is_escaped_for_html_cells(tmp_path):
     (lambda d: d["barriers"]["cost"].append({"sticky_text": "x", "confirmed": False, "selected": True}), "confirmed"),
     (lambda d: d["barriers"]["cost"].append({"sticky_text": " ", "confirmed": True, "selected": True}), "confirmed"),
     (lambda d: d["barriers"]["cost"].extend({"sticky_text": f"c{i}", "confirmed": True, "selected": True} for i in range(3)), "max3"),
+    (lambda d: d["barriers"]["cost"][0].update(confirmed="false"), "json"),        # strings are not booleans
+    (lambda d: d["barriers"]["cost"][0].update(selected="yes"), "json"),
+    (lambda d: d["barriers"].update(security=[{"sticky_text": "x", "confirmed": True, "selected": True}]), "json"),
+    (lambda d: d["coverage"].update(security="confirmed"), "json"),
+    (lambda d: d.update(barriers=[{"sticky_text": "x"}]), "json"),
+    (lambda d: d["barriers"].update(other=5), "json"),
+    (lambda d: d["barriers"]["other"].append("x"), "json"),
 ])
 def test_invalid_json_fails_the_named_check_and_writes_no_drawio(tmp_path, mutate, check):
     data = sample()
@@ -245,6 +264,26 @@ def test_finish_refuses_a_page_that_loads_anything():
         DP.finish('<html><head><meta charset="utf-8">' + DP._CSP_META + '</head><body><img src="https://x/y.png"></body></html>', "x")
 
 
+def test_build_turns_a_generator_crash_into_a_message(tmp_path, monkeypatch):
+    d = session(tmp_path)
+    gen = DP._generator()
+    monkeypatch.setattr(DP, "_generator", lambda: type("G", (), {
+        "TEMPLATE_PATH": gen.TEMPLATE_PATH, "write_validation_report": gen.write_validation_report,
+        "generate_fishbone": staticmethod(lambda *a: (_ for _ in ()).throw(AttributeError("boom")))}))
+    with pytest.raises(DP.DefineError, match="AttributeError"):
+        DP.build(d)
+
+
+def test_criteria_built_from_an_older_fishbone_is_not_published(tmp_path, s3, capsys):
+    fake = s3()
+    d = session(tmp_path)
+    _with_criteria(d, stale=True)
+    assert DP.main([str(d)]) == 1
+    keys = [c[2] for c in fake.calls if c[0] == "upload_file"]
+    assert [k.rsplit("/", 1)[1] for k in keys] == ["fishbone.html", "fishbone.drawio"]
+    assert not (d / "criteria.html").exists() and "旧的鱼骨图" in capsys.readouterr().out
+
+
 def test_build_refuses_an_unapproved_fishbone_and_writes_nothing(tmp_path):
     d = session(tmp_path, sample(status="draft"))
     with pytest.raises(DP.DefineError, match="校验没通过"):
@@ -255,9 +294,11 @@ def test_build_refuses_an_unapproved_fishbone_and_writes_nothing(tmp_path):
 
 def test_session_slug_is_one_safe_key_segment(tmp_path):
     assert DP.session_slug(tmp_path / "第3组-2026-11-20") == "第3组-2026-11-20"
-    assert DP.session_slug(tmp_path / "a b?c#d") == "a-b-c-d"
-    assert DP.session_slug(tmp_path / "..") not in ("", ".", "..")
-    assert "/" not in DP.session_slug(tmp_path / "x" / "..")
+    a, b = DP.session_slug(tmp_path / "a b"), DP.session_slug(tmp_path / "a-b")
+    assert a != b and a.startswith("a-b-") and b == "a-b"  # a sanitized name never collides with a clean one
+    for weird in ("a b?c#d", "x/../y", "...", "$(id);x", "a\\b"):
+        slug = DP.session_slug(tmp_path / weird)
+        assert slug and "/" not in slug and slug not in (".", "..") and all(c.isalnum() or c in "._-" for c in slug)
 
 
 def test_no_upload_cli_needs_no_aws(tmp_path):
@@ -284,8 +325,10 @@ def s3(monkeypatch):
     return install
 
 
-def _with_criteria(d):
-    (d / "criteria.json").write_text(json.dumps(_criteria_doc(), ensure_ascii=False), encoding="utf-8")
+def _with_criteria(d, stale=False):
+    doc = _criteria_doc()
+    doc["source"] = {"fishbone_sha256": "0" * 12 if stale else DP.sha12(d / "fishbone-data.json")}
+    (d / "criteria.json").write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
 
 
 def test_publish_uploads_pages_and_drawio_under_reports_define_after_the_privacy_check(tmp_path, s3, capsys):
@@ -569,3 +612,147 @@ def test_proposals_apply_through_the_existing_tools(tmp_path):
     assert rc == 0 and "G31" in out and "./30-create-evaluators.sh" in out, out
     synced = json.loads((repo / "evaluators" / "adlc_label_accuracy" / "golden_set.json").read_text(encoding="utf-8"))
     assert synced["items"]["FB-2610-048"]["can_auto_reject"] is False and "FB-2610-061" in synced["items"]
+
+
+# ---------------------------------------------------------------- review round 1 regressions
+def _build_with(tmp_path, props=(), criteria=None, data=None):
+    d = session(tmp_path, data)
+    _draft(d, criteria if criteria is not None else ALL, props)
+    return d, CR.build(d)
+
+
+@pytest.mark.parametrize("value, ok", [("否", False), (False, False), ("是", None), ("maybe", None), (None, None)])
+def test_can_auto_reject_must_be_explicit_and_typed(tmp_path, value, ok):
+    p = dict(P048, can_auto_reject=value)
+    if value is None:
+        p.pop("can_auto_reject")
+    if ok is None:  # "是" is refused too: FB-2610-048 is a 功能缺陷
+        with pytest.raises(CR.CriteriaError, match="can_auto_reject|功能缺陷"):
+            _build_with(tmp_path, [p])
+        return
+    d, _ = _build_with(tmp_path, [p])
+    row = next(__import__("csv").DictReader((d / CR.PROPOSAL_CSV).open(encoding="utf-8-sig")))
+    assert row["可自动拒绝"] == "否"
+
+
+def test_string_lists_are_split_like_the_csv_and_bad_types_refused(tmp_path):
+    rej = dict(P048, feedback_id="FB-2610-008", can_auto_reject=True, case_type="应拒绝",
+               expected={"important": "否", "urgent": "否", "decision": "拒绝", "level": "P2"}, acceptable_decisions="拒绝",
+               reject_points="已支持多币种（CAP-018）；属于配置问题", reply_points="理解诉求；给出多币种设置入口；可安排客户成功经理协助")
+    d, doc = _build_with(tmp_path, [rej])
+    row = next(__import__("csv").DictReader((d / CR.PROPOSAL_CSV).open(encoding="utf-8-sig")))
+    assert row["拒绝要点"] == "已支持多币种（CAP-018）；属于配置问题" and row["可接受建议"] == "拒绝"
+    with pytest.raises(CR.CriteriaError, match="reject_points"):
+        _build_with(tmp_path / "b", [dict(rej, reject_points=[1, 2])])
+
+
+def test_matched_capabilities_are_flagged_as_not_stored(tmp_path):
+    _, doc = _build_with(tmp_path, [dict(P048, matched_capabilities=["CAP-003"])])
+    assert any("matched_capabilities 不会写进黄金集" in w for w in doc["warnings"])
+
+
+def test_duplicate_proposals_are_refused(tmp_path):
+    with pytest.raises(CR.CriteriaError, match="两次"):
+        _build_with(tmp_path, [P048, dict(P048)])
+
+
+def test_seed_disagreement_is_warned(tmp_path):
+    _, doc = _build_with(tmp_path, [dict(P048, expected=dict(P048["expected"], important="是"))])
+    assert any("和种子库标注不一致" in w for w in doc["warnings"])
+
+
+def test_red_line_cannot_use_a_builtin_judge():
+    errors, _ = CR.check_rules(crit(executor="内置评估器", checks=["builtin.correctness"]), CR.load_catalog())
+    assert any("判不成红线" in e for e in errors)
+
+
+def test_unapproved_fishbone_and_own_scenario(tmp_path):
+    with pytest.raises(CR.CriteriaError, match="还没被业务方最终确认"):
+        _build_with(tmp_path / "a", data=sample(status="draft"))
+    with pytest.raises(CR.CriteriaError, match="还没被业务方最终确认"):
+        d = session(tmp_path / "b", sample(status="draft"))
+        CR.skeleton(d)
+    own = sample()
+    own["metadata"]["scenario"] = "own"
+    _build_with(tmp_path / "c", data=own)  # criteria are fine for an own scenario ...
+    with pytest.raises(CR.CriteriaError, match="自己的场景"):  # ... golden additions are not
+        _build_with(tmp_path / "d", [P048], data=own)
+
+
+def test_a_changed_fishbone_is_caught_by_the_sticky_text(tmp_path):
+    bad = [dict(c) for c in ALL]
+    bad[0]["sticky_text"] = "鱼骨图改动前的另一条便签"
+    with pytest.raises(CR.CriteriaError, match="鱼骨图改过"):
+        _build_with(tmp_path, criteria=bad)
+    ok = [dict(c) for c in ALL]
+    ok[0]["sticky_text"] = sample()["barriers"]["responsibility"][0]["sticky_text"]
+    _build_with(tmp_path / "ok", criteria=ok)
+
+
+@pytest.mark.parametrize("over", [{"obstacle_id": ["responsibility-1"]}, {"golden_ids": "G06"}, {"text": ["Agent x"]},
+                                  {"checks": [{"id": "misreject"}]}, {"id": 7}])
+def test_malformed_criteria_fields_are_errors_not_crashes(tmp_path, over):
+    bad = [dict(ALL[0], **over)] + ALL[1:]
+    with pytest.raises(CR.CriteriaError):
+        _build_with(tmp_path, criteria=bad)
+
+
+@pytest.mark.parametrize("over", [{"expected": ["否"]}, {"criterion": ["C-01"]}, {"feedback_id": ["FB-2610-048"]}])
+def test_malformed_proposals_are_errors_not_crashes(tmp_path, over):
+    with pytest.raises(CR.CriteriaError):
+        _build_with(tmp_path, [dict(P048, **over)])
+
+
+def test_cli_never_shows_a_traceback(tmp_path):
+    d = session(tmp_path, sample(barriers={"other": 5}))
+    for args in (["skeleton", str(d)], ["build", str(d)]):
+        r = subprocess.run([sys.executable, str(CRIT_DIR / "scripts" / "criteria.py")] + args,
+                           capture_output=True, text=True, timeout=60)
+        assert r.returncode == 1 and "Traceback" not in r.stderr and "❌" in r.stdout, r.stderr
+
+
+def test_verify_before_apply_and_quoted_steps(tmp_path):
+    d, doc = _build_with(tmp_path, [P048])
+    steps = [s["cmd"] for s in doc["apply_steps"] if s["cmd"]]
+    assert steps[0].endswith(" --before-apply") and all("'" in s for s in steps if str(d.name) in s and " " in str(d))
+    ok, lines = CR.verify(d, before_apply=True)
+    assert ok and any("FB-2610-048 在上个月的需求反馈里" in x for x in lines)
+    assert CR.verify(d)[0] is False
+    q = CR.apply_steps(Path("/tmp/a b;$(id)"), 0)
+    assert all("$(id)" not in s["cmd"] or "'" in s["cmd"] for s in q)
+
+
+def test_coverage_map_names_real_pillars_observations():
+    sys.path.insert(0, str(ROOT / "evaluators" / "shared"))
+    import pillars  # noqa: E402
+    obs = pillars.build([pillars.new_item("FB-1", fields={"important": True})], ["important"])["observations"]
+    for key in ("capability_hit", "decisions", "format_error", "by_dimension", "by_case_type"):
+        assert key in obs, key
+    cat = CR.load_catalog()
+    assert "capability_hit" in cat["capability_hit"]["evaluator"] and "decisions" in cat["decision_mix"]["evaluator"]
+    assert cat["capability_hit"]["golden_requires"] == {"has_capabilities": True}
+    level, _, fixable, warns = CR.coverage(crit(tier="观测", threshold="只看趋势", checks=["capability_hit"], golden_ids=["G10"]),
+                                           cat, GOLDEN)  # G10 has no matched_capabilities
+    assert level == "部分覆盖" and fixable and warns
+
+
+def _py39():
+    for cand in (shutil.which("python3.9"), "/usr/bin/python3"):
+        if cand and os.path.exists(cand):
+            r = subprocess.run([cand, "-c", "import sys;print(sys.version_info[:2] == (3, 9))"], capture_output=True, text=True)
+            if r.stdout.strip() == "True":
+                return cand
+    return None
+
+
+@pytest.mark.skipif(_py39() is None, reason="no Python 3.9 interpreter (the EC2 system python) on this host")
+def test_scripts_run_on_python_3_9(tmp_path):
+    py = _py39()
+    d = session(tmp_path)
+    _draft(d, ALL, [P048])
+    env = dict(os.environ, PYTHONPATH=str(ROOT))
+    for args in ([str(FISH_DIR / "scripts" / "generate_fishbone.py"), str(d)],
+                 [str(CRIT_DIR / "scripts" / "criteria.py"), "build", str(d)],
+                 ["-m", "labkit.define_pages", str(d), "--no-upload"]):
+        r = subprocess.run([py] + args, capture_output=True, text=True, cwd=str(ROOT), env=env, timeout=120)
+        assert r.returncode == 0, (args, r.stdout[-500:], r.stderr[-800:])

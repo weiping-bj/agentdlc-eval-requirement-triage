@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "What the lab's existing evaluators and metrics already check. scripts/criteria.py maps each criterion's checks to 已覆盖 / 部分覆盖 / 未覆盖 from this file; tests/test_define_skills.py keeps it in sync with evaluators/ (red-flag texts, pillars observation keys, builtin evaluator ids).",
+  "about": "What the lab's existing evaluators and metrics already check. scripts/criteria.py maps each criterion's checks to 已覆盖 / 部分覆盖 / 未覆盖 from this file; tests/test_define_skills.py keeps it in sync with evaluators/ (red-flag texts, the pillars observation keys it names, builtin evaluator ids).",
   "executors": ["代码断言", "裁判", "内置评估器", "指标读数"],
   "tiers": ["红线", "门禁", "观测"],
   "checks": [
@@ -72,7 +72,7 @@
     {"id": "capability_hit", "name": "判断依据引用了相关能力（能力目录命中率）",
      "evaluator": "汇总报告（三大支柱的观测 capability_hit）", "field": "Agent 输出里出现黄金集 matched_capabilities 的能力编号",
      "executor": "代码断言", "tier": "观测", "threshold": "只看趋势",
-     "coverage": "covered", "needs_golden": true, "golden_requires": null, "assertable": true,
+     "coverage": "covered", "needs_golden": true, "golden_requires": {"has_capabilities": true}, "assertable": true,
      "where": "batch_score.py 报告；32-compare.sh 对比页"},
     {"id": "format", "name": "输出是约定的 JSON（三项标签都能解析）",
      "evaluator": "adlc_label_accuracy", "field": "label=FormatError（观测：格式错误率）",

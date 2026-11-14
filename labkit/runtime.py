@@ -230,7 +230,9 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     if a.cmd in (None, "deploy"):
         v = getattr(a, "version", None) or aws.cfg()["AGENT_VERSION"]
-        if not re.fullmatch(r"v\d{1,3}(?:-ref)?", v or "") or not (ROOT / "agent" / "adlc_agent" / "prompts" / f"{v}.md").is_file():
+        if not re.fullmatch(r"v[0-9]{1,3}(?:-ref)?", v or ""):
+            raise SystemExit(f"❌ 版本名 {v!r} 不对：只能是 v0、v1、v1-ref 这种形式（./50-switch-version.sh 切换）")
+        if not (ROOT / "agent" / "adlc_agent" / "prompts" / f"{v}.md").is_file():
             raise SystemExit(f"❌ 没有 agent/adlc_agent/prompts/{v}.md，不能部署这个版本。可用的版本用 ./50-switch-version.sh 切换"
                              "（v0、v1-ref；你自己的 v1 要先做第 5.2 步）")
     if a.cmd in (None, "deploy"):

@@ -96,7 +96,7 @@ def enable(mode: str) -> int:
     evaluators = [{"evaluatorId": ev[k]["evaluatorId"]} for k in ONLINE_EVALUATORS if k in ev]
     evaluators += [{"evaluatorId": b} for b in ONLINE_BUILTINS]
     name = config_name(mode)
-    role = role_arn()  # also refreshes an existing role's inline policy (e.g. to the model allowlist)
+    role = role_arn()  # on the lab EC2: the stack's pre-created role, as is; elsewhere: created/refreshed
     existing = find(name)
     if existing:
         cid = existing["onlineEvaluationConfigId"]
@@ -135,11 +135,12 @@ def enable(mode: str) -> int:
 
 def disable(mode: str) -> int:
     ctl = aws.client("bedrock-agentcore-control")
-    x = find(config_name(mode))
-    if not x:
+    found = [x for x in (find(config_name(mode)), find(legacy_name(mode))) if x]  # legacy: set up before the rename
+    if not found:
         print("ℹ️  没有找到在线评估配置，无需停用"); return 0
-    ctl.update_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"], executionStatus="DISABLED")
-    print(f"✅ 已停用 {config_name(mode)}（之后用 enable 重新启用）")
+    for x in found:
+        ctl.update_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"], executionStatus="DISABLED")
+        print(f"✅ 已停用 {x['onlineEvaluationConfigName']}（之后用 enable 重新启用）")
     return 0
 
 
@@ -151,6 +152,10 @@ def status() -> int:
                   f"status={x.get('status')} execution={x.get('executionStatus')}")
         else:
             print(f"{LABEL[m]}: 未创建")
+        old = find(legacy_name(m))
+        if old:
+            print(f"  ⚠️  还有改名前的旧配置 {old.get('onlineEvaluationConfigName')}（execution={old.get('executionStatus')}）："
+                  f"新旧两个都启用时每个 session 会被打两次分；./41-online-eval.sh disable 会一起停用，./99-cleanup.sh 会删除它")
     return 0
 
 

@@ -62,16 +62,10 @@ def _state(name: str):
 
 
 def configured_version() -> str:
-    """AGENT_VERSION that ./30-deploy-runtime.sh will deploy (config/local.env, else config/lab.env)."""
-    for f in (local_env_path(), ROOT / "config" / "lab.env"):
-        try:
-            for line in f.read_text(encoding="utf-8").splitlines():
-                k, _, v = line.strip().partition("=")
-                if k.strip().removeprefix("export ").strip() == "AGENT_VERSION" and v.strip():
-                    return v.strip().strip("\"'")
-        except OSError:
-            continue
-    return "v0"
+    """AGENT_VERSION that ./30-deploy-runtime.sh will deploy: resolved like labkit/config.py (files, then a
+    deliberate environment override), the same value runtime.py's --version default takes."""
+    from . import config as labcfg
+    return str(labcfg.load(require_suffix=False).get("AGENT_VERSION") or "v0")
 
 
 def plan(scheme: str, tolerance: int, golden: Path = GOLDEN, state=None) -> list:
@@ -126,7 +120,8 @@ def run(scheme: str, tolerance: int, dry_run: bool = False) -> int:
     print(f"✅ 标签方案已切换为 {label}。")
     if scheme == "level":
         print(f"   优先级怎么算对：{'完全一致' if tolerance == 0 else '相差不超过一级'}；门禁多一项“优先级准确率”。")
-    print(f"   Runtime 上现在是 Agent {configured_version()}；要换版本用 ./50-switch-version.sh <版本> 再 ./30-deploy-runtime.sh")
+    if _state("runtime"):
+        print(f"   Runtime 上现在是 Agent {configured_version()}；要换版本用 ./50-switch-version.sh <版本> 再 ./30-deploy-runtime.sh")
     print("   下一步：./42-run-golden.sh，等 2–3 分钟后 ./43-run-eval.sh（切换前的评估结果和切换后不可直接比较）")
     return 0
 

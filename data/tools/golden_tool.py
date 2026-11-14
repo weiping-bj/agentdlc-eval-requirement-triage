@@ -253,23 +253,16 @@ def cmd_freeze(a) -> int:
 
 
 def _lab_scheme() -> str:
-    """The lab's current label scheme: LABEL_SCHEME from the environment, else config/local.env, else config/lab.env
-    (ext-switch-label-scheme.sh writes it), so a bare `freeze` validates in the scheme the evaluators use."""
-    v = os.environ.get("LABEL_SCHEME", "")
-    if not v:
-        for name in ("local.env", "lab.env"):
-            path = os.path.join(C.REPO, "config", name)
-            try:
-                with open(path, encoding="utf-8") as f:
-                    for line in f:
-                        k, _, val = line.strip().partition("=")
-                        if k.strip().removeprefix("export ").strip() == "LABEL_SCHEME" and val.strip():
-                            v = val.strip().strip("\"'")
-                            break
-            except OSError:
-                continue
-            if v:
-                break
+    """The lab's current label scheme, resolved exactly like every lab script (labkit/config.py: lab.env <
+    local.env < a deliberate environment override; a value equal to its _ADLC_EXP_ snapshot is only an earlier
+    `source ./00-config.sh` and loses to the files), so a bare `freeze` validates in the scheme the evaluators use."""
+    try:
+        if C.REPO not in sys.path:
+            sys.path.insert(0, C.REPO)
+        from labkit import config as labcfg  # stdlib-only module, Python 3.9 compatible
+        v = str(labcfg.load(require_suffix=False).get("LABEL_SCHEME") or "")
+    except Exception:  # noqa: BLE001 - outside the lab repo layout: fall back to the default
+        v = os.environ.get("LABEL_SCHEME", "")
     v = v.strip().lower()
     return v if v in ("binary", "level") else "binary"
 

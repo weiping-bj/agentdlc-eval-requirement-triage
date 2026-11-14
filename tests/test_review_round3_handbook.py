@@ -17,7 +17,7 @@ def test_freeze_follows_the_active_label_scheme(tmp_path):
     Runs in a copy of data/ + evaluators/ + config/: freeze syncs into <repo>/evaluators, never the real tree."""
     import shutil
     ign = shutil.ignore_patterns("__pycache__", "tests", "history")
-    for d in ("data", "evaluators", "config"):
+    for d in ("data", "evaluators", "config", "labkit"):
         shutil.copytree(ROOT / d, tmp_path / d, ignore=ign)
     g = tmp_path / "data" / "golden" / "golden_set.jsonl"
     rows = [json.loads(x) for x in g.read_text(encoding="utf-8").splitlines() if x]
@@ -110,3 +110,76 @@ def test_label_switch_prints_each_step_before_running_it(monkeypatch, tmp_path, 
     monkeypatch.setattr(LS.subprocess, "call", lambda argv, cwd: seen.append((argv[-1], out.flushed)) or 0)
     assert LS.main(["level"]) == 0
     assert seen and all(f"$ " in flushed and cmd in flushed.splitlines()[-1] for cmd, flushed in seen), seen
+
+
+# ---------------------------------------------------------------- review round 2
+
+
+def test_freeze_scheme_follows_the_config_rules_after_sourcing_00_config(tmp_path, monkeypatch):
+    """R2-4: a shell that ran `source ./00-config.sh` exports LABEL_SCHEME with its _ADLC_EXP_ snapshot; after
+    ./ext-switch-label-scheme.sh rewrites config/local.env, labkit.config lets the file win. golden_tool must agree."""
+    sys.path.insert(0, str(ROOT / "data" / "tools"))
+    import importlib
+    import golden_tool as GT
+    importlib.reload(GT)
+    local = tmp_path / "local.env"
+    local.write_text("LABEL_SCHEME=binary\nLABEL_SCHEME=level\n", encoding="utf-8")   # last line wins, like config.load
+    monkeypatch.setenv("ADLC_LOCAL_ENV", str(local))
+    monkeypatch.setenv("LABEL_SCHEME", "binary")
+    monkeypatch.setenv("_ADLC_EXP_LABEL_SCHEME", "binary")                         # only our own earlier export
+    assert GT._lab_scheme() == "level"
+    monkeypatch.delenv("_ADLC_EXP_LABEL_SCHEME")                                    # a deliberate one-off override
+    assert GT._lab_scheme() == "binary"
+
+
+def test_label_switch_version_follows_the_config_rules(monkeypatch, tmp_path):
+    """R2-9: `AGENT_VERSION=v1-ref ./ext-switch-label-scheme.sh level` deploys v1-ref (runtime.py honours the env),
+    so the plan must name v1-ref, not the file's v0."""
+    from labkit import label_scheme as LS
+    local = tmp_path / "local.env"
+    local.write_text("AGENT_VERSION=v0\n", encoding="utf-8")
+    monkeypatch.setenv("ADLC_LOCAL_ENV", str(local))
+    monkeypatch.setenv("AGENT_VERSION", "v1-ref")
+    monkeypatch.delenv("_ADLC_EXP_AGENT_VERSION", raising=False)
+    assert LS.configured_version() == "v1-ref"
+    monkeypatch.setenv("_ADLC_EXP_AGENT_VERSION", "v1-ref")                        # stale export: the file wins
+    assert LS.configured_version() == "v0"
+
+
+def test_disable_and_status_also_see_legacy_online_configs(monkeypatch, tmp_path, capsys):
+    """R2-7: a lab set up before the rename still has <prefix>_online_b; disable must stop it and status must warn."""
+    from labkit import config as labcfg
+    monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "local.env")
+    monkeypatch.delenv("ADLC_LOCAL_ENV", raising=False)
+    monkeypatch.setenv("LAB_SUFFIX", "ws")
+    from labkit import aws, online
+    aws.cfg.cache_clear()
+    live = {"adlc_ws_online_b": {"onlineEvaluationConfigId": "old-b", "onlineEvaluationConfigName": "adlc_ws_online_b",
+                                 "executionStatus": "ENABLED"}}
+    calls = []
+
+    class Ctl:
+        def update_online_evaluation_config(self, **kw):
+            calls.append(kw)
+    monkeypatch.setattr(aws, "client", lambda name: Ctl())
+    monkeypatch.setattr(online, "find", lambda name: live.get(name))
+    assert online.disable("runtime") == 0
+    assert calls == [{"onlineEvaluationConfigId": "old-b", "executionStatus": "DISABLED"}]
+    assert online.status() == 0 and "改名前的旧配置 adlc_ws_online_b" in capsys.readouterr().out
+    aws.cfg.cache_clear()
+
+
+def test_deploy_rejects_non_ascii_or_traversal_versions(monkeypatch, tmp_path):
+    """R2-11: the version check is ASCII-only and says what is wrong with the name."""
+    from labkit import config as labcfg
+    monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "local.env")
+    monkeypatch.delenv("ADLC_LOCAL_ENV", raising=False)
+    monkeypatch.setenv("LAB_SUFFIX", "ws")
+    from labkit import aws, runtime
+    aws.cfg.cache_clear()
+    monkeypatch.setattr(runtime, "deploy", lambda v: pytest.fail("must not deploy"))
+    for bad in ("v١", "../v0", "v0/../../x"):
+        with pytest.raises(SystemExit) as e:
+            runtime.main(["deploy", "--version", bad])
+        assert "版本名" in str(e.value), bad
+    aws.cfg.cache_clear()

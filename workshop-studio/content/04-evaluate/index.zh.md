@@ -111,7 +111,7 @@ adlc_ws_reject_quality_llm                   adlc_ws_reject_quality_llm-uP6ENoG3
    CloudWatch 控制台 → GenAI Observability → Bedrock AgentCore → 你的 Agent → Evaluations
 ```
 
-数据源是 `aws/spans` 加 Runtime 的日志组，服务名 `adlc_ws_agent.DEFAULT`；采样 100%，session 空闲 2 分钟后开始打分；挂载 `label_accuracy` / `label_important` / `label_urgent` / `label_decision` / `reject_quality` 和 `Builtin.Helpfulness`：门禁和红线评估器与按需评估相同，只少了两个只作观测的（`reject_quality_llm`、`Builtin.Correctness`）。刚建好角色时可能先出现一两行“⏳ 等待 IAM 权限生效后重试”，脚本会自动重试。查看状态：`./41-online-eval.sh status`。
+数据源是 `aws/spans` 加 Runtime 的日志组，服务名 `adlc_ws_agent.DEFAULT`；采样 100%，session 空闲 2 分钟后开始打分；挂载 `label_accuracy` / `label_important` / `label_urgent` / `label_decision` / `reject_quality` 和 `Builtin.Helpfulness`：门禁和红线评估器与按需评估相同，只少了两个只作观测的（`reject_quality_llm`、`Builtin.Correctness`）。偶尔会先出现一两行“⏳ 等待 IAM 权限生效后重试”，脚本会自动重试。查看状态：`./41-online-eval.sh status`。
 
 ## 4.4 让 V0 跑一遍黄金集 {#s-4-4}
 
@@ -194,7 +194,7 @@ trace 写进 CloudWatch 有延迟。跑完 4.4 后先等 2–3 分钟再评估�
 
 这三层就是第 2.3 步判据表里的三档。但要分清**签字的判据**和**本实验自动执行的规则**：结论固定由上表的 2 类红线 + 4 个门禁决定，阈值是 `config/lab.env` 的 `TARGET_ACCURACY`（70%）。判据表里的其它门禁（成本、性能、待评估占比这类指标读数），以及签字时改过的阈值，**不会自动进结论**：它们要么在第 6 章人工对一眼，要么是将来要接上的评估器。规则代码在 `evaluators/shared/pillars.py`（终端结论、对比页共用）。
 
-**在控制台看同样的分数**：**CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。在线评估在 session 空闲 2 分钟后才开始打分，分数大约在 4.4 跑完后 10–15 分钟才陆续出现。图表和平均分按 **session 的时间**画，但所选时间范围里必须已经写入过分数，否则只显示“没有可显示的评估配置”；所以时间范围要从 4.4 开始之前一直选到打分完成之后，最简单的是等 15 分钟后选“过去 1 小时”。能看到每个评估器的平均分、分布，以及每个 session 的得分与解释。平均分卡片是“每分钟平均分”的平均，不按条数加权，所以会和 4.5 的数字差几个百分点。
+**在控制台看同样的分数**：**CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。在线评估在 session 空闲 2 分钟后才开始打分，分数大约在 4.4 跑完后 10–15 分钟才陆续出现。图表和平均分按 **session 的时间**画，但所选时间范围里必须已经写入过分数，否则只显示“没有可显示的评估配置”；所以时间范围要从 4.4 开始之前一直选到打分完成之后，最简单的是等 15 分钟后选“过去 1 小时”。能看到每个评估器的平均分、分布，以及每个 session 的得分与解释。平均分卡片是“每分钟平均分”的平均，不按条数加权：哪一分钟只有一两个 session，它们的分数就被放大，所以卡片可能和 4.5 差十几个百分点（实测 V1 参考版“是否重要”卡片 0.73，4.5 的准确率 87%）。发布结论以 4.5 的按需评估为准，控制台用来看分布和持续观测。
 
 :image[CloudWatch GenAI Observability 里 adlc_ws_agent 的 Evaluations 页签：各评估器的平均分和分布]{src="/static/images/04-online-eval-tab.png" width=900}
 

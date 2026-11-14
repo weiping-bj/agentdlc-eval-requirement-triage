@@ -11,13 +11,16 @@ weight: 50
 
 ## E5.1 先预览 {#e5-1}
 
+新口径下要重新跑一次 **V0 基线**（尺子换了，旧基线作废），所以先把版本切回 V0（只改配置，下一步的切换命令会按它重新部署 Runtime，一次部署就够了），再预览：
+
 ```bash
+./50-switch-version.sh v0
 ./ext-switch-label-scheme.sh level --dry-run
 ```
 
 优先级怎么算对有两种：`--tolerance 0`（默认，完全一致才算对）或 `--tolerance 1`（相差不超过一级也算对）。
 
-**预期输出**（实验里已经部署过 Runtime、注册过评估器、开启过在线评估时，共 5 步；黄金集每条都已有优先级，所以不需要补）：
+**预期输出**（做完第 6 章、线上是 V1 参考版时，共 5 步；黄金集每条都已有优先级，所以不需要补；第 4 步会提醒线上版本和配置里的不同）：
 
 ```
 ▶ 切换标签方案 → P0/P1/P2 分级（5 步，只预览）
@@ -26,7 +29,7 @@ weight: 50
         $ python3 data/tools/golden_tool.py --scheme level freeze
   [3/5] 评估器：重新部署 Lambda 并注册（分级口径多一个 label_level）
         $ ./40-create-evaluators.sh
-  [4/5] 提示词：重新部署 Runtime（环境变量 ADLC_LABEL_SCHEME 决定是否要求输出 level）
+  [4/5] 提示词：重新部署 Runtime，Agent 版本 v0（环境变量 ADLC_LABEL_SCHEME 决定是否要求输出 level；注意：线上现在是 v1-ref，这一步会部署配置里的 v0）
         $ ./30-deploy-runtime.sh
   [5/5] 门禁：用新的评估器列表重新启用在线评估（runtime）
         $ ./41-online-eval.sh enable
@@ -43,10 +46,7 @@ weight: 50
 
 ## E5.2 切换 {#e5-2}
 
-新口径下要重新跑一次 **V0 基线**（尺子换了，旧基线作废）。先把版本切回 V0（只改配置），再运行切换命令（它会按当前配置重新部署 Runtime，这样一次部署就够了）：
-
 ```bash
-./50-switch-version.sh v0
 ./ext-switch-label-scheme.sh level
 ```
 

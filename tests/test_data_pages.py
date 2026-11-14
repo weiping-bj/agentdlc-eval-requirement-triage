@@ -475,7 +475,7 @@ def test_upload_is_refused_when_the_bucket_is_not_provably_ours_and_private(tmp_
     out = capsys.readouterr().out
     assert not [c for c in fake.calls if c[0] in ("upload_file", "put_public_access_block")]
     assert "未上传" in out and _names(fake).count("get_public_access_block") == 1  # stops at the first page
-    with pytest.raises(P.NotPrivateError):  # the same guard for 32-compare.sh / 34-triage-report.sh
+    with pytest.raises(P.NotPrivateError):  # the same guard for 51-compare.sh / 60-triage-report.sh
         P.publish(str(tmp_path / FILES["catalog"]))
 
 
@@ -495,7 +495,7 @@ def test_one_failed_upload_is_reported_and_the_rest_still_go(tmp_path, s3, capsy
 
 
 def test_publish_cli_exits_1_when_the_bucket_is_not_private(tmp_path):
-    """`python -m labkit.publish` (32-compare.sh, 34-triage-report.sh): a refused upload fails the script, not a traceback."""
+    """`python -m labkit.publish` (51-compare.sh, 60-triage-report.sh): a refused upload fails the script, not a traceback."""
     page = tmp_path / "x.html"
     page.write_text("<p>x</p>", encoding="utf-8")
     code = ("import sys, runpy; sys.argv=['labkit.publish', %r]\n"

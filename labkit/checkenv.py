@@ -1,4 +1,4 @@
-"""01-check-env: verify tools, identity, config and Bedrock model access."""
+"""10-check-env: verify tools, identity, config and Bedrock model access."""
 from __future__ import annotations
 
 import importlib.metadata as md
@@ -87,15 +87,15 @@ def main() -> int:
         if d.get("Destination") == "CloudWatchLogs" and d.get("Status") == "ACTIVE":
             ok("已开启（trace 写入 CloudWatch Logs 的 aws/spans）")
         else:
-            print(f"  ⚠️  未开启（当前 {d.get('Destination')}/{d.get('Status')}）→ 运行 ./02-enable-observability.sh")
+            print(f"  ⚠️  未开启（当前 {d.get('Destination')}/{d.get('Status')}）→ 运行 ./11-enable-observability.sh")
     except Exception as e:  # noqa: BLE001
         print(f"  ⚠️  无法查询 Transaction Search 状态: {e}")
 
     print()
     if failed:
-        print(f"❌ 有 {failed} 项检查未通过，请按提示处理后重跑 ./01-check-env.sh")
+        print(f"❌ 有 {failed} 项检查未通过，请按提示处理后重跑 ./10-check-env.sh")
         return 1
-    print("✅ 环境检查通过。下一步：./02-enable-observability.sh（每个账号/区域只需一次）")
+    print("✅ 环境检查通过。下一步：./11-enable-observability.sh（每个账号/区域只需一次）")
     return 0
 
 

@@ -372,7 +372,7 @@ def apply_feedback(rows: List[Dict[str, Any]], fb_rows: List[Dict[str, str]], ve
         for w in _apply_fields(row, base):
             log.append(f"警告：CSV 第 {n} 行（新增 {gid}）：{w}")
         if unknown_fid and str(fid).upper().startswith("CUST-"):
-            log.append(f"警告：CSV 第 {n} 行（新增 {gid}）：{fid} 看起来是客户数据（2.3 生成的编号）。"
+            log.append(f"警告：CSV 第 {n} 行（新增 {gid}）：{fid} 看起来是客户数据的编号。"
                        f"黄金集会公开发布，不要写入客户的真实需求")
         elif unknown_fid and not (base["input"].get("title") or base["input"].get("content")):
             log.append(f"警告：CSV 第 {n} 行（新增 {gid}）：需求池里找不到 feedback_id {fid}，这一行也没写标题和需求描述，"

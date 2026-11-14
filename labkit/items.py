@@ -26,7 +26,7 @@ def golden_path() -> Path:
 
 
 def feedback_path() -> Path:
-    """Last month's feedback pool; ADLC_DATA_DIR (customer data, see data/tools/ingest_customer_data.py)
+    """Last month's feedback pool; ADLC_DATA_DIR (another data directory, e.g. a later scenario pack)
     wins over the shipped mock data."""
     import os
     d = os.environ.get("ADLC_DATA_DIR")

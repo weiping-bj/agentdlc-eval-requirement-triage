@@ -53,8 +53,20 @@ pillars = _load_pillars()
 
 SEED_POOL = "data/tools/seed/pool.jsonl"  # last-resort source of titles when data files are absent
 NA_LABELS = {"skipped", "不适用", "not applicable", "notapplicable", "not_applicable", "n/a", "na"}
-PATHS = {"local": ("A", "A 版 · mock agent（EC2 上运行，ADOT 埋点）"), "runtime": ("B", "B 版 · AgentCore Runtime"),
-         "imported": ("A", "导入的日志（11-A-convert-logs.sh）"), "own": ("A", "自带 Agent（手动登记的运行）")}
+# run mode -> (short tag, long label): where the agent ran / where the data came from
+PATHS = {"runtime": ("Runtime", "AgentCore Runtime"), "local": ("自托管", "EC2 上自托管的 mock agent（ADOT 埋点）"),
+         "imported": ("日志导入", "导入的日志（ext-convert-logs.sh）"), "own": ("自带 Agent", "自带 Agent（手动登记的运行）")}
+VERSION_RE = r"v\d{1,3}(?:-ref)?"   # v0, v1 (the participant's), v1-ref (V1 参考版), v2 ...
+
+
+def version_label(version) -> str:
+    """Display name of an agent version: v1-ref -> "V1 参考版", v1 -> "V1"; anything else upper-cased."""
+    v = str(version or "").strip()
+    if not v:
+        return "?"
+    if v.lower().endswith("-ref") and re.fullmatch(VERSION_RE, v.lower()):
+        return f"{v[:-4].upper()} 参考版"
+    return v.upper()
 
 FALLBACK_CSS = (
     "body{margin:0;background:#f4f6f9;color:#1f2933;font:14px/1.7 -apple-system,'PingFang SC','Microsoft YaHei',sans-serif}"
@@ -458,7 +470,7 @@ class EvalRun:
         stem = self.path.stem
         self.run_id = str(self.run.get("run_id") or (stem[5:] if stem.startswith("eval-") else stem))
         self.version = str(self.run.get("version") or "").strip()
-        self.vlabel = self.version.upper() if self.version else "?"
+        self.vlabel = version_label(self.version)
         self.evaluators = {str(k): str(v) for k, v in as_dict(self.data.get("evaluators")).items()}
 
     @classmethod
@@ -648,7 +660,7 @@ def _run_box(ev: EvalRun, role: str) -> str:
     count = r.get("count") if r.get("count") not in (None, "") else (len(ev.sessions) or "—")
     rows = [
         ("run_id", f'<span class="mono">{esc(ev.run_id)}</span>'),
-        ("路线", esc(plabel)),
+        ("运行位置", esc(plabel)),
         ("模型", f'<span class="mono">{esc(r.get("model") or "—")}</span>'),
         ("数据集", esc(f"{r.get('source') or '—'} · {count} 条")),
         ("运行时间", esc(fmt_time(r.get("created")))),
@@ -657,7 +669,7 @@ def _run_box(ev: EvalRun, role: str) -> str:
         ("Agent 错误", esc(f"{ev.agent_errors()} 条")),
     ]
     trs = "".join(f"<tr><td>{esc(k)}</td><td>{v}</td></tr>" for k, v in rows)
-    return (f'<div class="runbox"><h3>{esc(role)} · {esc(ev.vlabel)} {pill("路线 " + letter, "p" if letter == "A" else "o")}</h3>'
+    return (f'<div class="runbox"><h3>{esc(role)} · {esc(ev.vlabel)} {pill(letter, "o" if letter == "Runtime" else "p")}</h3>'
             f"<table>{trs}</table></div>")
 
 
@@ -1120,13 +1132,12 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
 def pick_default() -> tuple:
     evals = [e for e in load_state_list("evals") if e.get("file")]
     if len(evals) < 2:
-        raise SystemExit("❌ .lab-state/evals.json 里不足两次评估记录：先对 V0 和 V1 各运行一次 ./31-run-eval.sh，"
+        raise SystemExit("❌ .lab-state/evals.json 里不足两次评估记录：先对 V0 和 V1 各运行一次 ./43-run-eval.sh，"
                          "或用 --before / --after 指定两个 eval JSON")
     # after = the latest non-v0 evaluation; before = the latest v0 evaluation of the same
-    # path (mode) that happened before it -> re-runs of V0 never pair with a stale baseline
+    # mode (where the agent ran) that happened before it -> re-runs of V0 never pair with a stale baseline
     ver = lambda e: str(e.get("version") or "").lower()  # noqa: E731
-    import re as _re
-    after = next((e for e in reversed(evals) if _re.fullmatch(r"v\d+", ver(e)) and ver(e) != "v0"
+    after = next((e for e in reversed(evals) if re.fullmatch(VERSION_RE, ver(e)) and ver(e) != "v0"
                   and e.get("mode") != "imported"), None)
     before = None
     if after is not None:
@@ -1136,14 +1147,14 @@ def pick_default() -> tuple:
     if before is None or after is None:
         before, after = evals[-2], evals[-1]
     if before.get("mode") != after.get("mode"):
-        print(f"⚠️  优化前后来自不同路线（{before.get('mode')} vs {after.get('mode')}），对比仅供参考；"
-              "可用 --before/--after 指定同一路线的两次评估", file=sys.stderr)
+        print(f"⚠️  优化前后的 Agent 运行位置不同（{before.get('mode')} vs {after.get('mode')}），对比仅供参考；"
+              "可用 --before/--after 指定同一运行位置的两次评估", file=sys.stderr)
     return root() / str(before["file"]), root() / str(after["file"])
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m labkit.compare", description="生成 V0 vs V1 评估对比页（自包含静态 HTML）")
-    ap.add_argument("--before", help="优化前的 eval JSON 路径或 run_id（默认：同一路线、在“优化后”之前最近一次的 v0）")
+    ap.add_argument("--before", help="优化前的 eval JSON 路径或 run_id（默认：同一运行位置、在“优化后”之前最近一次的 v0）")
     ap.add_argument("--after", help="优化后的 eval JSON 路径或 run_id（默认：evals.json 中最新的非 v0 版本）")
     ap.add_argument("--out", help="输出 HTML（默认：results/compare-<before>-vs-<after>.html）")
     a = ap.parse_args(argv)

@@ -1,9 +1,9 @@
 {
   "run": {
-    "run_id": "B-v1-20261105T150000Z",
+    "run_id": "runtime-v1-ref-20261105T150000Z",
     "file": "results/run-B-v1-20261105T150000Z.jsonl",
     "mode": "runtime",
-    "version": "v1",
+    "version": "v1-ref",
     "model": "us.anthropic.claude-sonnet-5-5",
     "source": "golden",
     "count": 30,

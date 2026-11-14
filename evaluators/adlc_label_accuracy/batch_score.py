@@ -5,7 +5,7 @@
     python3 evaluators/adlc_label_accuracy/batch_score.py --results results/v0.jsonl --report-md results/v0-score.md
     # 用从 CloudWatch 导出的 spans（JSON 数组 / JSONL / {"sessionSpans": [...]}），按 trace 拆分
     python3 evaluators/adlc_label_accuracy/batch_score.py --spans results/v0-spans.json
-    # 带上 31-run-eval.sh 已有的话术评审结果（不重新调用评审模型），三大支柱才完整
+    # 带上 43-run-eval.sh 已有的话术评审结果（不重新调用评审模型），三大支柱才完整
     python3 evaluators/adlc_label_accuracy/batch_score.py --results results/run-A-v1-....jsonl --reject-eval results/eval-A-v1-....json
     # 只看分布（不打分，例如跑完 60 条全量输入后）
     python3 evaluators/adlc_label_accuracy/batch_score.py --results results/all.jsonl --distribution-only
@@ -267,7 +267,7 @@ def pillars_md(p: dict, reject_hint: str = "") -> list:
 def report_md(res: dict, title: str) -> str:
     L = [f"# {title}", ""]
     if "accuracy" in res:
-        hint = "" if res.get("reject_quality_source") else "本地打分不调用评审模型：用 --reject-eval 传入 31-run-eval.sh 的评估结果"
+        hint = "" if res.get("reject_quality_source") else "本地打分不调用评审模型：用 --reject-eval 传入 43-run-eval.sh 的评估结果"
         L += pillars_md(res["pillars"], hint)
         L += ["", f"黄金集 {res['n_items']} 条，有输出 {res['n_scored']} 条，无输出 {res['n_missing_output']} 条（无输出按三项全错计）。"]
         L += [f"- 标签门禁平均：{_pct(res['overall_accuracy'])}；严重错误（误拒不可自动拒绝的需求）："
@@ -307,7 +307,7 @@ def main(argv=None) -> int:
     ap.add_argument("--target", type=float, default=None)
     ap.add_argument("--scheme", choices=["binary", "level"], default=os.environ.get("ADLC_LABEL_SCHEME", "binary"))
     ap.add_argument("--level-tolerance", type=int, default=int(os.environ.get("ADLC_LEVEL_TOLERANCE", "0")))
-    ap.add_argument("--reject-eval", help="31-run-eval.sh 的 results/eval-<run_id>.json：读取其中已有的 reject_quality 结果"
+    ap.add_argument("--reject-eval", help="43-run-eval.sh 的 results/eval-<run_id>.json：读取其中已有的 reject_quality 结果"
                                           "（不重新调用评审模型），补全话术红线和话术门禁")
     ap.add_argument("--distribution-only", action="store_true")
     ap.add_argument("--out-json")

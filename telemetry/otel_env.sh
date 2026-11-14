@@ -3,7 +3,7 @@
 # A 版：让“不在 AgentCore Runtime 上”的 Agent 通过 ADOT 把 trace 发到 CloudWatch。
 # 用法（先 source ./00-config.sh）：
 #   source telemetry/otel_env.sh                 # 实验默认的服务名/日志组（推荐；自带 Agent 也用它）
-#   source telemetry/otel_env.sh <服务名> <日志组>  # 自定义名字：在线评估（33-online-eval.sh --path a）不会给它打分
+#   source telemetry/otel_env.sh <服务名> <日志组>  # 自定义名字：在线评估（41-online-eval.sh --path a）不会给它打分
 #   opentelemetry-instrument python your_agent.py
 # 自带 Agent 接入：docs/own-agent-guide.html
 # 参考：AgentCore 开发者指南 “Add observability to agents hosted outside AgentCore Runtime”

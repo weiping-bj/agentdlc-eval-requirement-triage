@@ -8,7 +8,6 @@
 
 | 提示词 | 什么时候用 | 读取的模板 |
 |------|------|------|
-| [01-assess-customer-data.md](01-assess-customer-data.md) | 客户带来了自己的需求数据 | 客户文件 + `column-mapping.example.json` |
 | [02-regenerate-mock-data.md](02-regenerate-mock-data.md) | 讨论后要调整 mock 数据 | `mock-data-params.yaml`、`discussion-feedback.md` 第 5 节 |
 | [03-update-golden-set.md](03-update-golden-set.md) | 讨论后要调整黄金集（最常用） | `discussion-feedback.md` 第 1、2、4 节、`golden-set-feedback.csv` |
 | [04-update-capability-catalog.md](04-update-capability-catalog.md) | 补充或纠正平台能力目录 | `discussion-feedback.md` 第 3 节 |

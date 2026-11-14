@@ -21,8 +21,8 @@
 <div class="step" id="s-a3-1">
   <div class="step-head"><span class="num">A3.1</span><h3>先不带遥测跑一次 Agent</h3><span class="time">3 分钟</span></div>
   <p class="why">确认 Agent 本身能正常工作，排除和埋点无关的问题。</p>
-<pre><code>./10-A-run-local.sh smoke</code></pre>
-  <p class="where">脚本：<a data-repo="10-A-run-local.sh">10-A-run-local.sh</a> → <a data-repo="labkit/batch.py">labkit/batch.py</a>（逐条调用 Agent，结果写到 <code>results/</code>）</p>
+<pre><code>./ext-local-agent.sh smoke</code></pre>
+  <p class="where">脚本：<a data-repo="ext-local-agent.sh">ext-local-agent.sh</a> → <a data-repo="labkit/batch.py">labkit/batch.py</a>（逐条调用 Agent，结果写到 <code>results/</code>）</p>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">▶ 运行 1 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 1
   [ 1/1] FB-2610-001       11.9s  重要=是 紧急=否 建议=迭代
@@ -62,14 +62,14 @@ Version: 1.x.x</pre></div>
     <tr><td><code>OTEL_RESOURCE_ATTRIBUTES</code></td><td><code>service.name</code> = 控制台里显示的 Agent 名；<code>aws.log.group.names</code> = 关联的日志组</td></tr>
     <tr><td><code>OTEL_EXPORTER_OTLP_LOGS_HEADERS</code></td><td>模型输入 / 输出事件写到哪个日志组、哪个日志流</td></tr>
   </table>
-  <div class="note"><b>关键点：</b><code>service.name</code> 和日志组就是控制台里显示的 Agent 名，也是 <a href="06-evaluators.html#s-6-5">6.5</a> 在线评估筛选数据的条件（<a data-repo="labkit/online.py">labkit/online.py</a> 用 <code>LOCAL_SERVICE_NAME</code> / <code>LOCAL_LOG_GROUP</code>），所以这里用默认名，不要改。日志组要先存在：<code>./10-A-run-local.sh trace</code> / <code>golden</code> 会先创建它（<a data-repo="labkit/loggroup.py">labkit/loggroup.py</a>）。自带 Agent 为什么也不要改名，见 <a href="own-agent-guide.html#s-g-4">指南 G.4</a>。</div>
+  <div class="note"><b>关键点：</b><code>service.name</code> 和日志组就是控制台里显示的 Agent 名，也是 <a href="06-evaluators.html#s-6-5">6.5</a> 在线评估筛选数据的条件（<a data-repo="labkit/online.py">labkit/online.py</a> 用 <code>LOCAL_SERVICE_NAME</code> / <code>LOCAL_LOG_GROUP</code>），所以这里用默认名，不要改。日志组要先存在：<code>./ext-local-agent.sh trace</code> / <code>golden</code> 会先创建它（<a data-repo="labkit/loggroup.py">labkit/loggroup.py</a>）。自带 Agent 为什么也不要改名，见 <a href="own-agent-guide.html#s-g-4">指南 G.4</a>。</div>
 </div>
 
 <div class="step" id="s-a3-4">
   <div class="step-head"><span class="num">A3.4</span><h3>关键代码讲解：环境变量、session.id、最终输出</h3><span class="time">5 分钟</span></div>
   <p class="why">看 mock agent 怎样满足评估的要求：每个 span 带 session.id、一条需求一个 trace、能拿到最终输出。这一步只看不改，也不需要运行。</p>
-  <p><b>① 环境变量（A3.3）在启动前设置。</b><a data-repo="10-A-run-local.sh">10-A-run-local.sh</a> 先建日志组、设置环境变量，再用 <code>opentelemetry-instrument</code> 启动批量脚本，ADOT 就在这个进程里工作：</p>
-<pre class="out" data-src="10-A-run-local.sh">"${_ADLC_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
+  <p><b>① 环境变量（A3.3）在启动前设置。</b><a data-repo="ext-local-agent.sh">ext-local-agent.sh</a> 先建日志组、设置环境变量，再用 <code>opentelemetry-instrument</code> 启动批量脚本，ADOT 就在这个进程里工作：</p>
+<pre class="out" data-src="ext-local-agent.sh">"${_ADLC_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
 source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"
 …
 exec "$OTEL_BIN" "${_ADLC_PY}" -m labkit.batch --mode local --limit "$N" "$@"</pre>
@@ -97,7 +97,7 @@ finally:
 <div class="step" id="s-a3-5">
   <div class="step-head"><span class="num">A3.5</span><h3>带遥测发送 3 条需求</h3><span class="time">3 分钟</span></div>
   <p class="why">先发少量数据确认链路通了；完整黄金集在第 7 章跑（要先注册评估器、开启在线评估）。</p>
-<pre><code>./10-A-run-local.sh trace 3</code></pre>
+<pre><code>./ext-local-agent.sh trace 3</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/adlc-zhang3-local-agent
 📡 OTel 已配置：service.name=adlc-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/adlc-zhang3-local-agent · 区域 us-west-2
@@ -109,7 +109,7 @@ finally:
   [ 2/3] FB-2610-002       24.2s  重要=是 紧急=否 建议=待评估
   [ 3/3] FB-2610-003       11.1s  重要=是 紧急=是 建议=迭代
 ✅ 完成：3 条，用时 25s，失败 0 条 → results/run-A-v0-20261105T135653Z.jsonl
-   run_id = A-v0-20261105T135653Z</pre>
+   run_id = local-v0-20261105T135653Z</pre>
   <div class="tip">中间几行 <code>WARNING</code> / <code>INFO</code> 是 OpenTelemetry 自己的提示，<b>属于正常现象，可以忽略</b>。只要最后一行是 <code>✅ 完成</code> 就说明数据已经发出。</div></div>
   <div class="warn">trace 进入 CloudWatch 有 <b>1–3 分钟</b>延迟。等两三分钟再做 A3.6 / A5。</div>
 </div>

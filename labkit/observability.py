@@ -1,4 +1,4 @@
-"""02-enable-observability: turn on CloudWatch Transaction Search (once per account+region).
+"""11-enable-observability: turn on CloudWatch Transaction Search (once per account+region).
 
 Idempotent. Creates/keeps the logs resource policy that lets X-Ray write spans to the
 `aws/spans` log group, switches the trace segment destination to CloudWatch Logs and

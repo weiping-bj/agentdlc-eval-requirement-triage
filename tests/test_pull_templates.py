@@ -424,7 +424,7 @@ def test_unit_tests_cannot_reach_aws():
         assert rc == 1  # no LAB_SUFFIX on this machine: stopped by the config check
 
 
-# ----------------------------------------------------------------------------- next steps (2.4 before 2.5)
+# ----------------------------------------------------------------------------- next steps (mock data before golden set)
 def _next_steps(out):
     lines = out.splitlines()
     i = next(k for k, line in enumerate(lines) if line.startswith("下一步"))
@@ -432,8 +432,13 @@ def _next_steps(out):
 
 
 def _step(steps, sec):
-    """(index, line) of the numbered step for manual section `sec` ("  1. 2.4 ..."), not a mere mention."""
-    return next((k, line) for k, line in enumerate(steps) if re.match(rf"\s*\d\. {re.escape(sec)} ", line))
+    """(index, line) of the numbered step named `sec` ("  1. 改模拟数据 ..."), not a mere mention."""
+    sec = STEP_NAMES.get(sec, sec)
+    return next((k, line) for k, line in enumerate(steps) if re.match(rf"\s*\d\. {re.escape(sec)}[ ：（]", line))
+
+
+# the extension's step names, keyed by the old handbook section they replace
+STEP_NAMES = {"2.4": "改模拟数据", "2.5": "改黄金集", "2.6": "冻结"}
 
 
 def test_next_steps_put_mock_data_2_4_before_golden_set_when_section_5_is_filled(repo):
@@ -494,7 +499,7 @@ def test_guide_expected_output_matches_the_next_steps_printed(repo):
     s20 = guide.split('id="s-2-0"', 1)[1].split('id="s-2-1"', 1)[0]
     for line in block:
         assert line in s20, line
-    assert 'id="s-2-0-next"' in s20 and all(f'href="#s-2-{k}"' in s20 for k in range(1, 7))
+    assert 'id="s-2-0-next"' in s20 and all(f'href="#s-2-{k}"' in s20 for k in (1, 2, 4, 5, 6))   # 2.3 removed
 
 
 def test_section_3_catalog_detection():
@@ -518,7 +523,7 @@ def test_next_steps_add_prompt_04_and_the_b_note_when_only_section_3_changed(rep
     block = "\n".join(steps)
     assert block.index("04-update-capability-catalog.md") < block.index("apply-feedback --dry-run") < block.index("03-update-golden-set.md")
     last = [line for line in steps if line.strip()][-1]
-    assert last.lstrip().startswith("4.") and "./20-B-deploy-runtime.sh" in last and "能力目录" in last and "mock" not in last
+    assert last.lstrip().startswith("4.") and "./30-deploy-runtime.sh" in last and "能力目录" in last and "mock" not in last
 
 
 def test_crlf_template_is_read_the_same():

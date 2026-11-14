@@ -23,7 +23,7 @@ SUFFIX_RE = re.compile(r"^[a-z][a-z0-9]{1,11}$")
 KEYS = [
     "AWS_REGION", "LAB_PREFIX", "LAB_SUFFIX", "AGENT_MODEL_ID", "JUDGE_MODEL_ID",
     "FALLBACK_MODEL_ID", "CODING_AGENT_MODEL_ID", "CODING_AGENT_FAST_MODEL_ID",
-    "AGENT_VERSION", "TARGET_ACCURACY", "RUNTIME_PYTHON", "AWS_PROFILE",
+    "AGENT_VERSION", "TARGET_ACCURACY", "LABEL_SCHEME", "LEVEL_TOLERANCE", "RUNTIME_PYTHON", "AWS_PROFILE",
 ]
 
 
@@ -60,7 +60,7 @@ def load(require_suffix: bool = True) -> dict:
         v = os.environ.get(k)
         # `source ./00-config.sh` exports every FILE-derived key together with a _ADLC_EXP_<key>
         # snapshot. An env value equal to its snapshot is only our own earlier export, so the files
-        # (e.g. 40-switch-version.sh / use-model.sh writing config/local.env) still win. Values that
+        # (e.g. 50-switch-version.sh / use-model.sh writing config/local.env) still win. Values that
         # really come from the environment (EC2 ~/.bashrc region, one-off `K=v ./script`) have no
         # snapshot, so they override the files and keep doing so in child processes.
         if v and v != os.environ.get(f"_ADLC_EXP_{k}"):
@@ -97,7 +97,7 @@ def derive(cfg: dict) -> dict:
         "EVALUATOR_JUDGE_NAME": f"{us}_reject_quality",
         "ONLINE_EVAL_NAME": f"{us}_online",
         "ONLINE_EVAL_ROLE_NAME": f"{dash}-online-eval-role-{r}",
-        # A path (agent not on Runtime): OTel service name + CloudWatch log group
+        # self-hosted mock agent on the lab EC2 (extension; not on Runtime): OTel service name + log group
         "LOCAL_SERVICE_NAME": f"{dash}-local-agent",
         "LOCAL_LOG_GROUP": f"/aws/bedrock-agentcore/{dash}-local-agent",
         "CONVERTED_SERVICE_NAME": f"{dash}-imported-logs",

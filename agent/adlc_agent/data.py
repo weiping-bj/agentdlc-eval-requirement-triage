@@ -2,7 +2,7 @@
 
 Locations (first match wins):
   1. $ADLC_DATA_DIR
-  2. <package>/agent_data   (bundled into the AgentCore Runtime zip by 20-B-deploy-runtime.sh)
+  2. <package>/agent_data   (bundled into the AgentCore Runtime zip by 30-deploy-runtime.sh)
   3. <repo>/data            (local runs from the repo)
 File names follow data/HANDOFF.md; loaders accept a few field-name variants.
 """

@@ -83,7 +83,7 @@ def clip(s, cols: int) -> str:
 def latest_eval() -> Path:
     files = glob.glob(str(ROOT / "results" / "eval-*.json"))
     if not files:
-        raise SystemExit("❌ results/ 里还没有 eval-*.json：先完成 7.2（./31-run-eval.sh）")
+        raise SystemExit("❌ results/ 里还没有 eval-*.json：先完成 7.2（./43-run-eval.sh）")
     return Path(max(files, key=os.path.getmtime))
 
 
@@ -290,7 +290,7 @@ def main(argv=None) -> int:
     except (OSError, ValueError) as e:
         raise SystemExit(f"❌ 无法读取评估结果 {eval_path}：{e}")
     if not isinstance(ev, dict):
-        raise SystemExit(f"❌ {eval_path} 不是评估结果文件（应为 31-run-eval.sh 生成的 eval-*.json）")
+        raise SystemExit(f"❌ {eval_path} 不是评估结果文件（应为 43-run-eval.sh 生成的 eval-*.json）")
     if a.golden:
         golden_path = Path(a.golden)
     else:

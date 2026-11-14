@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# A4: 已有 Agent 日志 → OTel span → CloudWatch（格式见 telemetry/LOG_FORMAT.md）
-#   ./11-A-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl
-#   ./11-A-convert-logs.sh send  telemetry/samples/customer-agent-logs.jsonl
+# 扩展「已有日志接入」：已有 Agent 日志 → OTel span → CloudWatch（格式见 telemetry/LOG_FORMAT.md）
+#   ./ext-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl
+#   ./ext-convert-logs.sh send  telemetry/samples/customer-agent-logs.jsonl
 set -euo pipefail
 cd "$(dirname "$0")"
 source ./00-config.sh

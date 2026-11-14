@@ -90,5 +90,5 @@ def find_similar_requests(query: str) -> str:
 
 TOOLSETS = {
     "v0": [lookup_capability],
-    "v1": [search_capabilities, find_similar_requests],
+    "v1-ref": [search_capabilities, find_similar_requests],  # V1 参考版
 }

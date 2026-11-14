@@ -98,7 +98,7 @@ def test_skills_use_no_quick_tools_and_no_disk_scan():
     for quick in ("fdfind", "run_python", "open_file", "open_in_session_tab", "file_write"):
         assert quick not in text
     assert "find /" not in text and "assets/fishbone-template.drawio" in text
-    assert "express" in text and "./30-create-evaluators.sh" in text
+    assert "express" in text and "./40-create-evaluators.sh" in text
 
 
 def test_no_scenario_numbering_and_no_customer_names_in_new_files():
@@ -256,7 +256,7 @@ def test_fishbone_page_is_self_contained_and_escapes_untrusted_text():
 def test_criteria_page_is_self_contained_and_escapes_untrusted_text():
     page = DP.render_criteria(_criteria_doc(), {"path": "x", "sha": "abc"})
     _assert_safe(page)
-    assert "0 违例（不打分）" in page and "./30-create-evaluators.sh" in page
+    assert "0 违例（不打分）" in page and "./40-create-evaluators.sh" in page
 
 
 def test_finish_refuses_a_page_that_loads_anything():
@@ -519,7 +519,7 @@ def test_build_writes_the_table_and_previews_without_touching_data(tmp_path):
     assert doc["summary"]["golden_fixable"] == ["C-01"] and doc["criteria"][3]["threshold"] == "每条 ≤ 0.5 元"
     assert json.loads((d / CR.OUT_JSON).read_text(encoding="utf-8"))["criteria"][0]["id"] == "C-01"
     md = (d / CR.OUT_MD).read_text(encoding="utf-8")
-    assert "| C-03 |" in md and "./30-create-evaluators.sh" in md and "./20-B-deploy-runtime.sh" in md
+    assert "| C-03 |" in md and "./40-create-evaluators.sh" in md and "./30-deploy-runtime.sh" in md
     rows = list(__import__("csv").DictReader((d / CR.PROPOSAL_CSV).open(encoding="utf-8-sig")))
     sys.path.insert(0, str(ROOT / "data" / "tools"))
     import golden_lib
@@ -609,7 +609,7 @@ def test_proposals_apply_through_the_existing_tools(tmp_path):
     rc, out = run("data/tools/golden_tool.py", "freeze")
     assert rc == 0, out
     rc, out = run(crit_py, "verify", str(d))
-    assert rc == 0 and "G31" in out and "./30-create-evaluators.sh" in out, out
+    assert rc == 0 and "G31" in out and "./40-create-evaluators.sh" in out, out
     synced = json.loads((repo / "evaluators" / "adlc_label_accuracy" / "golden_set.json").read_text(encoding="utf-8"))
     assert synced["items"]["FB-2610-048"]["can_auto_reject"] is False and "FB-2610-061" in synced["items"]
 

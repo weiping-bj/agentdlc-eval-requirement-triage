@@ -73,12 +73,12 @@ def test_v1_tool_fields_match_the_judge_excerpt_line():
 
 
 def test_citing_capabilities_in_reject_reason_puts_them_in_the_judge_excerpt():
-    """v1.md asks reject_reason to name every capability the reply relies on, with its catalog wording. The
+    """v1-ref.md asks reject_reason to name every capability the reply relies on, with its catalog wording. The
     judge's excerpt is the top 5 (default k) by overlap with requirement + reject_reason, so a citation in that
     form brings each golden capability into the excerpt; without it some fall outside the top 5. (A looser
     citation in a real run can still miss: this checks the rule's intent, the runs check the behaviour.)"""
     pytest.importorskip("strands")
-    v1 = (ROOT / "agent" / "adlc_agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
+    v1 = (ROOT / "agent" / "adlc_agent" / "prompts" / "v1-ref.md").read_text(encoding="utf-8")
     assert "话术里用到的每一项平台能力，都在这里写出编号、名称和依据" in v1
     from adlc_agent.core import format_input
     hints = _judge_hints()
@@ -100,7 +100,7 @@ def test_citing_capabilities_in_reject_reason_puts_them_in_the_judge_excerpt():
 
 
 def test_v1_prompt_keeps_platform_facts_to_catalog_fields():
-    v1 = (ROOT / "agent" / "adlc_agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
+    v1 = (ROOT / "agent" / "adlc_agent" / "prompts" / "v1-ref.md").read_text(encoding="utf-8")
     assert "菜单路径只能原样引用本次 `search_capabilities` 结果里该功能的 how_to" in v1  # never an invented path
     assert "不增减、不改写其中任何一级" in v1 and "就不写路径" in v1
     assert "不要写菜单路径" not in v1

@@ -264,5 +264,5 @@ printf '  %-12s %s\n' "identity" "${ARN:-（获取失败，请检查实例角色
 echo "  日志:   $LOG"
 echo
 echo "下一步（复制整行执行）:"
-printf '  cd %q && source ~/.bashrc && source .venv/bin/activate && ./01-check-env.sh\n' "$REPO_ROOT"
+printf '  cd %q && source ~/.bashrc && source .venv/bin/activate && ./10-check-env.sh\n' "$REPO_ROOT"
 echo "========================================================="

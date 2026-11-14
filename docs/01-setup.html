@@ -115,7 +115,7 @@ bash ec2/setup-ec2.sh</code></pre>
   日志:   /home/ec2-user/adlc-setup.log
 
 下一步（复制整行执行）:
-  cd /home/ec2-user/adlc-lab &amp;&amp; source ~/.bashrc &amp;&amp; source .venv/bin/activate &amp;&amp; ./01-check-env.sh
+  cd /home/ec2-user/adlc-lab &amp;&amp; source ~/.bashrc &amp;&amp; source .venv/bin/activate &amp;&amp; ./10-check-env.sh
 =========================================================</pre></div>
   <div class="tip">实测在 t3.large 上约 4–6 分钟（下载 Python 依赖占大头），版本号以你看到的为准。</div>
   <p>然后执行脚本最后打印的那一行（加载环境变量、进入 Python 虚拟环境）：</p>
@@ -146,7 +146,7 @@ LOCAL_SERVICE_NAME          adlc-zhang3-local-agent</pre></div>
 <div class="step" id="s-1-7">
   <div class="step-head"><span class="num">1.7</span><h3>检查 Bedrock 模型可用</h3><span class="time">2 分钟</span></div>
   <p class="why">确认 Agent 和评审用的模型能调通；不通时一行命令切换到 Amazon Nova。</p>
-<pre><code>./01-check-env.sh</code></pre>
+<pre><code>./10-check-env.sh</code></pre>
   <p class="where">检查逻辑：<a data-repo="labkit/checkenv.py">labkit/checkenv.py</a></p>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">① Python 与依赖
@@ -161,19 +161,19 @@ LOCAL_SERVICE_NAME          adlc-zhang3-local-agent</pre></div>
 ③ Bedrock 模型
   ✅ Agent 模型 us.anthropic.claude-sonnet-5-5 可用（回复：收到）
 ④ CloudWatch Transaction Search
-  ⚠️  未开启（当前 XRay/ACTIVE）→ 运行 ./02-enable-observability.sh
+  ⚠️  未开启（当前 XRay/ACTIVE）→ 运行 ./11-enable-observability.sh
 
-✅ 环境检查通过。下一步：./02-enable-observability.sh（每个账号/区域只需一次）</pre>
+✅ 环境检查通过。下一步：./11-enable-observability.sh（每个账号/区域只需一次）</pre>
   <p>同组已经有人做过 1.8 时，④ 会直接显示 <code>✅ 已开启（trace 写入 CloudWatch Logs 的 aws/spans）</code>。</p></div>
   <div class="warn">如果 ③ 显示 <code>❌ ... 不可用：AccessDeniedException</code>（账号没有开通 Claude 模型），执行下面一行切换到 Amazon Nova，再重跑检查：
-<pre><code>./tools/use-model.sh nova &amp;&amp; ./01-check-env.sh</code></pre>
+<pre><code>./tools/use-model.sh nova &amp;&amp; ./10-check-env.sh</code></pre>
   切回 Claude：<code>./tools/use-model.sh claude</code>。脚本：<a data-repo="tools/use-model.sh">tools/use-model.sh</a></div>
 </div>
 
 <div class="step" id="s-1-8">
   <div class="step-head"><span class="num">1.8</span><h3>开启 CloudWatch Transaction Search（每个账号一次）</h3><span class="time">5–10 分钟</span></div>
   <p class="why">让 trace 数据写进 CloudWatch，评估服务才能读到。</p>
-<pre><code>./02-enable-observability.sh</code></pre>
+<pre><code>./11-enable-observability.sh</code></pre>
   <p class="where">脚本：<a data-repo="labkit/observability.py">labkit/observability.py</a>（可重复运行；同组有人已开启时会直接提示“已经开启”）</p>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">  ✅ 已授权 X-Ray 写入 aws/spans

@@ -2,7 +2,7 @@
 
   python -m labkit.convert_logs check <logs.jsonl>   # field check only, sends nothing
   python -m labkit.convert_logs send  <logs.jsonl>   # must run under opentelemetry-instrument
-                                                     # (11-A-convert-logs.sh does that)
+                                                     # (ext-convert-logs.sh does that)
 Input format: telemetry/LOG_FORMAT.md. Each line becomes one session with one trace that
 mimics what Strands Agents emits (scope `strands.telemetry.tracer`):
   invoke_agent <agent>  ->  chat  +  execute_tool <tool> (per tool call)
@@ -10,8 +10,8 @@ Timestamps are re-stamped to 10 s apart ending ~2 minutes ago (CloudWatch reject
 than 14 days), keeping the original order, but never earlier than the creation of the log
 groups they land in (Logs Insights cannot see events that pre-date their log group, so on a
 first send, with a group created seconds ago, the window starts just after its creation).
-The run is registered in .lab-state/runs.json (mode "imported") so ./31-run-eval.sh and
-./12-A-check-telemetry.sh can use it.
+The run is registered in .lab-state/runs.json (mode "imported") so ./43-run-eval.sh and
+./ext-check-telemetry.sh can use it.
 """
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ def check(path: str) -> int:
     if bad:
         print(f"❌ {bad} 处问题，请按 telemetry/LOG_FORMAT.md 修正后重试")
         return 1
-    print("✅ 字段检查通过。下一步：./11-A-convert-logs.sh send " + path)
+    print("✅ 字段检查通过。下一步：./ext-convert-logs.sh send " + path)
     if triage_ok / n < 0.5:
         print("  ⚠️  不到一半的输出能解析成三项判断：标签准确率评估器会大量 FormatError，建议先调整 agent_output 格式")
     return 0
@@ -199,7 +199,7 @@ def send(path: str) -> int:
     tracer = trace.get_tracer("strands.telemetry.tracer")
     logger = get_logger_provider().get_logger("strands.telemetry.tracer")
     ts_tag = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_id = f"A-imported-{ts_tag}"
+    run_id = f"imported-{ts_tag}"
     out_dir = Path(c["RESULTS_DIR"]); out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"run-{run_id}.jsonl"
     print(f"▶ 转换并发送 {len(rows)} 条日志 → service.name={c['CONVERTED_SERVICE_NAME']} · 日志组 {c['CONVERTED_LOG_GROUP']}")
@@ -266,7 +266,7 @@ def send(path: str) -> int:
         if hasattr(prov, "force_flush"):
             prov.force_flush(30000)
     runs = aws.load_state("runs", default=[])
-    # "created" = the earliest re-stamped span start, not the send time: 31-run-eval.sh searches spans
+    # "created" = the earliest re-stamped span start, not the send time: 43-run-eval.sh searches spans
     # from created - 10 min, and a long file starts more than 10 min before the send finishes
     first = datetime.fromtimestamp(min(starts.values()), timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     runs.append({"run_id": run_id, "file": str(out.relative_to(c["LAB_ROOT"])), "mode": "imported",
@@ -277,8 +277,8 @@ def send(path: str) -> int:
     print(f"✅ 已发送 {len(rows)} 个 session（run_id = {run_id}）。约 2-3 分钟后可在 CloudWatch 查到。")
     if ahead > 60:  # 12-A / 31 query up to now + 60 s
         print(f"   ℹ️  日志组 {bound} {age} 秒前才创建，记录不能早于它：后面的 session 排在接下来约 "
-              f"{int(ahead // 60) + 1} 分钟里，这段时间过后再运行 ./31-run-eval.sh")
-    print("   下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）")
+              f"{int(ahead // 60) + 1} 分钟里，这段时间过后再运行 ./43-run-eval.sh")
+    print("   下一步：./ext-check-telemetry.sh   （检查数据能否被 Evaluations 使用）")
     return 0
 
 

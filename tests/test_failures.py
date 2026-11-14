@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 from labkit import failures, items  # noqa: E402
 
 FX = ROOT / "tests" / "fixtures"
-REAL = FX / "eval-A-v0-golden-sample.json"   # trimmed copy of a real A-path V0 golden evaluation
+REAL = FX / "eval-local-v0-golden-sample.json"   # trimmed copy of a real A-path V0 golden evaluation
 
 
 def _score(label, explanation=""):

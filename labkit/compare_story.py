@@ -31,7 +31,8 @@ from . import compare as cmp
 from . import failures as fl
 from . import items as labitems
 
-VERSION_RE = re.compile(r"v\d{1,3}")
+VERSION_RE = re.compile(cmp.VERSION_RE)  # v0, v1, v1-ref (V1 参考版), v2 ...
+REF_TOOLS = "v1-ref"  # agent/adlc_agent/core.py: a version TOOLSETS lacks runs with these tools
 MOCK_MODES = {"local", "runtime"}
 PROMPTS_DIR = Path("agent") / "adlc_agent" / "prompts"
 TOOLS_FILE = Path("agent") / "adlc_agent" / "tools.py"
@@ -299,11 +300,12 @@ def toolsets() -> tuple:
 
 
 def _tools_of(sets: dict, v: str) -> tuple:
-    """(tool names or None, note): agent/adlc_agent/core.py falls back to the v1 tools for a version TOOLSETS lacks."""
+    """(tool names or None, note): agent/adlc_agent/core.py falls back to the v1-ref tools for a version TOOLSETS
+    lacks."""
     if v in sets:
         return sets[v], ("" if sets[v] is not None else f"读不到 {v} 的工具列表（不是直接写出的列表）")
-    if "v1" in sets:
-        return sets["v1"], f"TOOLSETS 里没有 {v}，沿用 v1 的工具"
+    if REF_TOOLS in sets:
+        return sets[REF_TOOLS], f"TOOLSETS 里没有 {v}，沿用 {REF_TOOLS}（V1 参考版）的工具"
     return [], f"TOOLSETS 里没有 {v}"
 
 
@@ -460,15 +462,19 @@ def render_notes(text: str) -> str:
     return "".join(out)
 
 
+def _num(v: str) -> int:
+    return int(re.match(r"v(\d+)", v).group(1))
+
+
 def _one_note(v: str) -> str:
     rel = (PROMPTS_DIR / f"{v}{CHANGES_SUFFIX}").as_posix()
-    prev = f"v{int(v[1:]) - 1}"
-    step = f"{prev.upper()} → {v.upper()}"
+    step = f"V{_num(v) - 1} → {cmp.version_label(v)}"
     text = _read(cmp.root() / rel, MAX_NOTES + 1)
     if text is None:
         return (f'<h4>{cmp.esc(step)}</h4><div class="note">没有找到 <code>{cmp.esc(rel)}</code>，这一步没有改动说明（不影响对比）。'
-                f'8.2 第 7 步会让 coding agent 把“失败原因 → 修改 → 预期影响的指标”写进这个文件；'
-                f'{cmp.esc(v.upper())} 是你们自己改的，也可以照这个格式手写一份，再重新生成对比页。</div>')
+                f'手册 5.2 的提示词会让 Claude Code 把“失败原因 → 修改 → 预期影响的指标”写进这个文件；'
+                f'也可以照 <code>{cmp.esc((PROMPTS_DIR / ("v1-ref" + CHANGES_SUFFIX)).as_posix())}</code> 的格式手写一份，'
+                f'再重新生成对比页。</div>')
     cut = len(text) > MAX_NOTES
     body = render_notes(text[:MAX_NOTES]) or '<p class="muted">（文件是空的）</p>'
     more = f'<p class="small muted">（文件较长，只显示前 {MAX_NOTES} 个字符）</p>' if cut else ""
@@ -477,14 +483,20 @@ def _one_note(v: str) -> str:
 
 
 def notes_html(vb: str, va: str) -> str:
-    """Change notes of every step vb -> va: v<N>.changes.md describes v<N-1> -> v<N> (8.2 writes v2 on top of v1)."""
-    nb, na = int(vb[1:]), int(va[1:])
+    """Change notes of every step vb -> va: v<N>.changes.md (or v<N>-ref.changes.md) describes v<N-1> -> v<N>.
+    The step into the "after" version uses its exact name (v1-ref -> v1-ref.changes.md); steps in between use
+    v<n>. v1 and v1-ref are two round-1 versions, each written on top of V0: both notes are shown."""
+    nb, na = _num(vb), _num(va)
+    if na == nb and vb != va:
+        return ('<h3>改动说明：两个都是第 1 轮的版本，各自相对上一版修改</h3>'
+                f'<p class="small muted">{cmp.esc(cmp.version_label(vb))} 和 {cmp.esc(cmp.version_label(va))} '
+                '都写在同一个上一版之上，下面依次列出两份说明。</p>' + _one_note(vb) + _one_note(va))
     if na <= nb:
         return ('<div class="note">两次运行是同一个版本（或从新版本比回旧版本），没有“改了什么”的说明；'
-                '同一版本多跑几次是在看波动（9.1）。</div>')
+                '同一版本多跑几次是在看波动。</div>')
     if na - nb > 8:
         return '<div class="note">版本相差太多，这里不逐一列出改动说明。</div>'
-    steps = "".join(_one_note(f"v{n}") for n in range(nb + 1, na + 1))
+    steps = "".join(_one_note(va if n == na else f"v{n}") for n in range(nb + 1, na + 1))
     chain = "（按版本依次列出，每份说明写的是相对上一版的修改）" if na - nb > 1 else ""
     return f'<h3>改动说明：失败原因 → 修改 → 预期影响的指标{cmp.esc(chain)}</h3>{steps}'
 
@@ -531,7 +543,7 @@ def changes_card(b, a) -> str:
                             '这里无法自动比较；改过它的话，写进改动说明。</span>'))
     eb, ea = b.evaluators, a.evaluators
     if eb and ea and eb == ea:
-        ev_txt = "两次用的是同一组评估器（评估器 ID 相同；重新运行 30-create-evaluators.sh 时 Lambda 代码会原地更新，ID 不变）"
+        ev_txt = "两次用的是同一组评估器（评估器 ID 相同；重新运行 40-create-evaluators.sh 时 Lambda 代码会原地更新，ID 不变）"
     elif eb or ea:
         changed = sorted(n for n in set(eb) | set(ea) if eb.get(n) != ea.get(n))
         ev_txt = "评估器不完全相同：" + "；".join(f"{n} {eb.get(n) or '—'} → {ea.get(n) or '—'}" for n in changed[:8]) \

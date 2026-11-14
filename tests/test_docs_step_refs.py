@@ -43,10 +43,10 @@ def test_every_step_anchor_link_resolves():
 def test_chapter_6_prerequisite_matches_labkit_online():
     root = DOCS.parent
     online = (root / "labkit" / "online.py").read_text(encoding="utf-8")
-    a_src = online.split('if path == "a":', 1)[1].split("st = aws.load_state", 1)[0]
+    a_src = online.split('if mode == "local":', 1)[1].split("st = aws.load_state", 1)[0]
     assert "LOCAL_LOG_GROUP" in a_src and "LOCAL_SERVICE_NAME" in a_src and "CONVERTED" not in a_src
     assert "还没有部署 Runtime" in online
-    a4 = (root / "11-A-convert-logs.sh").read_text(encoding="utf-8")
-    assert "CONVERTED_SERVICE_NAME" in a4 and "LOCAL_SERVICE_NAME" not in a4      # A4 is not watched by path a
+    a4 = (root / "ext-convert-logs.sh").read_text(encoding="utf-8")
+    assert "CONVERTED_SERVICE_NAME" in a4 and "LOCAL_SERVICE_NAME" not in a4      # imported logs are not watched by --mode local
     head = (DOCS / "06-evaluators.html").read_text(encoding="utf-8").split('<section class="card">', 1)[0]
     assert "6.1</a>–<a" in head and "两条路线通用，只需要完成第 2 章" in head and "A4 导入的旧日志" in head

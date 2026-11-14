@@ -28,7 +28,7 @@ def _section(page: str, sid: str, next_sid: str) -> str:
 def test_a34_code_excerpts_are_real_source_lines():
     a34 = _section(_read(DOCS / "a3-instrument.html"), "s-a3-4", "s-a3-5")
     blocks = re.findall(r'<pre class="out" data-src="([^"]+)">(.*?)</pre>', a34, re.S)
-    assert {src for src, _ in blocks} == {"10-A-run-local.sh", "labkit/batch.py", "agent/adlc_agent/core.py"}
+    assert {src for src, _ in blocks} == {"ext-local-agent.sh", "labkit/batch.py", "agent/adlc_agent/core.py"}
     for src, body in blocks:
         source = [ln.strip() for ln in _read(ROOT / src).splitlines()]
         # each run of lines between "…" markers must appear contiguously, and the runs in order
@@ -119,17 +119,17 @@ def test_no_rehearsal_or_own_agent_on_site_wording():
 def test_two_imported_evaluations_only_pair_by_falling_back(monkeypatch):
     """Guide G.14: imported runs are never picked as 'after'; with nothing else the default is the last two."""
     from labkit import compare
-    evals = [{"run_id": "A-imported-1", "file": "results/eval-A-imported-1.json", "version": "imported", "mode": "imported"},
-             {"run_id": "A-imported-2", "file": "results/eval-A-imported-2.json", "version": "imported", "mode": "imported"}]
+    evals = [{"run_id": "imported-1", "file": "results/eval-imported-1.json", "version": "imported", "mode": "imported"},
+             {"run_id": "imported-2", "file": "results/eval-imported-2.json", "version": "imported", "mode": "imported"}]
     monkeypatch.setattr(compare, "load_state_list", lambda name: evals)
     before, after = compare.pick_default()
-    assert before.name == "eval-A-imported-1.json" and after.name == "eval-A-imported-2.json"
-    assert compare.path_of("own")[0] == "A" and compare.path_of("imported")[0] == "A"
+    assert before.name == "eval-imported-1.json" and after.name == "eval-imported-2.json"
+    assert compare.path_of("own")[0] == "自带 Agent" and compare.path_of("imported")[0] == "日志导入"
 
 
 def test_imported_run_window_covers_a_long_log_file(tmp_path, monkeypatch):
     """A 60-line send re-stamps its first session ~12 min before the send ends; the registered
-    'created' must not be later than that, or 31-run-eval.sh (created - 10 min) misses it."""
+    'created' must not be later than that, or 43-run-eval.sh (created - 10 min) misses it."""
     import time
     from labkit import aws, convert_logs
     state, results = tmp_path / ".lab-state", tmp_path / "results"
@@ -151,15 +151,15 @@ def test_imported_run_window_covers_a_long_log_file(tmp_path, monkeypatch):
     created = datetime.strptime(run["created"], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).timestamp()
     first_span = t0 - 120 - 10 * 60
     assert created - 600 <= first_span + 1          # evaluate.py's search window reaches the first session
-    assert run["run_id"].startswith("A-imported-") and run["mode"] == run["version"] == "imported"
+    assert run["run_id"].startswith("imported-") and run["mode"] == run["version"] == "imported"
 
 
 def test_31_without_run_takes_the_last_registered_run(monkeypatch):
-    """Guide G.8: without --run, 31-run-eval.sh evaluates runs.json's last entry, e.g. a later mock run."""
+    """Guide G.8: without --run, 43-run-eval.sh evaluates runs.json's last entry, e.g. a later mock run."""
     from labkit import aws, evaluate
-    runs = [{"run_id": "A-own-v0-20261106T113000Z", "mode": "own"}, {"run_id": "A-v1-20261106T120000Z", "mode": "local"}]
+    runs = [{"run_id": "A-own-v0-20261106T113000Z", "mode": "own"}, {"run_id": "local-v1-ref-20261106T120000Z", "mode": "local"}]
     monkeypatch.setattr(aws, "load_state", lambda name, default=None: runs if name == "runs" else default)
-    assert evaluate.pick_run(None)["run_id"] == "A-v1-20261106T120000Z"
+    assert evaluate.pick_run(None)["run_id"] == "local-v1-ref-20261106T120000Z"
     assert evaluate.pick_run("A-own-v0-20261106T113000Z")["mode"] == "own"
     g8 = _section(_read(GUIDE), "s-g-8", "s-g-9")
     assert "pick_run()" in g8 and "一律带 <code>--run &lt;run_id&gt;</code>" in g8

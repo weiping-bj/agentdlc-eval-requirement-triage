@@ -78,13 +78,13 @@ def test_bundle_has_what_setup_and_the_main_lab_path_need(bundle):
     labkit = {rel for rel in tracked if rel.startswith("labkit/")}
     need = steps | labkit | {
         "requirements.txt", "agent/requirements.txt", "config/lab.env", "ec2/setup-ec2.sh", "LICENSE",
-        "agent/main.py", "agent/adlc_agent/prompts/v0.md", "agent/adlc_agent/prompts/v1.md",
+        "agent/main.py", "agent/adlc_agent/prompts/v0.md", "agent/adlc_agent/prompts/v1-ref.md",
         "tools/set-suffix.sh", "tools/use-model.sh", "telemetry/otel_env.sh",
         "docs/assets/style.css",                       # labkit.compare inlines it into the compare page
         "evaluators/sync_shared.py", wsb.MANIFEST,
     }
-    assert {"01-check-env.sh", "02-enable-observability.sh", "20-B-deploy-runtime.sh", "21-B-run-golden.sh",
-            "30-create-evaluators.sh", "31-run-eval.sh", "99-cleanup.sh"} <= steps
+    assert {"10-check-env.sh", "11-enable-observability.sh", "30-deploy-runtime.sh", "42-run-golden.sh",
+            "40-create-evaluators.sh", "43-run-eval.sh", "99-cleanup.sh"} <= steps
     missing = sorted(need - set(names))
     assert not missing, missing
     assert any(n.startswith("data/golden/") for n in names) and any(n.startswith("evaluators/tests/") for n in names)
@@ -291,7 +291,7 @@ def _render(ud):
 
 
 # Stand-ins for what UserData calls as root on AL2023. Everything else (unzip, git, python3, sed, tail, stat,
-# timeout, the bundled tools/set-suffix.sh) runs for real; setup-ec2.sh / 02-enable-observability.sh are stubbed.
+# timeout, the bundled tools/set-suffix.sh) runs for real; setup-ec2.sh / 11-enable-observability.sh are stubbed.
 # what labkit.observability --verify prints last (ASCII: CloudFormation shows non-ASCII as "?")
 TS_READY = ("transaction-search ready: Destination=CloudWatchLogs Status=ACTIVE policy=TransactionSearchXRayAccess "
             "indexing-default=100% enabled-by-lab=yes")
@@ -318,10 +318,10 @@ STUBS = {
                '        [ -n "${BAD_UTF8:-}" ] && printf "bad \\377\\376 bytes\\n" >> "$T/home/adlc-setup.log"\n'
                '        echo "npm ERR! network 安装中止 (try $n) END-OF-TAIL" >> "$T/home/adlc-setup.log"; exit 1; fi\n'
                '      echo setup-ok >> "$T/home/adlc-setup.log"; exit 0 ;;\n'
-               '    *"02-enable-observability.sh --verify"*) echo "$cmd" >> "$T/verify.cmds"; [ -n "${SLOW_VERIFY:-}" ] && /usr/bin/sleep 5\n'
+               '    *"11-enable-observability.sh --verify"*) echo "$cmd" >> "$T/verify.cmds"; [ -n "${SLOW_VERIFY:-}" ] && /usr/bin/sleep 5\n'
                '      [ -n "${FAIL_TS_VERIFY:-}" ] && { echo "  ⏳ 等待"; echo "❌ 未就绪"; echo "' + TS_PENDING + '"; exit 1; }\n'
                '      echo "✅ 已就绪"; echo "' + TS_READY + '"; exit 0 ;;\n'
-               '    *"./02-enable-observability.sh"*) [ -n "${SLOW_ENABLE:-}" ] && /usr/bin/sleep 5\n'
+               '    *"./11-enable-observability.sh"*) [ -n "${SLOW_ENABLE:-}" ] && /usr/bin/sleep 5\n'
                '      [ -n "${FAIL_TS:-}" ] && { echo "LimitExceededException: enable error"; exit 1; }; echo ts-ok; exit 0 ;;\n'
                '  esac\n'
                '  cd "$T/home" && HOME="$T/home" exec bash -c "$cmd"\n'
@@ -376,7 +376,7 @@ def test_userdata_success_unpacks_a_git_lab_as_the_user_and_signals_once(tmp_pat
     assert "-fsS -m 30 -X PUT -H Content-Type: --data-binary {" in (tmp_path / "curl.args").read_text()
     assert "s3://ws-event-x-us-west-2/b1/assets/adlc-lab.zip" in (tmp_path / "aws.args").read_text()
     lab = tmp_path / "home" / "adlc-lab"
-    assert (lab / "ec2" / "setup-ec2.sh").is_file() and os.access(lab / "01-check-env.sh", os.X_OK)
+    assert (lab / "ec2" / "setup-ec2.sh").is_file() and os.access(lab / "10-check-env.sh", os.X_OK)
     assert (lab / "config" / "local.env").read_text().strip() == "LAB_SUFFIX=ws"
     assert "export LAB_SUFFIX=ws" in (tmp_path / "profile-adlc.sh").read_text()
     bashrc = (tmp_path / "home" / ".bashrc").read_text()
@@ -461,7 +461,7 @@ def test_userdata_time_boxes_the_enable_step(tmp_path, bundle):
     r, signals = _run_userdata(tmp_path, bundle, SLOW_ENABLE=1,
                                inject=('t=$(( $(left) - 180 )); [ "$t" -gt 660 ] && t=660; [ "$t" -lt 60 ] && t=60',
                                        "t=1"))
-    assert "02-enable-observability.sh exited 124 (limit 1 s)" in (tmp_path / "bootstrap.log").read_text()
+    assert "11-enable-observability.sh exited 124 (limit 1 s)" in (tmp_path / "bootstrap.log").read_text()
     assert [s["Status"] for s in signals] == ["SUCCESS"]
 
 

@@ -6,7 +6,7 @@ only goes to a bucket this account owns (ExpectedBucketOwner), and only after al
 Block Public Access settings are confirmed on (re-applied if missing, the same rule as
 tools/pull-templates.sh). If that cannot be confirmed, nothing is uploaded (fail closed).
 
-Callers: 32-compare.sh, 34-triage-report.sh, labkit/data_pages.py (tools/publish-data-pages.sh),
+Callers: 51-compare.sh, 60-triage-report.sh, labkit/data_pages.py (tools/publish-data-pages.sh),
 labkit/define_pages.py (tools/publish-define-pages.sh: fishbone / criteria pages + the .drawio file, under
 reports/define/<session>/ with its own content type).
 """

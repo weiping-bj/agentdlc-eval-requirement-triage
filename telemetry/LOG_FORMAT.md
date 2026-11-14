@@ -27,7 +27,7 @@
 先检查、再发送：
 
 ```bash
-./11-A-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl
-./11-A-convert-logs.sh send  telemetry/samples/customer-agent-logs.jsonl
-./12-A-check-telemetry.sh
+./ext-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl
+./ext-convert-logs.sh send  telemetry/samples/customer-agent-logs.jsonl
+./ext-check-telemetry.sh
 ```

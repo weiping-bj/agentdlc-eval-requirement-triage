@@ -72,7 +72,7 @@ bash ec2/setup-ec2.sh
 安装约 3-5 分钟，结束时会打印各工具版本和下一步命令（日志在 `~/adlc-setup.log`，出错可直接重新运行）。然后：
 
 ```bash
-cd ~/adlc-lab && source ~/.bashrc && source .venv/bin/activate && ./01-check-env.sh
+cd ~/adlc-lab && source ~/.bashrc && source .venv/bin/activate && ./10-check-env.sh
 ```
 
 > 以后每次重新登录：先 `sudo su - ec2-user`，再 `cd ~/adlc-lab && source .venv/bin/activate`。

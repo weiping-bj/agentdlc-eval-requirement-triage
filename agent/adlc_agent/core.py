@@ -1,4 +1,8 @@
-"""Build and run the triage agent (V0 / V1)."""
+"""Build and run the triage agent (V0 / V1 / V1 参考版 ...).
+
+Label scheme: with ADLC_LABEL_SCHEME=level (set by ./ext-switch-label-scheme.sh through the Runtime environment,
+or LABEL_SCHEME from 00-config.sh when the agent runs on the lab EC2) the system prompt of every version gets
+prompts/level-scheme.md appended, which asks for the `level` field (P0/P1/P2) instead of null."""
 from __future__ import annotations
 
 import json
@@ -17,8 +21,19 @@ PROMPTS = Path(__file__).resolve().parent / "prompts"
 LABELS = {"important": {"是", "否"}, "urgent": {"是", "否"}, "decision": {"迭代", "拒绝", "待评估"}}
 
 
+LEVEL_ADDENDUM = PROMPTS / "level-scheme.md"
+
+
+def label_scheme() -> str:
+    s = (os.environ.get("ADLC_LABEL_SCHEME") or os.environ.get("LABEL_SCHEME") or "binary").strip().lower()
+    return "level" if s == "level" else "binary"
+
+
 def system_prompt(version: str) -> str:
-    return (PROMPTS / f"{version}.md").read_text(encoding="utf-8")
+    text = (PROMPTS / f"{version}.md").read_text(encoding="utf-8")
+    if label_scheme() == "level":
+        text = text.rstrip() + "\n\n" + LEVEL_ADDENDUM.read_text(encoding="utf-8").strip() + "\n"
+    return text
 
 
 def build_agent(version: str | None = None, model_id: str | None = None, region: str | None = None,
@@ -43,7 +58,7 @@ def build_agent(version: str | None = None, model_id: str | None = None, region:
         name=f"adlc_triage_{version}",
         model=model,
         system_prompt=system_prompt(version),
-        tools=TOOLSETS.get(version, TOOLSETS["v1"]),  # new versions (v2...) reuse the V1 tools
+        tools=TOOLSETS.get(version, TOOLSETS["v1-ref"]),  # a version without its own entry (v1, v2...) gets the V1 参考版 tools
         callback_handler=None,
         trace_attributes=attrs,
     )

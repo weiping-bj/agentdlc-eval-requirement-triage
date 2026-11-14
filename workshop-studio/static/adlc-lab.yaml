@@ -594,7 +594,7 @@ Resources:
           [ "$ok" = 1 ] || fail "ec2/setup-ec2.sh did not succeed ($why), see $SETUP_LOG"
 
           # Mandatory: Transaction Search is OFF by default in Workshop Studio event accounts, and the lab's
-          # evaluations read spans from aws/spans. Same as ./02-enable-observability.sh (a no-op when already
+          # evaluations read spans from aws/spans. Same as ./11-enable-observability.sh (a no-op when already
           # on, records whether this lab enabled it); then --verify polls until Destination=CloudWatchLogs /
           # Status=ACTIVE and checks the logs resource policy + indexing rule. Not ready = FAILURE with the
           # observed status as the reason.
@@ -602,17 +602,17 @@ Resources:
           WAIT=600
           t=$(( $(left) - 180 )); [ "$t" -gt 660 ] && t=660; [ "$t" -lt 60 ] && t=60
           t0=$(date +%s)
-          EN="$(timeout --kill-after=30 "$t" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./02-enable-observability.sh" 2>&1)"
+          EN="$(timeout --kill-after=30 "$t" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./11-enable-observability.sh" 2>&1)"
           erc=$?
           printf '%s\n' "$EN"
           EN="$(printf '%s\n' "$EN" | tail -n 1)"
           if [ "$erc" != 0 ]; then
-            echo "02-enable-observability.sh exited $erc (limit $t s); checking the state"
+            echo "11-enable-observability.sh exited $erc (limit $t s); checking the state"
             # it already polled for a while: only re-check briefly
             [ $(( $(date +%s) - t0 )) -ge 300 ] && WAIT=60
           fi
           w=$(( $(left) - 120 )); [ "$w" -lt "$WAIT" ] && WAIT=$w; [ "$WAIT" -lt 0 ] && WAIT=0
-          TS="$(timeout --kill-after=10 $(( WAIT + 90 )) runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./02-enable-observability.sh --verify --wait $WAIT" 2>&1)"
+          TS="$(timeout --kill-after=10 $(( WAIT + 90 )) runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./11-enable-observability.sh --verify --wait $WAIT" 2>&1)"
           rc=$?
           printf '%s\n' "$TS"
           TS="$(printf '%s\n' "$TS" | tail -n 1)"

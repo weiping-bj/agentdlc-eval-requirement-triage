@@ -3,7 +3,7 @@
 CloudWatch Logs Insights cannot see events whose timestamp is earlier than the log group's
 creation time. On a first send the wrapper creates the imported-logs group seconds before the
 converter re-stamps the sessions to "ending ~2 min ago", so every content record was invisible:
-12-A-check-telemetry showed 用户输入 0/5 and 31-run-eval had no inputs until a second send.
+ext-check-telemetry showed 用户输入 0/5 and 43-run-eval had no inputs until a second send.
 """
 import json
 import sys
@@ -185,7 +185,7 @@ def test_hint_only_when_sessions_reach_past_the_query_window(tmp_path, monkeypat
     assert five.rc == 0 and "ℹ️  日志组" not in five.out
     now = time.time()
     twelve = _send(tmp_path / "b", monkeypatch, 12, {GROUP: now - 3, "aws/spans": now - 30 * DAY}, capsys=capsys)
-    assert twelve.rc == 0 and f"ℹ️  日志组 {GROUP}" in twelve.out and "再运行 ./31-run-eval.sh" in twelve.out
+    assert twelve.rc == 0 and f"ℹ️  日志组 {GROUP}" in twelve.out and "再运行 ./43-run-eval.sh" in twelve.out
 
 
 def test_missing_aws_spans_warns_and_bounds_by_the_target_group(tmp_path, monkeypatch, capsys):

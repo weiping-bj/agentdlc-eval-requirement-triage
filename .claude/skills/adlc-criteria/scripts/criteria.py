@@ -572,9 +572,9 @@ def apply_steps(d: Path, n_extra: int) -> List[Dict[str, str]]:
                "note": "写入黄金集（自动备份）"},
               {"cmd": "python3 data/tools/golden_tool.py freeze", "note": "冻结并同步到 evaluators/*/golden_set.json"},
               {"cmd": verify_cmd, "note": "确认已写入、已冻结、已同步"},
-              {"cmd": "./30-create-evaluators.sh", "note": "黄金集打包在评估器 Lambda 里，不重新部署就还是旧黄金集"}]
+              {"cmd": "./40-create-evaluators.sh", "note": "黄金集打包在评估器 Lambda 里，不重新部署就还是旧黄金集"}]
     if n_extra:
-        steps.append({"cmd": "./20-B-deploy-runtime.sh", "note": "B 版：Agent 的相似需求工具读的是打包进 Runtime 的需求反馈"})
+        steps.append({"cmd": "./30-deploy-runtime.sh", "note": "B 版：Agent 的相似需求工具读的是打包进 Runtime 的需求反馈"})
     return steps
 
 
@@ -611,7 +611,7 @@ def render_md(doc: dict) -> str:
             f"{i}. " + (f"`{st['cmd']}` —— {st['note']}" if st.get("cmd") else st.get("note", ""))
             for i, st in enumerate(doc.get("apply_steps") or [], 1)]
     if doc.get("golden_applied"):
-        lines += ["", "## 已写入黄金集的样本（记得重新运行 `./30-create-evaluators.sh`）", "",
+        lines += ["", "## 已写入黄金集的样本（记得重新运行 `./40-create-evaluators.sh`）", "",
                   "| 判据 | 黄金编号 | 需求编号 | 标题 | 期望标签 | 版本 |", "|----|----|----|----|----|----|"]
         for p in doc["golden_applied"]:
             lines.append(f"| {_md(p['criterion'])} | {_md(p['golden_id'])} | {_md(p['feedback_id'])} | {_md(p['title'])} | "
@@ -656,8 +656,8 @@ def verify(out_dir, before_apply: bool = False) -> Tuple[bool, List[str]]:
         synced = synced and all(x["feedback_id"] in ids for x in props)
     ok = ok and (before_apply or synced)
     lines.append(f"{'✅' if synced else '⏳'} 已同步到 evaluators/*/golden_set.json" + ("" if synced else "（freeze 会自动同步）"))
-    lines.append("👉 最后一步（本脚本查不到）：./30-create-evaluators.sh 重新部署评估器，新黄金集才在评估里生效"
-                 + ("；B 版新增了需求反馈时还要 ./20-B-deploy-runtime.sh" if any(x["source"] == "extra" for x in props) else ""))
+    lines.append("👉 最后一步（本脚本查不到）：./40-create-evaluators.sh 重新部署评估器，新黄金集才在评估里生效"
+                 + ("；B 版新增了需求反馈时还要 ./30-deploy-runtime.sh" if any(x["source"] == "extra" for x in props) else ""))
     return ok, lines
 
 

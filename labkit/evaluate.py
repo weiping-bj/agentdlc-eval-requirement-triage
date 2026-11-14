@@ -5,7 +5,7 @@
 
 For every session of the run: fetch its spans from CloudWatch, call the Evaluate API once
 per evaluator (custom + built-in) with the golden labels as reference input, and save
-results/eval-<run_id>.json (input to 32-compare.sh). The verdict follows the three pillars
+results/eval-<run_id>.json (input to 51-compare.sh). The verdict follows the three pillars
 (evaluators/shared/pillars.py): no red line (误拒 / 话术红线, one-vote veto) AND every gate met;
 observation metrics are printed for the trend only.
 """
@@ -53,7 +53,7 @@ def evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str, 
     except Exception as e:  # noqa: BLE001 - e.g. Logs Insights concurrency limit: keep the other sessions
         return {"feedback_id": rec.get("feedback_id"), "session_id": rec.get("session_id"),
                 "agent_output": rec.get("result"), "agent_error": rec.get("error"), "scores": {},
-                "error": f"{type(e).__name__}: {str(e)[:300]}（可稍后用 ./31-run-eval.sh --run <run_id> 重试）"}
+                "error": f"{type(e).__name__}: {str(e)[:300]}（可稍后用 ./43-run-eval.sh --run <run_id> 重试）"}
 
 
 def _evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str, start: int) -> dict:
@@ -172,7 +172,7 @@ def main(argv=None) -> int:
     run = pick_run(a.run)
     ev_state = aws.load_state("evaluators") or {}
     if not ev_state:
-        raise SystemExit("❌ 还没有注册评估器：先运行 ./30-create-evaluators.sh")
+        raise SystemExit("❌ 还没有注册评估器：先运行 ./40-create-evaluators.sh")
     evaluators = [(k, v["evaluatorId"]) for k, v in ev_state.items() if not k.startswith("_")]
     if not a.no_builtin:
         evaluators += [(b, b) for b in BUILTINS]
@@ -212,7 +212,7 @@ def main(argv=None) -> int:
     for line in summary_lines(summ):
         print(line)
     if summ["eval_errors"]:
-        print(f"  ⚠️  {summ['eval_errors']} 个 session 评估失败（见上方错误），结论不完整：稍后运行 ./31-run-eval.sh --run {run['run_id']} 重试")
+        print(f"  ⚠️  {summ['eval_errors']} 个 session 评估失败（见上方错误），结论不完整：稍后运行 ./43-run-eval.sh --run {run['run_id']} 重试")
     print(f"  {compare.pillars.verdict_line(summ['pillars'])} · 详细结果：{out.relative_to(c['LAB_ROOT'])}")
     return 0
 

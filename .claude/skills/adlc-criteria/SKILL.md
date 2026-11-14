@@ -113,17 +113,17 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
 4. 再 `build`：它按 `golden_tool.py apply-feedback` 的规则在内存里试运行，通过后写出**预览**（不动 `data/`）：
    `golden-proposals.csv`（`golden-set-feedback.csv` 格式，操作 = 新增）、新写条目的 `extra-feedback.proposed.jsonl`（`extra-feedback.jsonl` 格式），`criteria.md` 末尾有提议表和写入步骤。
 5. 把提议读给业务方（每条：需求标题、期望标签、为什么补），并**跳出角色、对小组里的技术同学明确说**（这句对业务方角色没有意义）：
-   “写进黄金集后要重新运行 `./30-create-evaluators.sh`：黄金集是打包在评估器 Lambda 里的，不重新部署，评估用的还是旧黄金集。”（新写了需求反馈时再加一句：B 版还要重新运行 `./20-B-deploy-runtime.sh`。）
+   “写进黄金集后要重新运行 `./40-create-evaluators.sh`：黄金集是打包在评估器 Lambda 里的，不重新部署，评估用的还是旧黄金集。”（新写了需求反馈时再加一句：B 版还要重新运行 `./30-deploy-runtime.sh`。）
    然后只问一个问题：“要把这 N 条写进黄金集吗？”
 6. **同意后**才按 `criteria.md` 的“写入步骤”逐条执行，任何一步报错就停下来报告：
    - 有新写条目时：把 `extra-feedback.proposed.jsonl` 的每一行追加到 `data/templates/extra-feedback.jsonl`，按提示改 `data/templates/mock-data-params.yaml` 的 `count`，运行 `python3 data/tools/generate_mock_data.py`；
    - `criteria.py verify <目录> --before-apply`（只查需求编号都在需求反馈里）→ `golden_tool.py apply-feedback --feedback <目录>/golden-proposals.csv --dry-run` → 去掉 `--dry-run` 再运行 → `golden_tool.py freeze` → `criteria.py verify <目录>`（这次要全部 ✅）；
    - 在 `criteria-draft.json` 里把这几条提议从 `golden_proposals` 挪到 `golden_applied`（留作记录），把新黄金编号（verify 会打印）填进对应判据的 `golden_ids`，删掉已补上的 `golden_gap`，再 `build`，再 `./tools/publish-define-pages.sh` 更新预览；
-   - 提醒（或经他们同意后运行）`./30-create-evaluators.sh`。
+   - 提醒（或经他们同意后运行）`./40-create-evaluators.sh`。
    不同意：什么都不写，预览文件留在输出目录里即可。
 
 自己的场景（`scenario` 是 `own`）：判据表照做（多半是“未覆盖”，这正是要新写评估器的清单），**跳过第 4 步**——实验的黄金集和评估器是需求分诊 Agent 的数据契约。
-设置了 `ADLC_DATA_DIR`（用客户数据跑）时也跳过第 4 步，告诉讲师。
+设置了 `ADLC_DATA_DIR`（Agent 改读另一个数据目录）时也跳过第 4 步，告诉讲师。
 
 ### 第 5 步：交付
 

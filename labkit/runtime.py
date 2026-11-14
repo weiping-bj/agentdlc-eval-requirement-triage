@@ -1,6 +1,6 @@
-"""B path: package the mock agent and deploy it to AgentCore Runtime (direct code deploy, no Docker).
+"""Chapter 3 (build): package the mock agent and deploy it to AgentCore Runtime (direct code deploy, no Docker).
 
-  python -m labkit.runtime deploy [--version v0|v1]   # create or update the Runtime
+  python -m labkit.runtime deploy [--version v0|v1|v1-ref]   # create or update the Runtime
   python -m labkit.runtime invoke --one FB-2610-001   # smoke test one item
   python -m labkit.runtime status
 """
@@ -154,7 +154,8 @@ def deploy(version: str) -> dict:
         roleArn=role_arn,
         networkConfiguration={"networkMode": "PUBLIC"},
         protocolConfiguration={"serverProtocol": "HTTP"},
-        environmentVariables={"AGENT_VERSION": version, "AGENT_MODEL_ID": c["AGENT_MODEL_ID"]},
+        environmentVariables={"AGENT_VERSION": version, "AGENT_MODEL_ID": c["AGENT_MODEL_ID"],
+                              "ADLC_LABEL_SCHEME": (c.get("LABEL_SCHEME") or "binary").strip().lower()},
         description=f"AgentDLC lab triage agent ({version})",
     )
     existing = find_runtime(c["RUNTIME_NAME"])
@@ -191,14 +192,14 @@ def deploy(version: str) -> dict:
              "deployedAt": datetime.now(timezone.utc).isoformat()}
     aws.save_state("runtime", state)
     print(f"✅ Runtime 就绪：{rid}（版本 {state['agentRuntimeVersion']}，Agent {version}）")
-    print("   下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）")
+    print("   下一步：./30-deploy-runtime.sh invoke   （调用一次确认可用）")
     return state
 
 
 def invoke_one(fid: str | None) -> int:
     st = aws.load_state("runtime")
     if not st:
-        print("❌ 还没有部署 Runtime：先运行 ./20-B-deploy-runtime.sh"); return 1
+        print("❌ 还没有部署 Runtime：先运行 ./30-deploy-runtime.sh"); return 1
     rows = items.load("golden")
     row = next((r for r in rows if items.fid_of(r) == fid), rows[0]) if fid else rows[0]
     import uuid

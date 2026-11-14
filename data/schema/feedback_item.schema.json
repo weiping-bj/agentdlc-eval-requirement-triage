@@ -73,7 +73,7 @@
     },
     "extra": {
       "type": "object",
-      "description": "客户数据中未映射的列（仅 ingest 输出）"
+      "description": "附加列（可选；Agent 不读）"
     }
   },
   "additionalProperties": true

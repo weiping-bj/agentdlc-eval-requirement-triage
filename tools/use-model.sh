@@ -17,4 +17,4 @@ case "$ARG" in
 esac
 mv config/local.env.tmp config/local.env
 echo "✅ 当前模型设置："; grep -E '^(AGENT_MODEL_ID|JUDGE_MODEL_ID)=' config/local.env || echo "  使用 config/lab.env 默认值"
-echo "   B 版需重新部署 Runtime 才生效：./20-B-deploy-runtime.sh；评审模型需重跑 ./30-create-evaluators.sh"
+echo "   B 版需重新部署 Runtime 才生效：./30-deploy-runtime.sh；评审模型需重跑 ./40-create-evaluators.sh"

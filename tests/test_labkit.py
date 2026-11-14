@@ -91,9 +91,9 @@ def test_agent_parse_and_format():
 def test_v0_v1_prompts_and_toolsets():
     pytest.importorskip("strands")
     from adlc_agent import core, tools
-    assert set(tools.TOOLSETS) == {"v0", "v1"}
-    assert len(tools.TOOLSETS["v1"]) > len(tools.TOOLSETS["v0"])
-    v0, v1 = core.system_prompt("v0"), core.system_prompt("v1")
+    assert set(tools.TOOLSETS) == {"v0", "v1-ref"}   # an attendee v1 without an entry runs with the v1-ref tools
+    assert len(tools.TOOLSETS["v1-ref"]) > len(tools.TOOLSETS["v0"])
+    v0, v1 = core.system_prompt("v0"), core.system_prompt("v1-ref")
     assert len(v1) > 2 * len(v0)
     for key in ("feedback_id", "important", "urgent", "decision", "reject_reason", "customer_reply"):
         assert key in v0 and key in v1

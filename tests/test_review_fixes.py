@@ -24,7 +24,7 @@ def cfg_env(monkeypatch, tmp_path):
 
 
 def test_r2_sourced_config_does_not_freeze_local_env(cfg_env, monkeypatch):
-    """Finding 2: after `source ./00-config.sh`, 40-switch-version.sh must still take effect."""
+    """Finding 2: after `source ./00-config.sh`, 50-switch-version.sh must still take effect."""
     monkeypatch.setenv("AGENT_VERSION", "v0")          # exported by 00-config.sh
     monkeypatch.setenv("_ADLC_EXP_AGENT_VERSION", "v0")  # its snapshot
     cfg_env.write_text("AGENT_VERSION=v1\n", encoding="utf-8")
@@ -76,7 +76,7 @@ def test_r7_compare_never_pairs_with_imported(monkeypatch):
     from labkit import compare
     evals = [{"run_id": "A-v0-1", "file": "results/eval-A-v0-1.json", "version": "v0", "mode": "local"},
              {"run_id": "A-v1-2", "file": "results/eval-A-v1-2.json", "version": "v1", "mode": "local"},
-             {"run_id": "A-imported-3", "file": "results/eval-A-imported-3.json", "version": "imported", "mode": "imported"}]
+             {"run_id": "imported-3", "file": "results/eval-imported-3.json", "version": "imported", "mode": "imported"}]
     monkeypatch.setattr(compare, "load_state_list", lambda name: evals)
     before, after = compare.pick_default()
     assert before.name == "eval-A-v0-1.json" and after.name == "eval-A-v1-2.json"

@@ -1,4 +1,4 @@
-"""Chapter 6: deploy the custom evaluator Lambdas and register all evaluators in AgentCore Evaluations.
+"""Chapter 4 (evaluate): deploy the custom evaluator Lambdas and register all evaluators in AgentCore Evaluations.
 
   python -m labkit.evaluators_reg            # create or update everything (idempotent)
   python -m labkit.evaluators_reg --list     # show registered evaluators
@@ -10,6 +10,9 @@ Registered (names get the personal prefix adlc_<suffix>_...):
   label_decision   code-based TRACE
   reject_quality   code-based TRACE  LLM review of rejection reason + customer reply (Skipped if not rejected)
   reject_quality_llm  LLM-as-a-judge TRACE (native AgentCore judge, same rubric)
+  label_level      code-based TRACE  only when LABEL_SCHEME=level (extension "label scheme switch")
+LABEL_SCHEME / LEVEL_TOLERANCE (config/lab.env, config/local.env) reach every label Lambda as
+ADLC_LABEL_SCHEME / ADLC_LEVEL_TOLERANCE.
 Source code lives in evaluators/ (see evaluators/README.md).
 """
 from __future__ import annotations
@@ -43,6 +46,25 @@ CODE_EVALUATORS = [
     ("label_decision", "label-decision", "处理建议 单项准确率（0/1）"),
     ("reject_quality", "reject", "拒绝理由与客户话术质量（LLM 评审，非拒绝则 Skipped）"),
 ]
+# graded label scheme (LABEL_SCHEME=level): one more single-field Lambda + evaluator for 优先级
+LEVEL_LAMBDA = ("label-level", ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "level"}))
+LEVEL_EVALUATOR = ("label_level", "label-level", "优先级 P0/P1/P2 单项准确率（0/1，分级口径）")
+
+
+def label_scheme() -> str:
+    s = (aws.cfg().get("LABEL_SCHEME") or "binary").strip().lower()
+    return s if s in ("binary", "level") else "binary"
+
+
+def lambdas() -> dict:
+    out = dict(LAMBDAS)
+    if label_scheme() == "level":
+        out[LEVEL_LAMBDA[0]] = LEVEL_LAMBDA[1]
+    return out
+
+
+def code_evaluators() -> list:
+    return CODE_EVALUATORS + ([LEVEL_EVALUATOR] if label_scheme() == "level" else [])
 JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/adlc_reject_quality.json", "llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
                            "llm_judge_config/config.json"]
 
@@ -88,14 +110,15 @@ def zip_dir(src: Path) -> bytes:
 
 def deploy_lambda(key: str, role_arn: str) -> str:
     c = aws.cfg()
-    src_dir, handler, extra = LAMBDAS[key]
+    src_dir, handler, extra = lambdas()[key]
     src = EV / src_dir
     if not src.exists():
         raise SystemExit(f"❌ 找不到评估器源码 {src.relative_to(ROOT)}")
     lam = aws.client("lambda")
     name = fn_name(key)
     env = {"Variables": {"JUDGE_MODEL_ID": c["JUDGE_MODEL_ID"], "FALLBACK_MODEL_ID": c["FALLBACK_MODEL_ID"],
-                         "TARGET_ACCURACY": c["TARGET_ACCURACY"], **extra}}
+                         "TARGET_ACCURACY": c["TARGET_ACCURACY"], "ADLC_LABEL_SCHEME": label_scheme(),
+                         "ADLC_LEVEL_TOLERANCE": str(c.get("LEVEL_TOLERANCE") or "0"), **extra}}
     code = zip_dir(src)
     try:
         lam.get_function(FunctionName=name)
@@ -195,29 +218,29 @@ def needs_replacement(existing: dict, desired: dict) -> bool:
 
 
 def remove_online() -> list:
-    """Delete my online evaluation configs (they pin evaluators); return the paths to restore."""
+    """Delete my online evaluation configs (they pin evaluators); return the modes to restore."""
     from . import online
     ctl = aws.client("bedrock-agentcore-control")
-    paths = []
-    for path in ("a", "b"):
-        x = online.find(online.config_name(path))
+    modes = []
+    for mode in online.MODES:
+        x = online.find(online.config_name(mode))
         if x:
             ctl.delete_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"])
-            paths.append(path)
+            modes.append(mode)
             print(f"  ⏸  临时删除在线评估配置 {x['onlineEvaluationConfigName']}（更新被锁定的评估器需要）")
-    for path in paths:
+    for mode in modes:
         for _ in range(30):
-            if not online.find(online.config_name(path)):
+            if not online.find(online.config_name(mode)):
                 break
             time.sleep(3)
-    return paths
+    return modes
 
 
-def restore_online(paths: list) -> None:
+def restore_online(modes: list) -> None:
     from . import online
-    for path in paths:
-        print(f"  ▶️  重新创建在线评估配置（路线 {path.upper()}）")
-        online.enable(path)
+    for mode in modes:
+        print(f"  ▶️  重新创建在线评估配置（{online.LABEL[mode]}）")
+        online.enable(mode)
 
 
 def judge_config() -> dict | None:
@@ -234,10 +257,10 @@ def register() -> dict:
     c = aws.cfg()
     print(f"▶ 部署评估器 Lambda 并注册到 AgentCore Evaluations（区域 {c['AWS_REGION']}）")
     role = lambda_role()
-    arns = {k: deploy_lambda(k, role) for k in LAMBDAS}
+    arns = {k: deploy_lambda(k, role) for k in lambdas()}
     existing = list_custom()
     desired = {ev_name(s): ("TRACE", {"codeBased": {"lambdaConfig": {"lambdaArn": arns[k], "lambdaTimeoutInSeconds": 120}}})
-               for s, k, _ in CODE_EVALUATORS}
+               for s, k, _ in code_evaluators()}
     jc = judge_config()
     if jc:
         desired[ev_name("reject_quality_llm")] = ("TRACE", jc)
@@ -245,7 +268,7 @@ def register() -> dict:
         print("  ℹ️  未找到原生 LLM 评审配置（evaluators/llm_judge_config/），跳过")
     removed = remove_online() if needs_replacement(existing, desired) else []
     state = {}
-    for suffix, key, desc in CODE_EVALUATORS:
+    for suffix, key, desc in code_evaluators():
         state[suffix] = upsert(ev_name(suffix), *desired[ev_name(suffix)], desc, existing)
     if jc:
         try:
@@ -260,7 +283,7 @@ def register() -> dict:
     for k, v in state.items():
         if not k.startswith("_"):
             print(f"   {ev_name(k):<40} {v['evaluatorId']}")
-    print("   下一步：./33-online-eval.sh enable --path b   （A 版用 --path a；开启在线评估，让分数显示在 CloudWatch 控制台）")
+    print("   下一步：./41-online-eval.sh enable   （开启在线评估，让分数显示在 CloudWatch 控制台）")
     return state
 
 

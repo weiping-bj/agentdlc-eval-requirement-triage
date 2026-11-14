@@ -92,7 +92,7 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     runs = aws.load_state("runs", default=[])
     if not runs:
-        print("❌ 没有运行记录。先运行 ./10-A-run-local.sh trace 3 或 ./11-A-convert-logs.sh send <文件>"); return 1
+        print("❌ 没有运行记录。先运行 ./ext-local-agent.sh trace 3 或 ./ext-convert-logs.sh send <文件>"); return 1
     run = next((r for r in runs if r["run_id"] == a.run), None) if a.run else runs[-1]
     if not run:
         print(f"❌ 找不到 run {a.run}"); return 1

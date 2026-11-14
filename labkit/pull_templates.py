@@ -249,7 +249,7 @@ def section_answered(text: str, default_text, n: int, older_texts=()) -> bool:
 
 
 def mock_feedback_given(text: str, default_text, older_texts=()) -> bool:
-    """Section 5 (mock data) answered -> 2.4 runs before 2.5."""
+    """Section 5 (mock data) answered -> the mock data step runs before the golden set step."""
     return section_answered(text, default_text, 5, older_texts)
 
 
@@ -540,7 +540,7 @@ class Puller:
         return 0
 
     def next_steps(self):
-        """Same numbered order every time; 2.4 (mock data) is marked to do only when section 5 was answered."""
+        """Same numbered order every time; step 1 (mock data) is marked to do only when section 5 was answered."""
         p, md = self.out, self.tdir / "discussion-feedback.md"
         try:
             text = decode(md.read_bytes())[0] if md.is_file() else ""
@@ -556,21 +556,21 @@ class Puller:
                 pass
         mock = mock_feedback_given(text, default, older)
         catalog = catalog_feedback_given(text, default, older)
-        p("下一步（手册第 2 章，按顺序；2.1/2.2 只读、2.3 只在客户自带数据时做）：")
+        p("下一步（扩展「按讨论意见重新生成模拟数据」，按顺序）：")
         if mock:
-            p("  1. 2.4 改 mock 数据（模板第 5 节有意见，必须在 2.5 之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")
+            p("  1. 改模拟数据（模板第 5 节有意见，必须在改黄金集之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")
         else:
-            p("  1. 2.4 跳过：模板第 5 节没填，或写的是“基本符合”")
+            p("  1. 改模拟数据 跳过：模板第 5 节没填，或写的是“基本符合”")
         if catalog:
-            p("  2. 2.5 模板第 3 节补了能力目录：先 claude \"$(cat data/prompts/04-update-capability-catalog.md)\"，")
+            p("  2. 改黄金集 模板第 3 节补了能力目录：先 claude \"$(cat data/prompts/04-update-capability-catalog.md)\"，")
             p("     再 python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，最后 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
         else:
-            p("  2. 2.5 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
+            p("  2. 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
             p("     再 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
-        p("  3. 2.6 冻结：python3 data/tools/golden_tool.py freeze")
+        p("  3. 冻结：python3 data/tools/golden_tool.py freeze")
         changed = "mock 数据" if mock and not catalog else "能力目录" if catalog and not mock else "mock 数据和能力目录"
-        p("  4. 评估器已注册过：./30-create-evaluators.sh（第 6 章）" + (
-            f"；B 版 Runtime 已部署过还要：./20-B-deploy-runtime.sh（B3，把新的 {changed} 打进包）" if (mock or catalog) else ""))
+        p("  4. 评估器已注册过：./40-create-evaluators.sh" + (
+            f"；Runtime 已部署过还要：./30-deploy-runtime.sh（把新的 {changed} 打进包）" if (mock or catalog) else ""))
 
 
 # ----------------------------------------------------------------------------- AWS glue

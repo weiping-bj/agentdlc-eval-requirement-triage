@@ -25,8 +25,8 @@
     <li><b>账号</b>：一个专用的实验账号，不要用生产账号（脚本会创建 IAM 角色、Lambda、AgentCore 资源）。</li>
     <li><b>运行脚本的机器</b>：按 <a href="01-setup.html">第 1 章</a> 建一台实验 EC2（推荐），或在自己电脑上 clone 仓库，在仓库根目录建虚拟环境并安装依赖：<code>uv venv --python 3.12 .venv &amp;&amp; uv pip install -r requirements.txt</code>（见 <a data-repo="requirements.txt">requirements.txt</a> 第一行），再在 <code>config/local.env</code> 里写 <code>AWS_PROFILE</code>（<a href="appendix.html#s-x-1">附录 X.1</a>）。下面所有 <code>./…sh</code> 命令都在仓库根目录执行。</li>
     <li><b>个人后缀</b>：<code>./tools/set-suffix.sh &lt;后缀&gt;</code>。本页用 <code>&lt;后缀&gt;</code> 表示它（例如 <code>zhang3</code>），资源名都由它派生。</li>
-    <li><b>Transaction Search</b>：<code>./02-enable-observability.sh</code>（<a href="01-setup.html#s-1-8">1.8</a>）。不开它，span 进不了 CloudWatch 的 <code>aws/spans</code>，评估服务就找不到数据。注意这是<b>账号 + 区域级</b>设置：它把这个区域所有 X-Ray trace 改为写入 CloudWatch Logs，并把 span 索引比例设为 100%，会产生 CloudWatch 费用；已经开着就不用再运行。要还原，只有本实验开启的情况下 <code>./99-cleanup.sh --all --account-level</code> 才会还原（第 10 章）。</li>
-    <li><b>黄金集和评估器</b>：黄金集按 <a href="02-data.html">第 2 章</a> 确认；评估器用 <code>./30-create-evaluators.sh</code> 部署和注册（<a href="06-evaluators.html#s-6-3">6.3</a>）。</li>
+    <li><b>Transaction Search</b>：<code>./11-enable-observability.sh</code>（<a href="01-setup.html#s-1-8">1.8</a>）。不开它，span 进不了 CloudWatch 的 <code>aws/spans</code>，评估服务就找不到数据。注意这是<b>账号 + 区域级</b>设置：它把这个区域所有 X-Ray trace 改为写入 CloudWatch Logs，并把 span 索引比例设为 100%，会产生 CloudWatch 费用；已经开着就不用再运行。要还原，只有本实验开启的情况下 <code>./99-cleanup.sh --all --account-level</code> 才会还原（第 10 章）。</li>
+    <li><b>黄金集和评估器</b>：黄金集按 <a href="02-data.html">第 2 章</a> 确认；评估器用 <code>./40-create-evaluators.sh</code> 部署和注册（<a href="06-evaluators.html#s-6-3">6.3</a>）。</li>
   </ul>
   <p><b>让你们的 Agent 处理哪些数据：</b>黄金集的 30 条需求在 <a data-repo="data/golden/golden_set.jsonl">data/golden/golden_set.jsonl</a>，每行的 <code>input</code> 字段就是 Agent 的输入（字段说明 <a data-repo="data/schema/feedback_item.schema.json">feedback_item.schema.json</a>），需求编号在 <code>feedback_id</code>。用同样的 30 条做“优化前”和“优化后”，分数才可比。</p>
   <p><b>Agent 要输出什么：</b>每条需求输出一个 JSON，字段见 <a data-repo="evaluators/README.md">evaluators/README.md</a> 第 1 节：</p>
@@ -73,8 +73,8 @@ pip install "strands-agents[otel]"   # 只有 Strands Agent 需要</code></pre>
     <tr><td><code>OTEL_LOGS_EXPORTER=otlp</code> · <code>OTEL_EXPORTER_OTLP_LOGS_HEADERS</code></td><td>模型输入 / 输出内容作为日志事件，写到上面的日志组（日志流 <code>runtime-logs</code>）</td></tr>
     <tr><td><code>OTEL_RESOURCE_ATTRIBUTES</code></td><td><code>service.name</code>（控制台里的 Agent 名）和 <code>aws.log.group.names</code>（关联的日志组）</td></tr>
   </table>
-  <div class="warn"><b>不要改服务名和日志组。</b>在线评估（<code>./33-online-eval.sh enable --path a</code>）只看 <code>LOCAL_SERVICE_NAME</code> 和 <code>LOCAL_LOG_GROUP</code> 这两个值（<a data-repo="labkit/online.py">labkit/online.py</a>），它们由 <a data-repo="labkit/config.py">labkit/config.py</a> 的 <code>derive()</code> 按前缀和后缀算出来：在 <code>config/local.env</code> 或环境变量里设置它们<b>不生效</b>（会被覆盖）。如果给 <code>otel_env.sh</code> 传自己的名字（<code>source telemetry/otel_env.sh my-agent …</code>），trace 照样进 CloudWatch、按需评估也能用，但在线评估<b>一条都不会打分</b>。实测：同一个在线评估配置、同一段时间里，默认名的 session 3/3 被打分，自定义名的 0/5。</div>
-  <p><b>代价（如实说明）：</b>控制台里你们的 Agent 显示为 <code>adlc-&lt;后缀&gt;-local-agent</code>。如果用同一个后缀也跑过 mock agent（现场的 A3 / 第 7 章），两者的 session 会在同一个 Agent 名下。区分方法：mock agent 的 <code>session.id</code> 形如 <code>adlc-&lt;后缀&gt;-v0-FB-2610-001-&lt;32 位十六进制&gt;</code>，G.5 的代码生成的形如 <code>adlc-&lt;uuid&gt;</code>。想完全分开，可以用一个新后缀：在自己电脑上（没有实验权限边界）运行 <code>./tools/set-suffix.sh &lt;新后缀&gt;</code> 后重新注册评估器（<code>./30-create-evaluators.sh</code>）；在实验 EC2 上后缀和 EC2 堆栈绑定（权限边界按后缀命名，换了后缀脚本会报“找不到实验权限边界”），要按 <a href="01-setup.html">第 1 章</a> 用新后缀重新创建 EC2 堆栈 <span class="pill b">按代码核对</span>。</p>
+  <div class="warn"><b>不要改服务名和日志组。</b>在线评估（<code>./41-online-eval.sh enable --mode local</code>）只看 <code>LOCAL_SERVICE_NAME</code> 和 <code>LOCAL_LOG_GROUP</code> 这两个值（<a data-repo="labkit/online.py">labkit/online.py</a>），它们由 <a data-repo="labkit/config.py">labkit/config.py</a> 的 <code>derive()</code> 按前缀和后缀算出来：在 <code>config/local.env</code> 或环境变量里设置它们<b>不生效</b>（会被覆盖）。如果给 <code>otel_env.sh</code> 传自己的名字（<code>source telemetry/otel_env.sh my-agent …</code>），trace 照样进 CloudWatch、按需评估也能用，但在线评估<b>一条都不会打分</b>。实测：同一个在线评估配置、同一段时间里，默认名的 session 3/3 被打分，自定义名的 0/5。</div>
+  <p><b>代价（如实说明）：</b>控制台里你们的 Agent 显示为 <code>adlc-&lt;后缀&gt;-local-agent</code>。如果用同一个后缀也跑过 mock agent（现场的 A3 / 第 7 章），两者的 session 会在同一个 Agent 名下。区分方法：mock agent 的 <code>session.id</code> 形如 <code>adlc-&lt;后缀&gt;-v0-FB-2610-001-&lt;32 位十六进制&gt;</code>，G.5 的代码生成的形如 <code>adlc-&lt;uuid&gt;</code>。想完全分开，可以用一个新后缀：在自己电脑上（没有实验权限边界）运行 <code>./tools/set-suffix.sh &lt;新后缀&gt;</code> 后重新注册评估器（<code>./40-create-evaluators.sh</code>）；在实验 EC2 上后缀和 EC2 堆栈绑定（权限边界按后缀命名，换了后缀脚本会报“找不到实验权限边界”），要按 <a href="01-setup.html">第 1 章</a> 用新后缀重新创建 EC2 堆栈 <span class="pill b">按代码核对</span>。</p>
   <div class="tip"><b>在你们自己的 shell 脚本里使用时</b>，写成 <code>source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"</code>（效果和不带参数一样）。不带参数 <code>source</code> 时，脚本自己的 <code>$1</code> / <code>$2</code> 会被当成服务名和日志组（实测遇到过）。</div>
   <div class="note"><b>Agent 不在这台机器上运行</b>（容器、你们自己的服务器）：把上面这些环境变量按输出里的值设到运行 Agent 的地方，再设好 <code>AWS_REGION</code> 和能写 X-Ray、CloudWatch Logs 的 AWS 凭证。需要的 IAM 权限见 AgentCore 文档 “Add observability to agents hosted outside AgentCore Runtime” <span class="pill o">未验证</span>。</div>
 </div>
@@ -124,7 +124,7 @@ def handle_one(item: dict) -&gt; dict:
   <div class="step-head"><span class="num">G.6</span><h3>路线一 ④ 先建日志组，再开启在线评估（控制台自动打分）</h3><span class="time"><span class="pill g">已实测</span></span></div>
   <p class="why">日志组要先存在；在线评估要在 Agent 运行<b>之前</b>开启，开启之前产生的 session 不会被打分。</p>
 <pre><code>.venv/bin/python -m labkit.loggroup
-./33-online-eval.sh enable --path a</code></pre>
+./41-online-eval.sh enable --mode local</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/adlc-&lt;后缀&gt;-local-agent
 …
@@ -133,8 +133,8 @@ def handle_one(item: dict) -&gt; dict:
    CloudWatch 控制台 → GenAI Observability → Bedrock AgentCore → 你的 Agent → Evaluations</pre>
   日志组已经存在时显示 <code>✔ 日志组已存在 …</code>；在线评估配置已经创建过时显示 <code>✅ 在线评估配置 … 已启用</code>。不带参数时 <a data-repo="labkit/loggroup.py">labkit/loggroup.py</a> 创建的就是 G.4 的默认日志组（保留 7 天）。</div>
   <ul>
-    <li>为什么先建日志组：模型输入 / 输出事件要写进去；而且日志组不存在时 <code>./33-online-eval.sh enable --path a</code> 会失败（见 <a href="#s-g-16">G.16</a>）。</li>
-    <li>前提：评估器已注册（<code>./30-create-evaluators.sh</code>）。只想做按需评估（G.8–G.10）时可以不开在线评估，但日志组照样要建。</li>
+    <li>为什么先建日志组：模型输入 / 输出事件要写进去；而且日志组不存在时 <code>./41-online-eval.sh enable --mode local</code> 会失败（见 <a href="#s-g-16">G.16</a>）。</li>
+    <li>前提：评估器已注册（<code>./40-create-evaluators.sh</code>）。只想做按需评估（G.8–G.10）时可以不开在线评估，但日志组照样要建。</li>
     <li><b>先开启、再跑 Agent</b>：只有开启之后产生的 session 会被打分；开启前的、以及改配置之前的旧 session 不会补打（实测）。</li>
     <li>在线评估没有“标准答案”输入：标签准确率评估器按需求编号到随 Lambda 打包的黄金集里找答案；不在黄金集里的需求返回 <code>Skipped</code>，不计分。</li>
   </ul>
@@ -158,15 +158,15 @@ def handle_one(item: dict) -&gt; dict:
 
 <div class="step" id="s-g-8">
   <div class="step-head"><span class="num">G.8</span><h3>路线一 ⑥ 按需评估之前：先弄清“运行记录”</h3><span class="time"><span class="pill g">已实测</span></span></div>
-  <p class="why">按需评估（<code>./31-run-eval.sh</code>）和遥测检查（<code>./12-A-check-telemetry.sh</code>）不扫描 CloudWatch，只评估登记过的运行。</p>
+  <p class="why">按需评估（<code>./43-run-eval.sh</code>）和遥测检查（<code>./ext-check-telemetry.sh</code>）不扫描 CloudWatch，只评估登记过的运行。</p>
   <p>一条“运行记录”由两部分组成：</p>
   <ol class="clicks">
     <li><b>运行文件</b> <code>results/run-&lt;run_id&gt;.jsonl</code>：每个 session 一行，把需求编号（<code>feedback_id</code>）和 <code>session_id</code> 对应起来。</li>
     <li><b>登记项</b>：<code>.lab-state/runs.json</code>（一个 JSON 数组）里的一个对象：run_id、运行文件路径、开始时间、日志组等。</li>
   </ol>
   <p>仓库的脚本只登记自己产生的运行：mock agent 的批量运行（<a data-repo="labkit/batch.py">labkit/batch.py</a>）和路线二的日志导入（<a data-repo="labkit/convert_logs.py">labkit/convert_logs.py</a>）。<b>你们的 Agent 产生的 session 不会自动登记</b>，要按 G.9 手动登记。</p>
-  <div class="danger"><b>不带 <code>--run</code> 时评估的是最后一条登记的运行，不一定是你们的。</b><code>./31-run-eval.sh</code> 和 <code>./12-A-check-telemetry.sh</code> 不带参数时取 <code>runs.json</code> 的最后一条（<a data-repo="labkit/evaluate.py">labkit/evaluate.py</a> 的 <code>pick_run()</code>）。如果这台机器之前跑过 mock agent，它会<b>悄悄评估那次 mock 运行，还可能显示 ✅ 达标</b>，看起来像是你们的 Agent 达标了（实测）。从没登记过任何运行时，31 报 <code>❌ 还没有任何运行记录</code>，12 报 <code>❌ 没有运行记录</code>。所以：先登记，之后<b>一律带 <code>--run &lt;run_id&gt;</code></b>，并核对输出第一行 <code>▶ 评估 run &lt;run_id&gt;：N 个 session</code> 里的 run_id 和条数。</div>
-  <p><code>results/</code> 和 <code>.lab-state/</code> 只在运行脚本的这台机器上（不提交到仓库），登记要在你运行 <code>./31-run-eval.sh</code> 的同一台机器上做。</p>
+  <div class="danger"><b>不带 <code>--run</code> 时评估的是最后一条登记的运行，不一定是你们的。</b><code>./43-run-eval.sh</code> 和 <code>./ext-check-telemetry.sh</code> 不带参数时取 <code>runs.json</code> 的最后一条（<a data-repo="labkit/evaluate.py">labkit/evaluate.py</a> 的 <code>pick_run()</code>）。如果这台机器之前跑过 mock agent，它会<b>悄悄评估那次 mock 运行，还可能显示 ✅ 达标</b>，看起来像是你们的 Agent 达标了（实测）。从没登记过任何运行时，31 报 <code>❌ 还没有任何运行记录</code>，12 报 <code>❌ 没有运行记录</code>。所以：先登记，之后<b>一律带 <code>--run &lt;run_id&gt;</code></b>，并核对输出第一行 <code>▶ 评估 run &lt;run_id&gt;：N 个 session</code> 里的 run_id 和条数。</div>
+  <p><code>results/</code> 和 <code>.lab-state/</code> 只在运行脚本的这台机器上（不提交到仓库），登记要在你运行 <code>./43-run-eval.sh</code> 的同一台机器上做。</p>
 </div>
 
 <div class="step" id="s-g-9">
@@ -206,7 +206,7 @@ def handle_one(item: dict) -&gt; dict:
     <tr><th style="width:18%">字段</th><th style="width:10%">必填</th><th>说明</th></tr>
     <tr><td><code>run_id</code></td><td>是</td><td>和第 2 步一致；<code>--run</code> 用的就是它</td></tr>
     <tr><td><code>file</code></td><td>是</td><td>第 2 步的运行文件，路径相对仓库根目录</td></tr>
-    <tr><td><code>created</code></td><td>是</td><td><b>UTC</b> 时间，格式 <code>YYYYMMDDTHHMMSSZ</code>。写第 1 步第一行的时间（换算成 UTC）或更早：<code>./31-run-eval.sh</code> 从它往前 10 分钟开始查 span，<code>./12-A-check-telemetry.sh</code> 往前 60 分钟；写早了只是多查一段时间，写得比第一条请求晚 10 分钟以上就查不到（31 报 <code>no spans found</code>）。拿不准时区就再往前写 1 小时以上</td></tr>
+    <tr><td><code>created</code></td><td>是</td><td><b>UTC</b> 时间，格式 <code>YYYYMMDDTHHMMSSZ</code>。写第 1 步第一行的时间（换算成 UTC）或更早：<code>./43-run-eval.sh</code> 从它往前 10 分钟开始查 span，<code>./ext-check-telemetry.sh</code> 往前 60 分钟；写早了只是多查一段时间，写得比第一条请求晚 10 分钟以上就查不到（31 报 <code>no spans found</code>）。拿不准时区就再往前写 1 小时以上</td></tr>
     <tr><td><code>version</code></td><td>是</td><td><code>v0</code>（优化前）、<code>v1</code>（优化后）…：评估结果和对比页用它显示 V0 / V1</td></tr>
     <tr><td><code>mode</code></td><td>是</td><td>写 <code>own</code>（对比页显示“自带 Agent（手动登记的运行）”）。不要用 <code>local</code> / <code>runtime</code> / <code>imported</code>，那是仓库脚本自己的运行类型</td></tr>
     <tr><td><code>log_group</code></td><td>建议</td><td>G.4 的日志组：模型输入 / 输出事件在这里。不写时只查 <code>aws/spans</code>，可能取不到输入输出内容 <span class="pill b">按代码核对</span></td></tr>
@@ -221,8 +221,8 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
 <div class="step" id="s-g-10">
   <div class="step-head"><span class="num">G.10</span><h3>路线一 ⑧ 自检（A5 检查）并按需评估</h3><span class="time"><span class="pill g">已实测</span></span></div>
   <p class="why">先确认数据满足 Evaluations 的要求，再对照黄金集打分。</p>
-<pre><code>./12-A-check-telemetry.sh --run A-own-v0-20261106T113000Z
-./31-run-eval.sh --run A-own-v0-20261106T113000Z</code></pre>
+<pre><code>./ext-check-telemetry.sh --run A-own-v0-20261106T113000Z
+./43-run-eval.sh --run A-own-v0-20261106T113000Z</code></pre>
   <div class="expect"><span class="label">预期输出（实测：独立的 Strands Agent + G.5 的代码，5 个 session）：</span>
 <pre class="out">▶ 检查 run A-own-…（own）的 5 个 session · 日志组 /aws/bedrock-agentcore/adlc-&lt;后缀&gt;-…
   · adlc-0d3a2c0b-ca5f-456e-86b8-1745339607fd  span=10 文档=17
@@ -275,26 +275,26 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
 <div class="step" id="s-g-12">
   <div class="step-head"><span class="num">G.12</span><h3>路线二 ② 校验字段，再转换并导入 CloudWatch</h3><span class="time"><span class="pill g">已实测</span></span></div>
   <p class="why">导入前发现缺字段的问题；然后把日志转成 OTel trace 发到 CloudWatch，并自动登记成一次运行。</p>
-<pre><code>./11-A-convert-logs.sh check &lt;你的日志.jsonl&gt;
-./11-A-convert-logs.sh send  &lt;你的日志.jsonl&gt;</code></pre>
-  <p class="where">脚本：<a data-repo="11-A-convert-logs.sh">11-A-convert-logs.sh</a> → <a data-repo="labkit/convert_logs.py">labkit/convert_logs.py</a>。<code>check</code> 只读文件，不发送任何数据。</p>
+<pre><code>./ext-convert-logs.sh check &lt;你的日志.jsonl&gt;
+./ext-convert-logs.sh send  &lt;你的日志.jsonl&gt;</code></pre>
+  <p class="where">脚本：<a data-repo="ext-convert-logs.sh">ext-convert-logs.sh</a> → <a data-repo="labkit/convert_logs.py">labkit/convert_logs.py</a>。<code>check</code> 只读文件，不发送任何数据。</p>
   <ul>
     <li><code>check</code>：逐项列出字段覆盖率和“输出可解析为三项判断 JSON”的条数；出现 <code>✅ 字段检查通过</code> 才继续；如果后面还有一行 <code>⚠️ 不到一半的输出能解析成三项判断</code>，先调整 <code>agent_output</code> 的格式，否则标签准确率评估器会大量记 <code>FormatError</code>。有 <code>❌ 第 N 行缺少必填字段</code> / <code>不是合法 JSON</code> / <code>timestamp 无法解析</code> 时先修正：缺必填字段或不是合法 JSON 的行，<code>send</code> 会直接跳过。</li>
     <li><code>send</code>：创建日志组 <code>/aws/bedrock-agentcore/adlc-&lt;后缀&gt;-imported-logs</code>，以服务名 <code>adlc-&lt;后缀&gt;-imported-logs</code> 发送；每行变成 <code>invoke_agent &lt;agent_name&gt;</code> → <code>chat</code>（+ 每个工具调用一个 <code>execute_tool</code>）的 trace；输出能解析成三项判断 JSON 时，写在根 span 的 <code>adlc.triage_output</code> 上。</li>
     <li>时间按原先后顺序重排到<b>最近几分钟内</b>（每条间隔 10 秒），因为 CloudWatch 不接收 14 天以前的 span；也不会早于日志组的创建时间（CloudWatch Logs Insights 查不到比日志组更早的记录），所以第一次发送时记录从日志组建好后几秒开始排；行数多时后面的 session 会排到接下来的几分钟里，<code>send</code> 结尾会多一行 <code>ℹ️</code> 提示要等多久（按代码核对，实测只跑了 5 行样例）；session_id 改写为 <code>adlc-&lt;后缀&gt;-imp-&lt;发送时间&gt;-&lt;原 session_id&gt;</code>，同一文件重复发送也不会混在一起。</li>
   </ul>
   <div class="expect"><span class="label">预期输出（<code>send</code> 的结尾，实测：样例日志 5 行）：</span>
-<pre class="out">✅ 已发送 5 个 session（run_id = A-imported-20261106T151120Z）。约 2-3 分钟后可在 CloudWatch 查到。
-   下一步：./12-A-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre>
-  记下这一行的 <code>run_id</code>（<code>A-imported-&lt;发送时间&gt;</code>），后面都用它。</div>
+<pre class="out">✅ 已发送 5 个 session（run_id = imported-20261106T151120Z）。约 2-3 分钟后可在 CloudWatch 查到。
+   下一步：./ext-check-telemetry.sh   （检查数据能否被 Evaluations 使用）</pre>
+  记下这一行的 <code>run_id</code>（<code>imported-&lt;发送时间&gt;</code>），后面都用它。</div>
 </div>
 
 <div class="step" id="s-g-13">
   <div class="step-head"><span class="num">G.13</span><h3>路线二 ③ 遥测检查与按需评估</h3><span class="time"><span class="pill g">已实测</span></span></div>
   <p class="why">确认导入的数据能被 Evaluations 使用，再对照黄金集打分。</p>
   <p><code>send</code> 之后等 2–3 分钟；<code>send</code> 结尾有 <code>ℹ️</code> 等待提示时，等到它说的时间之后再运行：</p>
-<pre><code>./12-A-check-telemetry.sh --run A-imported-&lt;发送时间&gt;
-./31-run-eval.sh --run A-imported-&lt;发送时间&gt;</code></pre>
+<pre><code>./ext-check-telemetry.sh --run imported-&lt;发送时间&gt;
+./43-run-eval.sh --run imported-&lt;发送时间&gt;</code></pre>
   <ul>
     <li>导入的 trace 没有 token 用量；没有 <code>tool_calls</code> 的行也没有工具调用 span，所以检查结论通常是 🟨（必需项都满足，可以评估）。实测样例日志（第一次发送，日志组刚创建）：必需项 5/5，工具调用 2/5，token 用量 0/5，试评估成功。</li>
     <li>导入的服务名不在 G.6 的在线评估范围内：路线二只做按需评估，控制台的 Evaluations 页签不会有这些 session 的分数。</li>
@@ -305,11 +305,11 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
 <div class="step" id="s-g-14">
   <div class="step-head"><span class="num">G.14</span><h3>路线二 ④ 前后对比：一定要指定 --before / --after</h3><span class="time"><span class="pill b">按代码核对</span></span></div>
   <p class="why">导入的运行没有 V0 / V1 版本号，对比脚本没法自己配对。</p>
-<pre><code>./32-compare.sh --before A-imported-&lt;优化前的发送时间&gt; --after A-imported-&lt;优化后的发送时间&gt;</code></pre>
+<pre><code>./51-compare.sh --before imported-&lt;优化前的发送时间&gt; --after imported-&lt;优化后的发送时间&gt;</code></pre>
   <ul>
-    <li>原因：导入的运行版本统一记为 <code>imported</code>。<code>./32-compare.sh</code> 不带参数时，“优化后”只从版本号形如 <code>v1</code>、<code>v2</code> 且不是导入的评估里挑，“优化前”找 <code>v0</code>；都找不到时退回“最后两次评估”（<a data-repo="labkit/compare.py">labkit/compare.py</a> 的 <code>pick_default()</code>）。所以不带参数时可能拿 mock agent 的评估来配对，或者前后顺序不对。</li>
-    <li><code>--before</code> / <code>--after</code> 要写已经用 <code>./31-run-eval.sh</code> 评估过的 run_id（或 <code>results/eval-….json</code> 路径）。两边版本相同，对比页显示为 <code>IMPORTED（前）</code> 和 <code>IMPORTED（后）</code>。</li>
-    <li>路线一手动登记的运行同理：<code>./32-compare.sh --before A-own-v0-… --after A-own-v1-…</code>。</li>
+    <li>原因：导入的运行版本统一记为 <code>imported</code>。<code>./51-compare.sh</code> 不带参数时，“优化后”只从版本号形如 <code>v1</code>、<code>v2</code> 且不是导入的评估里挑，“优化前”找 <code>v0</code>；都找不到时退回“最后两次评估”（<a data-repo="labkit/compare.py">labkit/compare.py</a> 的 <code>pick_default()</code>）。所以不带参数时可能拿 mock agent 的评估来配对，或者前后顺序不对。</li>
+    <li><code>--before</code> / <code>--after</code> 要写已经用 <code>./43-run-eval.sh</code> 评估过的 run_id（或 <code>results/eval-….json</code> 路径）。两边版本相同，对比页显示为 <code>IMPORTED（前）</code> 和 <code>IMPORTED（后）</code>。</li>
+    <li>路线一手动登记的运行同理：<code>./51-compare.sh --before A-own-v0-… --after A-own-v1-…</code>。</li>
     <li>对比页生成后会上传到你的私有 S3 桶并打印控制台链接（和 <a href="09-compare.html#s-9-2">9.2</a> 一样）。</li>
   </ul>
 </div>
@@ -322,16 +322,16 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
     <li><b>找改哪里</b>：<code>.venv/bin/python -m labkit.failures results/eval-&lt;基线 run_id&gt;.json</code>（读法见 <a href="07-evaluate.html#s-7-5">7.5</a>），对照 <a href="08-optimize.html#s-8-1">8.1</a> 的表格，把“改哪里”换成你们 Agent 里对应的地方：
       <table>
         <tr><th>8.1 里 mock agent 的位置</th><th>你们 Agent 里对应的地方</th></tr>
-        <tr><td>提示词（<code>prompts/v1.md</code> 的判断口径、红线、话术要求）</td><td>系统提示词</td></tr>
+        <tr><td>提示词（<code>prompts/v1-ref.md</code> 的判断口径、红线、话术要求）</td><td>系统提示词</td></tr>
         <tr><td>工具输出 / 新增工具（<code>tools.py</code>）</td><td>工具或函数：能力查询要返回支持状态、限制、替代方案；考虑加一个“查相似需求”的工具</td></tr>
         <tr><td>数据（<code>capability_catalog.json</code>）</td><td>知识库或能力数据源</td></tr>
         <tr><td>模型（<code>AGENT_MODEL_ID</code>）</td><td>模型配置</td></tr>
       </table></li>
-    <li><b>让 coding agent 帮忙改</b>：用 <a href="08-optimize.html#s-8-2">8.2</a> 的提示词，并这样调整：第 1 步的“最新的 eval-*.json”换成基线那次的 <code>results/eval-&lt;基线 run_id&gt;.json</code>；第 3 步的 <code>agent/adlc_agent/…</code> 换成你们的系统提示词和工具代码路径；第 4 步改成“在现有系统提示词基础上写出新版本，另存为新文件”，保留输出 JSON 字段那句；删掉第 5 步（<code>TOOLSETS</code> 只属于 mock agent）；第 6 步的“不要修改 v0.md / v1.md / v1.changes.md”改成“不要修改原来的系统提示词文件”；第 7 步的改动说明可以写在你们自己的目录里（对比页只显示 mock agent 的改动说明）。把你们的代码放到运行 coding agent 的机器上之前，先确认公司允许，只放需要的文件，用完删除。</li>
+    <li><b>让 coding agent 帮忙改</b>：用 <a href="08-optimize.html#s-8-2">8.2</a> 的提示词，并这样调整：第 1 步的“最新的 eval-*.json”换成基线那次的 <code>results/eval-&lt;基线 run_id&gt;.json</code>；第 3 步的 <code>agent/adlc_agent/…</code> 换成你们的系统提示词和工具代码路径；第 4 步改成“在现有系统提示词基础上写出新版本，另存为新文件”，保留输出 JSON 字段那句；删掉第 5 步（<code>TOOLSETS</code> 只属于 mock agent）；第 6 步的“不要修改 v0.md / v1-ref.md / v1-ref.changes.md”改成“不要修改原来的系统提示词文件”；第 7 步的改动说明可以写在你们自己的目录里（对比页只显示 mock agent 的改动说明）。把你们的代码放到运行 coding agent 的机器上之前，先确认公司允许，只放需要的文件，用完删除。</li>
     <li><b>不要改黄金集和评估器</b>，只改你们的 Agent，否则前后分数不可比。</li>
-    <li><b>发布新版本</b>：按你们平时的方式发布到测试 / 预发环境（不要直接上生产）。<code>./40-switch-version.sh</code> 和 <code>./20-B-deploy-runtime.sh</code> 只作用于 mock agent，与你们的 Agent 无关。</li>
-    <li><b>再评估</b>：同样的 30 条再跑一次，路线一登记时 <code>version</code> 写 <code>v1</code>；路线二再导出、<code>check</code>、<code>send</code>。然后 <code>./31-run-eval.sh --run &lt;新 run_id&gt;</code>。</li>
-    <li><b>对比</b>：<code>./32-compare.sh --before &lt;基线 run_id&gt; --after &lt;新 run_id&gt;</code>（G.14）。路线一开了在线评估时，控制台里按两次运行的时间段分别看平均分（<a href="09-compare.html#s-9-3">9.3</a>）。</li>
+    <li><b>发布新版本</b>：按你们平时的方式发布到测试 / 预发环境（不要直接上生产）。<code>./50-switch-version.sh</code> 和 <code>./30-deploy-runtime.sh</code> 只作用于 mock agent，与你们的 Agent 无关。</li>
+    <li><b>再评估</b>：同样的 30 条再跑一次，路线一登记时 <code>version</code> 写 <code>v1</code>；路线二再导出、<code>check</code>、<code>send</code>。然后 <code>./43-run-eval.sh --run &lt;新 run_id&gt;</code>。</li>
+    <li><b>对比</b>：<code>./51-compare.sh --before &lt;基线 run_id&gt; --after &lt;新 run_id&gt;</code>（G.14）。路线一开了在线评估时，控制台里按两次运行的时间段分别看平均分（<a href="09-compare.html#s-9-3">9.3</a>）。</li>
   </ol>
 </div>
 
@@ -340,11 +340,11 @@ python3 -c "import json,sys; [json.loads(l) for l in open(sys.argv[1], encoding=
   <p class="why">这些情况会让评估查不到数据或给出误导性的结果，接入前先看一遍。</p>
   <table>
     <tr><th style="width:30%">情况</th><th>影响与对策</th><th style="width:12%">依据</th></tr>
-    <tr><td>没有加 G.5 代码的 Agent（例如直接用 LangGraph 的默认埋点）</td><td>按需评估和遥测检查只认 <code>adlc.triage</code> span，或 <code>gen_ai.operation.name = invoke_agent</code> / 名字以 <code>invoke_agent</code> 开头的 span（<a data-repo="labkit/spans.py">labkit/spans.py</a>）。框架没有产生这种根 span 时，即使 span 已经进了 CloudWatch，<code>./31-run-eval.sh</code> 也会报 <code>no spans found</code>，<code>./12-A-check-telemetry.sh</code> 等待后在“有 Agent 调用 span”上打 ❌；G.9 的登记查询也按 <code>adlc.triage</code> 找 session。对策：加 G.5 的代码。LangGraph 还要写 <code>adlc.triage_output</code>，否则评估器可能解析不了它序列化的图状态</td><td><span class="pill b">按代码核对</span></td></tr>
-    <tr><td>不用 Strands / LangChain / OpenInference / CrewAI 的 Agent（例如直接调用模型 API 的 Python 程序）</td><td>G.5 的代码只补上 session、根 span 和最终输出；没有框架的 GenAI span 时，<code>./12-A-check-telemetry.sh</code> 在“受支持的框架埋点”“有 Agent 调用 span”“能取到用户输入内容”上打 ❌，结论 🟥，不做试评估。按需评估里我们的自定义评估器（标签准确率、话术质量）仍可从 <code>adlc.triage_output</code> 读输出，内置评估器（Helpfulness、Correctness）需要输入输出内容，可能报错。对策：用受支持框架的埋点包，或按 OTel GenAI 语义约定自己补 <code>invoke_agent</code> span 和输入输出事件</td><td><span class="pill b">按代码核对</span></td></tr>
+    <tr><td>没有加 G.5 代码的 Agent（例如直接用 LangGraph 的默认埋点）</td><td>按需评估和遥测检查只认 <code>adlc.triage</code> span，或 <code>gen_ai.operation.name = invoke_agent</code> / 名字以 <code>invoke_agent</code> 开头的 span（<a data-repo="labkit/spans.py">labkit/spans.py</a>）。框架没有产生这种根 span 时，即使 span 已经进了 CloudWatch，<code>./43-run-eval.sh</code> 也会报 <code>no spans found</code>，<code>./ext-check-telemetry.sh</code> 等待后在“有 Agent 调用 span”上打 ❌；G.9 的登记查询也按 <code>adlc.triage</code> 找 session。对策：加 G.5 的代码。LangGraph 还要写 <code>adlc.triage_output</code>，否则评估器可能解析不了它序列化的图状态</td><td><span class="pill b">按代码核对</span></td></tr>
+    <tr><td>不用 Strands / LangChain / OpenInference / CrewAI 的 Agent（例如直接调用模型 API 的 Python 程序）</td><td>G.5 的代码只补上 session、根 span 和最终输出；没有框架的 GenAI span 时，<code>./ext-check-telemetry.sh</code> 在“受支持的框架埋点”“有 Agent 调用 span”“能取到用户输入内容”上打 ❌，结论 🟥，不做试评估。按需评估里我们的自定义评估器（标签准确率、话术质量）仍可从 <code>adlc.triage_output</code> 读输出，内置评估器（Helpfulness、Correctness）需要输入输出内容，可能报错。对策：用受支持框架的埋点包，或按 OTel GenAI 语义约定自己补 <code>invoke_agent</code> span 和输入输出事件</td><td><span class="pill b">按代码核对</span></td></tr>
     <tr><td>自定义服务名 / 日志组</td><td>在线评估一条都不打分（实测 0/5）；在 <code>config/local.env</code> 或环境变量里设 <code>LOCAL_SERVICE_NAME</code> / <code>LOCAL_LOG_GROUP</code> 也无效。用 G.4 的默认名</td><td><span class="pill g">已实测</span></td></tr>
     <tr><td>改了在线评估配置之后</td><td>不会给改配置之前产生的 session 补打分（实测：改配置后新跑的 3/3 被打分，之前的 0/5 一直没有分数）。改完要重新跑一遍 Agent</td><td><span class="pill g">已实测</span></td></tr>
-    <tr><td>日志组不存在时开启在线评估</td><td><code>./33-online-eval.sh enable --path a</code> 会先打印 7 行 <code>⏳ 等待 IAM 权限生效后重试</code>（不是权限问题），最后报 <code>ValidationException … One or more specified log groups do not exist</code>。先运行 G.6 的 <code>.venv/bin/python -m labkit.loggroup</code></td><td><span class="pill g">已实测</span></td></tr>
+    <tr><td>日志组不存在时开启在线评估</td><td><code>./41-online-eval.sh enable --mode local</code> 会先打印 7 行 <code>⏳ 等待 IAM 权限生效后重试</code>（不是权限问题），最后报 <code>ValidationException … One or more specified log groups do not exist</code>。先运行 G.6 的 <code>.venv/bin/python -m labkit.loggroup</code></td><td><span class="pill g">已实测</span></td></tr>
     <tr><td>不带 <code>--run</code> 运行 31 / 12</td><td>评估或检查的是最后一条登记的运行，可能是 mock agent 那次，并显示它的结论（例如 ✅ 达标 / ✅ 通过）（G.8）</td><td><span class="pill g">已实测</span></td></tr>
     <tr><td>导入日志（路线二）</td><td>trace 是按日志合成的，时间重排到导入时刻，没有 token 用量；不进在线评估；版本统一为 <code>imported</code>，对比必须指定 <code>--before</code> / <code>--after</code></td><td><span class="pill b">按代码核对</span></td></tr>
     <tr><td>一个 trace 里处理多条需求（批量模式）</td><td>评估器能解析 <code>{"results": […]}</code>，但控制台的“平均分 = 准确率”只在一条需求一个 trace 时成立（<a data-repo="evaluators/README.md">evaluators/README.md</a> 第 1 节）。按 G.5 一条需求一个 session</td><td><span class="pill b">按代码核对</span></td></tr>

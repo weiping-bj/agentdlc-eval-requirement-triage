@@ -13,7 +13,6 @@
   - 已冻结 v1，见 `data/golden/MANIFEST.json`。
 - **标注标准**（中文）：`data/golden/LABELING_GUIDE.md`。mock agent 的 V1 提示词已按它对齐。
 - **工具**（纯标准库，Python 3.9+）：
-  - 客户数据校验与标准化：`ingest_customer_data.py`，支持 csv/xlsx/json，输出充分性报告并给个人信息打码；
   - mock 数据重新生成：`generate_mock_data.py`；
   - 黄金集校验、修改、冻结：`golden_tool.py`。
 - **填写模板 + coding agent 中文提示词**：`data/templates/`（4 个模板 + 1 个样例）与 `data/prompts/`（5 个提示词）。
@@ -33,8 +32,8 @@
 | `data/capability_catalog.json` | `{"platform", "capabilities":[...]}`。字段：`id`、`name`、`module`、`status`、`description`、`limits`、`workaround`、`effort_hint`、`keywords`、`how_to` |
 | `data/golden/golden_set.jsonl` | 黄金集，唯一事实源。`.csv` 视图、`agentcore_dataset.json`、`MANIFEST.json` 由脚本生成 |
 | `data/schema/*.schema.json` | 输入条目 / 黄金集条目 / Agent 输出 |
-| `data/templates/` | 讨论用模板：`discussion-feedback.md`、`golden-set-feedback.csv`（已预填 30 行）、`mock-data-params.yaml`、`column-mapping.example.json`、`extra-feedback.example.jsonl` |
-| `data/prompts/01~05` | 客户数据评估、mock 重新生成、黄金集更新、能力目录更新、切换分级 |
+| `data/templates/` | 讨论用模板：`discussion-feedback.md`、`golden-set-feedback.csv`（已预填 30 行）、`mock-data-params.yaml`、`extra-feedback.example.jsonl` |
+| `data/prompts/02~05` | mock 重新生成、黄金集更新、能力目录更新、切换分级（客户数据导入已移除） |
 | `data/tools/` | 脚本。`seed/pool.jsonl` 是 60 条带标注的种子库 |
 | `evaluators/adlc_label_accuracy/` | 标签准确率 Lambda，另含 `batch_score.py`（本地批量打分 + 分布报告） |
 | `evaluators/adlc_reject_quality/` | 拒绝话术 LLM 评审 Lambda，另含 `execution-role-policy.json` |
@@ -106,9 +105,7 @@
   - 代码型评审遇到该错误会自动去掉参数后重试；
   - mock agent 已对 Claude 模型去掉 temperature。
 - **用 G26（集成链路故障）替换原“导入按编码更新”样例**：让“紧急=是”有 6 条，避免“全判否”就拿到 80% 以上的假高分。批量报告同时给出各类别召回率。
-- **客户真实数据只写 `data/customer/`**：该目录已加入 .gitignore。
-  - `--use-as-input` 生成 `data/customer/agent_data/`，再用 `ADLC_DATA_DIR` 指向它（Agent 的 `data.py` 优先读这个变量），不再覆盖仓库里的 mock 文件。
-  - Supersedes：之前是“覆盖 `data/feedback_last_month.jsonl` 并留 .bak”。改动原因：该文件被 git 跟踪，客户数据可能被提交到公开仓库。
+- **客户数据导入（原手册 2.3、`ingest_customer_data.py`、提示词 01）已移除**：workshop 只用合成数据。`data/customer/` 仍在 .gitignore 里（防误提交）；`ADLC_DATA_DIR` 保留为通用的“另一个数据目录”入口（Agent 的 `data.py` 优先读它），留给以后的场景包。
 - **目标 trace 不在 session 里时，两个评估器都返回 `Skipped`**，不借用其它 trace 的输出。
   - Supersedes：之前是“改用整个 session 并在说明里注明”。改动原因：会给错误的 trace 打分。
 - **参考输入（`evaluationReferenceInputs`）只覆盖它写明的字段**，其余（可接受答案、不可自动拒绝）沿用打包黄金集。
@@ -117,7 +114,7 @@
   - 属性路径直接取到输出；
   - 去掉 `adlc.triage_output` 后，仍能从 log record 的 `body.output.messages` 和 `需求编号:` 行还原。
   - `test_span_adapter.py` 有针对这份样例的测试。
-- **原生 LLM-as-judge 配置**：由 `./30-create-evaluators.sh` 注册为 `…_reject_quality_llm`（手册第 6 章）；如果服务拒绝档位或模型 ID，调整 `evaluators/adlc_reject_quality/rubric.py`，运行 `python3 evaluators/sync_shared.py` 重新生成配置，再运行 `./30-create-evaluators.sh`。
+- **原生 LLM-as-judge 配置**：由 `./40-create-evaluators.sh` 注册为 `…_reject_quality_llm`（手册第 6 章）；如果服务拒绝档位或模型 ID，调整 `evaluators/adlc_reject_quality/rubric.py`，运行 `python3 evaluators/sync_shared.py` 重新生成配置，再运行 `./40-create-evaluators.sh`。
 
 ## 5. 待确认问题（已按默认值处理）
 

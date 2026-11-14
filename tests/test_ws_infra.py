@@ -568,8 +568,9 @@ def test_content_placeholder_page_and_assets_gitignore():
 def test_participant_policy_is_scoped():
     """Console needs: Session Manager on the lab instance only, own sessions only, uploads to adlc-* buckets."""
     doc = json.loads((WS / "static" / "iam-policy.json").read_text(encoding="utf-8"))
-    st = {s["Sid"]: s for s in doc["Statement"]}
-    assert all(s["Effect"] == "Allow" for s in st.values())
+    st = {s["Sid"]: s for s in doc["Statement"] if s["Effect"] == "Allow"}  # Denies: tests/test_model_allowlist.py
+    assert set(st) == {"SessionManagerOnLabInstance", "SessionManagerShellDocument", "SessionManagerOwnSessions",
+                       "LabBucketConsoleUploads"}
     assert st["SessionManagerOnLabInstance"]["Condition"] == {"StringEquals": {"ssm:resourceTag/adlc:lab": "agentdlc"}}
     own = st["SessionManagerOwnSessions"]
     assert own["Condition"] == {"StringEquals": {"ssm:resourceTag/aws:ssmmessages:session-id": "${aws:userid}"}}

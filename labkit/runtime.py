@@ -18,7 +18,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import aws, items
+from . import aws, items, models
 
 ROOT = Path(aws.cfg()["LAB_ROOT"])
 BUILD = ROOT / "build" / "runtime"
@@ -108,9 +108,8 @@ def ensure_role() -> str:
                                        "xray:GetSamplingTargets"], "Resource": "*"},
         {"Effect": "Allow", "Action": "cloudwatch:PutMetricData", "Resource": "*",
          "Condition": {"StringEquals": {"cloudwatch:namespace": "bedrock-agentcore"}}},
-        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream",
-                                       "bedrock:Converse", "bedrock:ConverseStream"],
-         "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]},
+        # model allowlist (labkit/models.py); Converse/ConverseStream are authorized by these two actions
+        {"Effect": "Allow", "Action": list(models.INVOKE_ACTIONS), "Resource": models.invoke_resources(r, a)},
         {"Effect": "Allow", "Action": ["bedrock-agentcore:GetWorkloadAccessToken",
                                        "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
                                        "bedrock-agentcore:GetWorkloadAccessTokenForUserId"],

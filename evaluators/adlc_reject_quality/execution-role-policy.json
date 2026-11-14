@@ -3,15 +3,32 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
       "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/*"
     },
     {
       "Effect": "Allow",
-      "Action": ["bedrock:InvokeModel", "bedrock:Converse"],
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
       "Resource": [
-        "arn:aws:bedrock:*::foundation-model/*",
-        "arn:aws:bedrock:*:*:inference-profile/*"
+        "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-sonnet-5-5",
+        "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-haiku-5-5",
+        "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-2-lite-v1:0",
+        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5",
+        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-5-5",
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0",
+        "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5",
+        "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-5-5",
+        "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-5-5",
+        "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"
       ]
     }
   ]

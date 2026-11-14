@@ -47,6 +47,35 @@
           "s3:ResourceAccount": "${aws:PrincipalAccount}"
         }
       }
+    },
+    {
+      "Sid": "NoModelInvocationFromConsole",
+      "Effect": "Deny",
+      "Action": [
+        "bedrock:InvokeModel*",
+        "bedrock:CreateModelInvocationJob",
+        "bedrock:InvokeAgent",
+        "bedrock:InvokeInlineAgent",
+        "bedrock:RetrieveAndGenerate",
+        "bedrock:InvokeFlow",
+        "bedrock:CallWithBearerToken"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyCredentialCreation",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateUser",
+        "iam:CreateAccessKey",
+        "iam:CreateLoginProfile",
+        "iam:UpdateLoginProfile",
+        "iam:CreateServiceSpecificCredential",
+        "iam:ResetServiceSpecificCredential",
+        "iam:AttachUserPolicy",
+        "iam:PutUserPolicy"
+      ],
+      "Resource": "*"
     }
   ]
 }

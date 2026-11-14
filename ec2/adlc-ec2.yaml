@@ -183,17 +183,51 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # Converse/ConverseStream are authorized by InvokeModel /
+              # Model allowlist (layer 1, labkit/models.py; tests/test_model_allowlist.py keeps every copy equal):
+              # Claude Sonnet 5.5 (agent, judge, Claude Code), Claude Haiku 5.5 (Claude Code fast model) and
+              # Amazon Nova 2 Lite (fallback) through the us. cross-Region profiles, which route to us-east-1,
+              # us-east-2 and us-west-2. Converse/ConverseStream are authorized by InvokeModel /
               # InvokeModelWithResponseStream (there is no bedrock:Converse* IAM action).
-              - Sid: BedrockModels
+              - Sid: BedrockAllowlistedModels
                 Effect: Allow
                 Action:
-                  - bedrock:InvokeModel*
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
                   - bedrock:CountTokens
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-5-5"
+                  - !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"
+              - Sid: BedrockModelCatalogRead
+                Effect: Allow
+                Action:
                   - bedrock:ListFoundationModels
                   - bedrock:GetFoundationModel
                   - bedrock:ListInferenceProfiles
                   - bedrock:GetInferenceProfile
+                Resource: "*"
+              # Layer 1: nothing on the lab EC2 can mint long-lived credentials (IAM users, access keys,
+              # console passwords, Bedrock API keys = service-specific credentials).
+              - Sid: DenyCredentialCreation
+                Effect: Deny
+                Action:
+                  - iam:CreateUser
+                  - iam:CreateAccessKey
+                  - iam:CreateLoginProfile
+                  - iam:UpdateLoginProfile
+                  - iam:CreateServiceSpecificCredential
+                  - iam:ResetServiceSpecificCredential
+                  - iam:AttachUserPolicy
+                  - iam:PutUserPolicy
                 Resource: "*"
               # First invocation of a marketplace-backed model auto-subscribes;
               # only allowed when Bedrock makes the call on our behalf.
@@ -356,14 +390,43 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: ModelsAndAgentCore
+          # Same model allowlist as the instance role: a lab-created role can never invoke anything else.
+          - Sid: AllowlistedModels
             Effect: Allow
             Action:
               - bedrock:InvokeModel
               - bedrock:InvokeModelWithResponseStream
+            Resource:
+              - !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-5-5"
+              - !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"
+          - Sid: AgentCoreWorkloadTokens
+            Effect: Allow
+            Action:
               - bedrock-agentcore:GetWorkloadAccessToken
               - bedrock-agentcore:GetWorkloadAccessTokenForJWT
               - bedrock-agentcore:GetWorkloadAccessTokenForUserId
+            Resource: "*"
+          - Sid: DenyCredentialCreation
+            Effect: Deny
+            Action:
+              - iam:CreateUser
+              - iam:CreateAccessKey
+              - iam:CreateLoginProfile
+              - iam:UpdateLoginProfile
+              - iam:CreateServiceSpecificCredential
+              - iam:ResetServiceSpecificCredential
+              - iam:AttachUserPolicy
+              - iam:PutUserPolicy
             Resource: "*"
           - Sid: Telemetry
             Effect: Allow

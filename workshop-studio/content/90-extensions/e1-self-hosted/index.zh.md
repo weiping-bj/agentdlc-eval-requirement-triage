@@ -5,7 +5,7 @@ weight: 10
 
 > **你在这里**：① 定义 → **② 构建** → **③ 评估** → ④ 发布 → ⑤ 观测 → ⑥ 回流 · 圆心：黄金标准
 
-**这个扩展做什么**：主线（AgentCore Runtime）里，trace 由 Runtime 自动发到 CloudWatch。很多 Agent 并不在 Runtime 上，而是跑在本地机房、自己的容器或其他云上。这个扩展把**同一个 mock agent** 直接运行在实验 EC2 上，模拟这种自托管的 Agent：自己用 OpenTelemetry（OTel）和 ADOT（AWS Distro for OpenTelemetry）埋点，把 trace 发到 CloudWatch，然后用**同一份黄金集、同一组评估器**完成遥测检查、在线评估、按需评估和分诊报告。
+**这个扩展做什么**：主线（AgentCore Runtime）里，trace 由 Runtime 自动发到 CloudWatch。很多 Agent 并不在 Runtime 上，而是跑在本地机房、自己的容器或其他云上。这个扩展把**同一个 mock agent**（主线里部署到 Runtime 的那个需求分诊 Agent）直接运行在实验 EC2 上，模拟这种自托管的 Agent：自己用 OpenTelemetry（OTel）和 ADOT（AWS Distro for OpenTelemetry）埋点，把 trace 发到 CloudWatch，然后用**同一份黄金集、同一组评估器**完成遥测检查、在线评估、按需评估和分诊报告。
 
 **什么时候做**：可选，做完主线（第 3–6 章）之后、[第 9 章](/09-cleanup)清理之前。前提是评估器已经注册（[第 4.2 步](/04-evaluate#s-4-2)）。本页的命令都在实验 EC2 的 `~/adlc-lab` 目录里执行（新开的 Session Manager 会话先 `sudo su - ec2-user`）。现场不接入你们自己的 Agent；会后要接入，按[扩展 3 自带 Agent 接入指南](/90-extensions/e3-own-agent)操作。
 
@@ -255,7 +255,7 @@ EC2 上自托管的 mock agent: adlc_ws_online_local adlc_ws_online_local-… st
 
 和[第 4.4 步](/04-evaluate#s-4-4)一样调用 `labkit/batch.py`（并发 4，每条需求一个 session），只是 Agent 在这台 EC2 上运行、trace 由 ADOT 发送。结果写到 `results/run-local-v0-<时间>.jsonl`，并登记到 `.lab-state/runs.json`。
 
-**预期输出**（约 2 分钟；条数是你们在第 2.4 步冻结后的黄金集条数，数字以你看到的为准）：
+**预期输出**（约 2 分钟；示例是第 2.4 步补样本之前录的，所以是 30 条；你的条数是你冻结的黄金集条数，数字以你看到的为准）：
 
 ```
   ✔ 日志组已存在 /aws/bedrock-agentcore/adlc-ws-local-agent
@@ -269,7 +269,7 @@ EC2 上自托管的 mock agent: adlc_ws_online_local adlc_ws_online_local-… st
    run_id = local-v0-20261105T142551Z
 ```
 
-V0 的典型表现和在 Runtime 上一样：几乎都判“重要”，处理建议大量是“待评估”。个别 `❌`（超时、限流）不影响后续，评估时会跳过这些条目；失败太多就再跑一次。
+V0 的典型表现和在 Runtime 上一样：几乎都判“重要”，处理建议大量是“待评估”。个别 `❌`（超时、限流）不影响后续：这些条目没有输出，在门禁里按错计（和主线一样）；失败太多就再跑一次。
 
 ## E1.10 按需评估，和 Runtime 上的 V0 对比 {#e1-10}
 

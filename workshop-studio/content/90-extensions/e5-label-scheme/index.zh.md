@@ -21,7 +21,7 @@ weight: 50
 
 ```
 ▶ 切换标签方案 → P0/P1/P2 分级（5 步，只预览）
-  [1/5] 标准：config/local.env 写入 LABEL_SCHEME=level、LEVEL_TOLERANCE=1
+  [1/5] 标准：config/local.env 写入 LABEL_SCHEME=level、LEVEL_TOLERANCE=0
   [2/5] 黄金集：按 level 口径校验并冻结（同步进评估器目录）
         $ python3 data/tools/golden_tool.py --scheme level freeze
   [3/5] 评估器：重新部署 Lambda 并注册（分级口径多一个 label_level）
@@ -43,7 +43,10 @@ weight: 50
 
 ## E5.2 切换 {#e5-2}
 
+新口径下要重新跑一次 **V0 基线**（尺子换了，旧基线作废）。先把版本切回 V0（只改配置），再运行切换命令（它会按当前配置重新部署 Runtime，这样一次部署就够了）：
+
 ```bash
+./50-switch-version.sh v0
 ./ext-switch-label-scheme.sh level
 ```
 
@@ -67,7 +70,7 @@ TODO-LIVE-E5
 ./43-run-eval.sh
 ```
 
-结论里的门禁多了一行“优先级准确率”。这一次的分数就是**新口径下的基线**；和切换前的分数放在一起比没有意义（尺子换了）。
+结论里的门禁多了一行“优先级准确率”。这一次的分数就是**新口径下的 V0 基线**；和切换前的分数放在一起比没有意义（尺子换了）。之后要优化，就按第 5 章在新口径下再走一遍。
 
 ## E5.4 切回“是 / 否” {#e5-4}
 

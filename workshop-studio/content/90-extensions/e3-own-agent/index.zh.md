@@ -249,7 +249,7 @@ fields @timestamp, attributes.session.id as sid, attributes.adlc.feedback_id as 
 | `session_id` | 是 | 按它到 CloudWatch 查这个 session 的 span |
 | `feedback_id` | 是 | 黄金集里的需求编号：评估时据此把标准答案作为参考输入传给评估器 |
 | `result` | 建议 | Agent 的输出 JSON（第 1 步的 `out` 解析后的对象）；对比页的“实际”标签从这里取。没有就写 `null` |
-| `error` | 否 | 这条处理失败时写错误文字：评估时跳过这条 |
+| `error` | 否 | 这条处理失败时写错误文字：这条没有输出，在门禁里按错计 |
 | `run_id`、`version`、`mode` | 否 | 只作说明；脚本用的是第 3 步登记项里的值 |
 
 **第 3 步：在 `.lab-state/runs.json` 末尾加一个登记项。** 先备份：`cp .lab-state/runs.json .lab-state/runs.json.bak`；文件不存在时新建，内容写成 `[ {…} ]`。

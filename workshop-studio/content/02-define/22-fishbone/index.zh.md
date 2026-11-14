@@ -11,7 +11,7 @@ weight: 20
 
 ## 开始访谈 {#s-2-2-start}
 
-操作员在 `~/adlc-lab` 里启动 Claude Code：
+操作员先开**两个** Session Manager 窗口（都先 `sudo su - ec2-user`）：一个跑 Claude Code，一直开着到 2.4 结束；另一个跑普通命令（发布预览、`git status` 这些）。在第一个窗口里启动 Claude Code：
 
 ```bash
 claude
@@ -61,11 +61,11 @@ claude
   validation-report.txt  13 项检查结果
 ```
 
-**记下这个路径**，下面两条命令都要用它（实验的个人后缀已经由 CloudFormation 设置好，不用另外配置）。
+**记下这个路径**，后面都要用它（实验的个人后缀已经由 CloudFormation 设置好，不用另外配置）。路径里有中文时，在第二个窗口用 `ls -d ~/adlc-lab/outputs/fishbone/*/` 列出来再复制，或者输入前几个字符后按 Tab 补全；开场时用英文组名（例如 `group3`）可以省掉这一步。
 
 ## 发布预览，在笔记本上看鱼骨图 {#s-2-2-publish}
 
-EC2 不能开端口，所以把预览网页发到你自己的私有 S3 桶。在 Claude Code 里输入 `/exit` 退出（或另开一个 Session Manager 窗口，先 `sudo su - ec2-user`），运行（把路径换成 Claude Code 打印的那个）：
+EC2 不能开端口，所以把预览网页发到操作员自己的私有 S3 桶。在**第二个窗口**运行（Claude Code 那个窗口不要退出，2.3 接着用；把路径换成 Claude Code 打印的那个）：
 
 ```bash
 ./tools/publish-define-pages.sh /home/ec2-user/adlc-lab/outputs/fishbone/第3组-2026-11-14
@@ -84,7 +84,7 @@ EC2 不能开端口，所以把预览网页发到你自己的私有 S3 桶。在
   鱼骨图 drawio  https://us-west-2.console.aws.amazon.com/s3/object/adlc-ws-<account>-us-west-2?region=us-west-2&prefix=reports/define/%E7%AC%AC3%E7%BB%84-2026-11-14/fishbone.drawio
 ```
 
-在已登录控制台的笔记本浏览器里打开打印的“鱼骨图预览”链接，点右上角 **打开**。`fishbone.drawio` 点 **下载** 后可以用 app.diagrams.net 打开。桶始终禁止公开访问，链接不要发给组外的人。
+在已登录控制台的笔记本浏览器里打开打印的“鱼骨图预览”链接，点右上角 **打开**。`fishbone.drawio` 点 **下载** 后可以用 app.diagrams.net 打开。桶始终禁止公开访问：每人一个账号，只有登录了**操作员这个账号**的浏览器能打开，组员看操作员的屏幕。时间紧时可以先跳过这一步，2.4 结束时一起发布。
 
 :image[S3 控制台里打开的鱼骨图预览：五个方面加“其他”，每张便签都是业务方确认过的障碍]{src="/static/images/02-fishbone-preview.png" width=900}
 

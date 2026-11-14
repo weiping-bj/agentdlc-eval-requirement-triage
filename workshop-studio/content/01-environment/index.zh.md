@@ -35,7 +35,7 @@ Last login: Sat Nov 14 13:38:53 UTC 2026
 ```
 
 :::alert{header="以后每次重新连接" type="warning"}
-Session Manager 的会话空闲一段时间会断开。重新连接后，**第一件事**都是 `sudo su - ec2-user`；否则你在 `ssm-user` 下，找不到实验目录，脚本也会报错。
+Session Manager 的会话空闲一段时间会断开。重新连接后，**第一件事**都是 `sudo su - ec2-user`；否则你在 `ssm-user` 下，找不到实验目录，脚本也会报错。脚本跑到一半断开了（例如跑黄金集或评估时），重连后重跑同一条命令即可：没跑完的运行不会被登记，评估用的总是最后一次跑完的运行。
 :::
 
 ## 1.3 检查环境 {#s-1-3}
@@ -90,7 +90,7 @@ claude -p "只回复两个字：收到"
 收到
 ```
 
-需要交互时，在 `~/adlc-lab` 里直接运行 `claude`；退出输入 `/exit`。
+需要交互时，在 `~/adlc-lab` 里直接运行 `claude`；退出输入 `/exit`。这条命令报错或长时间没有回应时，请找讲师：1.3 的 `./tools/use-model.sh` 只切换分诊 Agent 用的模型，不影响 Claude Code。
 
 :::alert{header="实验环境里能用的模型" type="info"}
 实验账号只开放实验要用的 Bedrock 模型：Claude Code 和 Agent 用 **Claude Sonnet 5.5**，备选是 1.3 里 `./tools/use-model.sh nova` 切换的 Amazon Nova；其它模型调用不了。实验账号也不允许创建 IAM 用户或访问密钥：EC2 上的所有 AWS 调用都用实例角色，不需要配置任何密钥。

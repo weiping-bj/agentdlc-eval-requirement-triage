@@ -28,10 +28,9 @@ Workshop Studio 的活动账号在活动结束后会被整体回收。为了不�
   [dry-run] 停用在线评估 adlc_ws_online_runtime
   [dry-run] 🗑  删除在线评估 adlc_ws_online_runtime
   [dry-run] 删除评估器 adlc_ws_label_accuracy
-  [dry-run] 删除 Lambda adlc-ws-eval-label-urgent
-  [dry-run] 删除 Runtime adlc_ws_agent (adlc_ws_agent-VL2KJhC5Tp)
+  [dry-run] 删除 Runtime adlc_ws_agent (adlc_ws_agent-AgAZTi3E4u)
   [dry-run] 清空并删除 S3 桶 adlc-ws-<account>-us-west-2
-  [dry-run] 删除 IAM 角色 adlc-ws-runtime-role-us-west-2
+  [dry-run] 删除日志组 /aws/bedrock-agentcore/evaluations/results/adlc_ws_online_runtime-xOZtyq6GmS
   …
 ```
 
@@ -41,7 +40,7 @@ Workshop Studio 的活动账号在活动结束后会被整体回收。为了不�
 ./99-cleanup.sh
 ```
 
-按依赖顺序删除：在线评估 → 评估器 → Lambda → Runtime → S3 桶 → 日志组 → IAM 角色；可以重复运行。
+按依赖顺序删除：在线评估 → 评估器 → Lambda → Runtime → S3 桶 → 日志组；可以重复运行。实验的 3 个 IAM 角色（Runtime、评估器 Lambda、在线评估）是 CloudFormation 预先创建的，清理脚本不删它们，最后一段会列出来，它们随实验 EC2 的堆栈一起删除。
 
 **预期输出**（节选）：
 
@@ -52,9 +51,8 @@ Workshop Studio 的活动账号在活动结束后会被整体回收。为了不�
   🗑  删除评估器 adlc_ws_label_accuracy
   🗑  删除评估器 adlc_ws_label_decision
   …
-  🗑  删除 Runtime adlc_ws_agent (adlc_ws_agent-VL2KJhC5Tp)
+  🗑  删除 Runtime adlc_ws_agent (adlc_ws_agent-AgAZTi3E4u)
   🗑  清空并删除 S3 桶 adlc-ws-<account>-us-west-2
-  🗑  删除 IAM 角色 adlc-ws-runtime-role-us-west-2
 
 ▶ 残留检查（us-west-2，前缀 adlc_ws_* / adlc-ws-*）
   ✅ 在线评估配置: 0
@@ -64,6 +62,7 @@ Workshop Studio 的活动账号在活动结束后会被整体回收。为了不�
   ✅ S3 桶: 0
   ✅ IAM 角色: 0
   ✅ 日志组: 0
+  ℹ️  3 个实验角色由 EC2 堆栈预先创建，删除堆栈时一并删除（不算残留）：['adlc-ws-eval-lambda-role-us-west-2', 'adlc-ws-online-eval-role-us-west-2', 'adlc-ws-runtime-role-us-west-2']
 ✅ 没有残留的实验资源
 ```
 

@@ -93,8 +93,7 @@ def tracked() -> list[tuple[str, int]]:
 def tracked_but_ignored(root: Path = ROOT) -> set[str]:
     """Files git tracks although the repo's .gitignore files match them (force-added): machine-local by the
     repo's own rules. Only the committed .gitignore files count, not a maintainer's global excludes."""
-    out = _git("-c", "core.excludesFile=/dev/null", "ls-files", "-ci", "--exclude-per-directory=.gitignore", "-z",
-               root=root)
+    out = _git("ls-files", "-ci", "--exclude-per-directory=.gitignore", "-z", root=root)
     return {rel for rel in out.split("\0") if rel}
 
 
@@ -112,9 +111,10 @@ def select() -> list[tuple[str, int]]:
     return files
 
 
-def source_state(files, root: Path = ROOT) -> tuple[str, bool]:
+def source_state(root: Path = ROOT) -> tuple[str, bool]:
     """(HEAD commit, dirty): dirty = any staged or unstaged change, deletions and renames included, to a path
-    the bundle would contain. Untracked files never ship, so they do not count."""
+    the bundle would contain, or a bundled file git was told to stop watching (skip-worktree /
+    assume-unchanged, whose edits git status cannot see). Untracked files never ship, so they do not count."""
     commit = _git("rev-parse", "HEAD", root=root).strip()
     fields = _git("status", "--porcelain", "-z", "--untracked-files=no", root=root).split("\0")
     paths, i = [], 0
@@ -124,9 +124,13 @@ def source_state(files, root: Path = ROOT) -> tuple[str, bool]:
         if len(rec) < 4:
             continue
         paths.append(rec[3:])
-        if rec[0] in "RC":  # rename / copy: the next field is the original path
+        if "R" in rec[:2] or "C" in rec[:2]:  # rename / copy (index or worktree side): next field = original
             paths.append(fields[i])
             i += 1
+    for line in _git("ls-files", "-v", "-z", root=root).split("\0"):
+        tag, _, rel = line.partition(" ")
+        if rel and (tag == "S" or tag.islower()):  # S = skip-worktree, lowercase = assume-unchanged
+            paths.append(rel)
     return commit, any(not excluded(p) for p in paths)
 
 
@@ -159,7 +163,7 @@ def main(argv=None) -> int:
     if a.list:
         print("\n".join(rel for rel, _ in files))
         return 0
-    commit, dirty = source_state(files)
+    commit, dirty = source_state()
     if dirty:
         if not a.allow_dirty:
             print("❌ bundled files have uncommitted changes: commit them first (or --allow-dirty for a test build)",

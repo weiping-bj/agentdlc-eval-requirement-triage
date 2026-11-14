@@ -11,6 +11,7 @@ non-ASCII text as "?").
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import sys
 import time
@@ -20,35 +21,49 @@ from . import aws
 POLICY_NAME = "TransactionSearchXRayAccess"
 
 
-def enable() -> int:
-    c = aws.cfg()
-    r, a = c["AWS_REGION"], aws.account_id()
-    logs, xray = aws.client("logs"), aws.client("xray")
-    d = xray.get_trace_segment_destination()
-    if d.get("Destination") == "CloudWatchLogs" and d.get("Status") == "ACTIVE":
-        print("✅ Transaction Search 已经开启，无需操作。")
-        if not aws.load_state("observability"):
-            aws.save_state("observability", {"enabled_by_lab": False, "region": r})
-        return 0
-    aws.save_state("observability", {"enabled_by_lab": True, "region": r,
-                                     "previous_destination": d.get("Destination")})
-    doc = {"Version": "2012-10-17", "Statement": [{
+def _policy_doc(r: str, a: str) -> str:
+    return json.dumps({"Version": "2012-10-17", "Statement": [{
         "Sid": "TransactionSearchXRayAccess", "Effect": "Allow",
         "Principal": {"Service": "xray.amazonaws.com"},
         "Action": ["logs:PutLogEvents", "logs:CreateLogStream"],
         "Resource": [f"arn:aws:logs:{r}:{a}:log-group:aws/spans:*",
                      f"arn:aws:logs:{r}:{a}:log-group:/aws/application-signals/data:*"],
         "Condition": {"ArnLike": {"aws:SourceArn": f"arn:aws:xray:{r}:{a}:*"},
-                      "StringEquals": {"aws:SourceAccount": a}}}]}
-    logs.put_resource_policy(policyName=POLICY_NAME, policyDocument=json.dumps(doc))
-    print("  ✅ 已授权 X-Ray 写入 aws/spans")
-    if d.get("Destination") != "CloudWatchLogs":
+                      "StringEquals": {"aws:SourceAccount": a}}}]})
+
+
+def enable() -> int:
+    """Turn Transaction Search on, or complete it: when the destination is already CloudWatch Logs only a
+    missing resource policy / indexing rule is added. `enabled_by_lab` is True only when THIS lab switched
+    the destination (saved right after that call succeeded), so cleanup --account-level never reverts a
+    setting that was on before."""
+    c = aws.cfg()
+    r, a = c["AWS_REGION"], aws.account_id()
+    logs, xray = aws.client("logs"), aws.client("xray")
+    d = xray.get_trace_segment_destination()
+    already = d.get("Destination") == "CloudWatchLogs"  # ACTIVE, or PENDING: someone is turning it on
+    has_policy = already and _xray_policy(logs, r, a) is not None
+    pct = _indexing_percent(xray) if already else None
+    if already and d.get("Status") == "ACTIVE" and has_policy and pct:
+        print("✅ Transaction Search 已经开启，无需操作。")
+        if not aws.load_state("observability"):
+            aws.save_state("observability", {"enabled_by_lab": False, "region": r})
+        return 0
+    if not has_policy:
+        logs.put_resource_policy(policyName=POLICY_NAME, policyDocument=_policy_doc(r, a))
+        print("  ✅ 已授权 X-Ray 写入 aws/spans")
+    if not already:
         xray.update_trace_segment_destination(Destination="CloudWatchLogs")
-    try:
-        xray.update_indexing_rule(Name="Default", Rule={"Probabilistic": {"DesiredSamplingPercentage": 100}})
-        print("  ✅ span 索引比例设为 100%")
-    except Exception as e:  # noqa: BLE001
-        print(f"  ⚠️  设置索引比例失败（可稍后在控制台调整）：{e}")
+        aws.save_state("observability", {"enabled_by_lab": True, "region": r,
+                                         "previous_destination": d.get("Destination")})
+    elif not aws.load_state("observability"):
+        aws.save_state("observability", {"enabled_by_lab": False, "region": r})
+    if not pct:
+        try:
+            xray.update_indexing_rule(Name="Default", Rule={"Probabilistic": {"DesiredSamplingPercentage": 100}})
+            print("  ✅ span 索引比例设为 100%")
+        except Exception as e:  # noqa: BLE001
+            print(f"  ⚠️  设置索引比例失败（可稍后在控制台调整）：{e}")
     for _ in range(40):
         d = xray.get_trace_segment_destination()
         if d.get("Destination") == "CloudWatchLogs" and d.get("Status") == "ACTIVE":
@@ -75,26 +90,38 @@ def disable() -> int:
     return 0
 
 
-def _xray_policy(logs):
+def _as_list(v):
+    return [v] if isinstance(v, str) else (v if isinstance(v, list) else [])
+
+
+def _lets_xray_write_spans(st, r: str, a: str) -> bool:
+    """One policy statement allows X-Ray to PutLogEvents into this account's aws/spans log group."""
+    if not isinstance(st, dict) or st.get("Effect") != "Allow" or not isinstance(st.get("Principal"), dict):
+        return False
+    if "xray.amazonaws.com" not in _as_list(st["Principal"].get("Service")):
+        return False
+    if not any(fnmatch.fnmatchcase("logs:PutLogEvents", x) for x in _as_list(st.get("Action"))):
+        return False
+    stream = f"arn:aws:logs:{r}:{a}:log-group:aws/spans:log-stream:x"
+    return any(fnmatch.fnmatchcase(stream, x) for x in _as_list(st.get("Resource")))
+
+
+def _xray_policy(logs, r: str, a: str):
     """Name of a logs resource policy that lets X-Ray write to aws/spans (any name: console and API differ)."""
     kw: dict = {}
     while True:
-        r = logs.describe_resource_policies(**kw)
-        for p in r.get("resourcePolicies", []):
+        resp = logs.describe_resource_policies(**kw)
+        for p in resp.get("resourcePolicies", []):
             try:
-                stmts = json.loads(p.get("policyDocument") or "{}").get("Statement", [])
+                doc = json.loads(p.get("policyDocument") or "{}")
             except ValueError:
                 continue
-            for st in stmts if isinstance(stmts, list) else [stmts]:
-                svc = (st.get("Principal") or {}).get("Service", [])
-                svc = [svc] if isinstance(svc, str) else svc
-                res = st.get("Resource", [])
-                res = [res] if isinstance(res, str) else res
-                if st.get("Effect") == "Allow" and "xray.amazonaws.com" in svc and any(":log-group:aws/spans" in x for x in res):
-                    return p.get("policyName")
-        if not r.get("nextToken"):
+            stmts = doc.get("Statement", []) if isinstance(doc, dict) else []
+            if any(_lets_xray_write_spans(st, r, a) for st in (stmts if isinstance(stmts, list) else [stmts])):
+                return p.get("policyName")
+        if not resp.get("nextToken"):
             return None
-        kw = {"nextToken": r["nextToken"]}
+        kw = {"nextToken": resp["nextToken"]}
 
 
 def _indexing_percent(xray):
@@ -110,6 +137,7 @@ def verify(wait: int = 600, interval: int = 15) -> int:
     resource policy and indexing rule. Prints the Chinese result, then one ASCII summary line last
     (observed status on failure)."""
     logs, xray = aws.client("logs"), aws.client("xray")
+    r, a = aws.cfg()["AWS_REGION"], aws.account_id()
     deadline = time.monotonic() + max(wait, 0)
     while True:
         d = xray.get_trace_segment_destination()
@@ -122,7 +150,7 @@ def verify(wait: int = 600, interval: int = 15) -> int:
             return 1
         print(f"  ⏳ Transaction Search Destination={dest} Status={status}，{interval}s 后重查")
         time.sleep(interval)
-    pol, pct = _xray_policy(logs), _indexing_percent(xray)
+    pol, pct = _xray_policy(logs, r, a), _indexing_percent(xray)
     st = aws.load_state("observability") or {}
     who = "本实验开启" if st.get("enabled_by_lab") else "实验前已开启"
     idx = "none" if pct is None else format(pct, "g") + "%"

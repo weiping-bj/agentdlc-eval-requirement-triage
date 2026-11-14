@@ -338,6 +338,9 @@ Resources:
                   - logs:DescribeLogGroups
                   - logs:DescribeResourcePolicies
                   - logs:PutResourcePolicy
+                  # 99-cleanup.sh --all --account-level run on the EC2 (where .lab-state records whether the
+                  # lab enabled Transaction Search) deletes the policy it added
+                  - logs:DeleteResourcePolicy
                   - logs:StopQuery
                   - logs:GetQueryResults
                   - logs:DescribeQueries
@@ -571,16 +574,24 @@ Resources:
           # stack. Each attempt is time-boxed so Transaction Search and the signal still fit in BUDGET.
           STEP=setup
           ok=0
+          why="not run"
           for attempt in 1 2 3; do
             limit=$(( $(left) - 900 ))
-            if [ "$limit" -lt 300 ]; then echo "no time left for setup attempt $attempt"; break; fi
+            if [ "$limit" -lt 300 ]; then why="$why; no time left for attempt $attempt"; echo "$why"; break; fi
             [ "$limit" -gt 1500 ] && limit=1500
             SETUP_OFF=$(stat -c %s "$SETUP_LOG" 2>/dev/null || echo 0)
-            timeout --kill-after=30 "$limit" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && bash ec2/setup-ec2.sh" && { ok=1; break; }
-            echo "ec2/setup-ec2.sh failed or ran over $limit s (attempt $attempt of 3)"
+            timeout --kill-after=30 "$limit" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && bash ec2/setup-ec2.sh"
+            rc=$?
+            [ "$rc" = 0 ] && { ok=1; break; }
+            if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then why="attempt $attempt timed out after $limit s"
+            else why="attempt $attempt exited $rc"; fi
+            echo "ec2/setup-ec2.sh: $why"
+            # runuser -l starts a new session, so timeout reaches only runuser: stop whatever the attempt left
+            # running (npm, uv, tee) before the next one. No participant can be logged in before CREATE_COMPLETE.
+            pkill -TERM -u "$LAB_USER"; sleep 5; pkill -KILL -u "$LAB_USER"
             [ "$attempt" = 3 ] || sleep 30
           done
-          [ "$ok" = 1 ] || fail "ec2/setup-ec2.sh did not succeed (attempt $attempt of 3), see $SETUP_LOG"
+          [ "$ok" = 1 ] || fail "ec2/setup-ec2.sh did not succeed ($why), see $SETUP_LOG"
 
           # Mandatory: Transaction Search is OFF by default in Workshop Studio event accounts, and the lab's
           # evaluations read spans from aws/spans. Same as ./02-enable-observability.sh (a no-op when already
@@ -590,16 +601,26 @@ Resources:
           STEP=observability
           WAIT=600
           t=$(( $(left) - 180 )); [ "$t" -gt 660 ] && t=660; [ "$t" -lt 60 ] && t=60
-          if ! timeout --kill-after=30 "$t" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./02-enable-observability.sh"; then
-            echo "02-enable-observability.sh did not confirm Transaction Search (limit $t s); checking its state"
-            WAIT=60
+          t0=$(date +%s)
+          EN="$(timeout --kill-after=30 "$t" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./02-enable-observability.sh" 2>&1)"
+          erc=$?
+          printf '%s\n' "$EN"
+          EN="$(printf '%s\n' "$EN" | tail -n 1)"
+          if [ "$erc" != 0 ]; then
+            echo "02-enable-observability.sh exited $erc (limit $t s); checking the state"
+            # it already polled for a while: only re-check briefly
+            [ $(( $(date +%s) - t0 )) -ge 300 ] && WAIT=60
           fi
           w=$(( $(left) - 120 )); [ "$w" -lt "$WAIT" ] && WAIT=$w; [ "$WAIT" -lt 0 ] && WAIT=0
-          TS="$(as_lab_user "cd ~/adlc-lab && ./02-enable-observability.sh --verify --wait $WAIT" 2>&1)"
+          TS="$(timeout --kill-after=10 $(( WAIT + 90 )) runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./02-enable-observability.sh --verify --wait $WAIT" 2>&1)"
           rc=$?
           printf '%s\n' "$TS"
           TS="$(printf '%s\n' "$TS" | tail -n 1)"
-          [ "$rc" = 0 ] || fail "Transaction Search not ready: $TS"
+          [ "$rc" = 124 ] || [ "$rc" = 137 ] && TS="verify ran over $(( WAIT + 90 )) s, last output: $TS"
+          if [ "$rc" != 0 ]; then
+            [ "$erc" != 0 ] && TS="$TS | enable exited $erc: $EN"
+            fail "Transaction Search not ready: $TS"
+          fi
 
           STEP=shell
           BASHRC=/home/ec2-user/.bashrc

@@ -182,15 +182,25 @@ def test_ignore_check_uses_only_the_repos_gitignore(tmp_path, monkeypatch):
 @needs_linux_tools
 def test_source_state_sees_staged_deletions_and_ignores_excluded_paths(tmp_path, monkeypatch):
     repo, g = _git_repo(tmp_path, monkeypatch)
-    assert wsb.source_state([], repo)[1] is False
+    assert wsb.source_state(repo)[1] is False
     (repo / "tests" / "t.py").write_text("changed\n", encoding="utf-8")  # tests/ is not bundled
-    assert wsb.source_state([], repo)[1] is False
+    assert wsb.source_state(repo)[1] is False
+    g("mv", "tests/t.py", "tests/u.py")                                # rename inside an excluded path
+    assert wsb.source_state(repo)[1] is False
+    g("mv", "a.sh", "b.sh")                                            # staged rename of a bundled file
+    assert wsb.source_state(repo)[1] is True
+    g("mv", "b.sh", "a.sh")
+    assert wsb.source_state(repo)[1] is False
     g("rm", "-q", "a.sh")                                              # staged deletion of a bundled file
-    assert wsb.source_state([], repo)[1] is True
+    assert wsb.source_state(repo)[1] is True
+    g("reset", "-q", "--hard")
+    g("update-index", "--skip-worktree", "data.csv")                   # edits git status cannot see
+    (repo / "data.csv").write_text("edited\n", encoding="utf-8")
+    assert wsb.source_state(repo)[1] is True
 
 
 def test_dirty_tree_is_refused_unless_allowed(tmp_path, monkeypatch):
-    monkeypatch.setattr(wsb, "source_state", lambda files: ("0" * 40, True))
+    monkeypatch.setattr(wsb, "source_state", lambda: ("0" * 40, True))
     out = tmp_path / "dirty.zip"
     assert wsb.main(["--out", str(out)]) == 1 and not out.exists()
     assert wsb.main(["--out", str(out), "--allow-dirty"]) == 0
@@ -293,6 +303,7 @@ STUBS = {
     "install": 'for a in "$@"; do d="$a"; done; mkdir -p "$d"',
     "chown": "exit 0",
     "sleep": "exit 0",
+    "pkill": 'echo "$*" >> "$T/pkill.args"',
     "curl": 'echo "$*" >> "$T/curl.args"\n'
             'while [ $# -gt 0 ]; do [ "$1" = "--data-binary" ] && { shift; printf "%s\\n" "$1" >> "$T/signals.jsonl"; }; '
             'last="$1"; shift; done; echo "$last" >> "$T/curl.urls"; [ -z "${FAIL_CURL:-}" ]',
@@ -301,14 +312,17 @@ STUBS = {
                '  case "$cmd" in\n'
                '    *"bash ec2/setup-ec2.sh"*) n=$(( $(cat "$T/setup.n" 2>/dev/null || echo 0) + 1 )); echo $n > "$T/setup.n"\n'
                '      echo "setup stub start (try $n)"\n'
+               '      [ -n "${SLOW_SETUP:-}" ] && /usr/bin/sleep 5\n'
                '      if [ -n "${FAIL_SETUP:-}" ] && [ "$n" -le "$FAIL_SETUP" ]; then\n'
                '        [ -n "${LONG_TAIL:-}" ] && head -c 200000 /dev/zero | tr "\\0" x >> "$T/home/adlc-setup.log"\n'
+               '        [ -n "${BAD_UTF8:-}" ] && printf "bad \\377\\376 bytes\\n" >> "$T/home/adlc-setup.log"\n'
                '        echo "npm ERR! network 安装中止 (try $n) END-OF-TAIL" >> "$T/home/adlc-setup.log"; exit 1; fi\n'
                '      echo setup-ok >> "$T/home/adlc-setup.log"; exit 0 ;;\n'
-               '    *"02-enable-observability.sh --verify"*) echo "$cmd" >> "$T/verify.cmds"\n'
+               '    *"02-enable-observability.sh --verify"*) echo "$cmd" >> "$T/verify.cmds"; [ -n "${SLOW_VERIFY:-}" ] && /usr/bin/sleep 5\n'
                '      [ -n "${FAIL_TS_VERIFY:-}" ] && { echo "  ⏳ 等待"; echo "❌ 未就绪"; echo "' + TS_PENDING + '"; exit 1; }\n'
                '      echo "✅ 已就绪"; echo "' + TS_READY + '"; exit 0 ;;\n'
-               '    *"./02-enable-observability.sh"*) [ -n "${FAIL_TS:-}" ] && { echo "enable error"; exit 1; }; echo ts-ok; exit 0 ;;\n'
+               '    *"./02-enable-observability.sh"*) [ -n "${SLOW_ENABLE:-}" ] && /usr/bin/sleep 5\n'
+               '      [ -n "${FAIL_TS:-}" ] && { echo "LimitExceededException: enable error"; exit 1; }; echo ts-ok; exit 0 ;;\n'
                '  esac\n'
                '  cd "$T/home" && HOME="$T/home" exec bash -c "$cmd"\n'
                'elif [ "$1" = "-u" ]; then shift 3; exec "$@"; fi\nexit 3',
@@ -397,7 +411,7 @@ def test_userdata_setup_failure_reports_the_last_attempts_own_log(tmp_path, bund
     assert r.returncode != 0 and (tmp_path / "setup.n").read_text().strip() == "3"
     assert [s["Status"] for s in signals] == ["FAILURE"]
     reason = signals[0]["Reason"]
-    assert reason.startswith("adlc bootstrap failed at step setup: ec2/setup-ec2.sh did not succeed (attempt 3 of 3)")
+    assert reason.startswith("adlc bootstrap failed at step setup: ec2/setup-ec2.sh did not succeed (attempt 3 exited 1)")
     assert "npm ERR! network ? (try 3) END-OF-TAIL" in reason   # only in adlc-setup.log; non-ASCII run -> "?"
     assert reason.isascii()
     assert "(try 1)" not in reason and "(try 2)" not in reason        # earlier attempts are not the cause
@@ -417,7 +431,7 @@ def test_userdata_out_of_time_budget_skips_setup_and_fails(tmp_path, bundle):
     r, signals = _run_userdata(tmp_path, bundle, inject=("BUDGET=3300\n", "BUDGET=1000\n"))
     assert not (tmp_path / "setup.n").exists()
     assert [s["Status"] for s in signals] == ["FAILURE"]
-    assert "step setup" in signals[0]["Reason"] and "no time left for setup attempt 1" in signals[0]["Reason"]
+    assert "step setup" in signals[0]["Reason"] and "no time left for attempt 1" in signals[0]["Reason"]
 
 
 @needs_linux_tools
@@ -431,7 +445,59 @@ def test_userdata_retries_a_transient_setup_failure(tmp_path, bundle):
 def test_userdata_enable_error_is_judged_by_the_verified_state(tmp_path, bundle):
     r, signals = _run_userdata(tmp_path, bundle, FAIL_TS=1)
     assert [s["Status"] for s in signals] == ["SUCCESS"] and signals[0]["Reason"].endswith(TS_READY)
-    assert _verify_waits(tmp_path) == [60]  # enable already waited; only re-check the state briefly
+    assert _verify_waits(tmp_path) == [600]  # a fast enable error did not poll: verify gets the full wait
+
+
+@needs_linux_tools
+def test_userdata_enable_error_travels_with_a_failed_verify(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, FAIL_TS=1, FAIL_TS_VERIFY=1)
+    reason = signals[0]["Reason"]
+    assert [s["Status"] for s in signals] == ["FAILURE"] and "step observability" in reason
+    assert TS_PENDING in reason and "enable exited 1: LimitExceededException: enable error" in reason
+
+
+@needs_linux_tools
+def test_userdata_time_boxes_the_enable_step(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, SLOW_ENABLE=1,
+                               inject=('t=$(( $(left) - 180 )); [ "$t" -gt 660 ] && t=660; [ "$t" -lt 60 ] && t=60',
+                                       "t=1"))
+    assert "02-enable-observability.sh exited 124 (limit 1 s)" in (tmp_path / "bootstrap.log").read_text()
+    assert [s["Status"] for s in signals] == ["SUCCESS"]
+
+
+@needs_linux_tools
+def test_userdata_time_boxes_verify(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, SLOW_VERIFY=1,
+                               inject=('TS="$(timeout --kill-after=10 $(( WAIT + 90 )) runuser',
+                                       'TS="$(timeout --kill-after=1 1 runuser'))
+    assert [s["Status"] for s in signals] == ["FAILURE"]
+    assert "Transaction Search not ready: verify ran over" in signals[0]["Reason"]
+
+
+@needs_linux_tools
+def test_userdata_verify_wait_is_clamped_to_the_budget(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, inject=(
+        "STEP=observability\n", "STEP=observability\nBUDGET=$(( $(date +%s) - START_TS + 400 ))\n"))
+    assert [s["Status"] for s in signals] == ["SUCCESS"]
+    (wait,) = _verify_waits(tmp_path)
+    assert 270 <= wait <= 280  # 400 s left - 120 s reserve for the signal
+
+
+@needs_linux_tools
+def test_userdata_kills_a_timed_out_setup_attempt_and_says_so(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, SLOW_SETUP=1,
+                               inject=('[ "$limit" -gt 1500 ] && limit=1500', "limit=1"))
+    assert [s["Status"] for s in signals] == ["FAILURE"]
+    assert "ec2/setup-ec2.sh did not succeed (attempt 3 timed out after 1 s)" in signals[0]["Reason"]
+    killed = (tmp_path / "pkill.args").read_text().splitlines()
+    assert killed.count("-TERM -u ec2-user") == 3 and killed.count("-KILL -u ec2-user") == 3
+
+
+@needs_linux_tools
+def test_userdata_invalid_utf8_in_the_log_still_gives_an_ascii_reason(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, FAIL_SETUP=9, BAD_UTF8=1)
+    reason = signals[0]["Reason"]
+    assert [s["Status"] for s in signals] == ["FAILURE"] and reason.isascii() and "bad ? bytes" in reason
 
 
 @needs_linux_tools

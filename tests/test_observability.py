@@ -137,7 +137,7 @@ def test_enable_records_that_the_lab_turned_it_on(env, capsys):
 
 
 def test_enable_is_a_no_op_when_already_active_and_keeps_an_earlier_lab_record(env, capsys):
-    x, logs = FakeXray([ACTIVE]), FakeLogs([[]])
+    x, logs = FakeXray([ACTIVE]), FakeLogs([[SPANS_POLICY]])
     env["use"](x, logs)
     assert observability.enable() == 0 and not logs.put and x.calls == ["get"]
     assert env["state"]["observability"] == {"enabled_by_lab": False, "region": "us-west-2"}
@@ -177,3 +177,54 @@ def test_instance_role_allows_every_call_of_enable_and_verify(template):
     st = tpl["Resources"]["InstanceRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]
     missing = sorted(a for a in actions if not _role_allows(st, a))
     assert not missing, missing
+
+
+def _stmt(**kw):
+    st = {"Effect": "Allow", "Principal": {"Service": "xray.amazonaws.com"}, "Action": "logs:PutLogEvents",
+          "Resource": "arn:aws:logs:us-west-2:123456789012:log-group:aws/spans:*"}
+    st.update(kw)
+    return {"policyName": "P", "policyDocument": json.dumps({"Statement": [st]})}
+
+
+@pytest.mark.parametrize("policy, found", [
+    (_stmt(), True),
+    (_stmt(Resource="*"), True),                                                    # wildcard resource
+    (_stmt(Action=["logs:*"]), True),
+    (_stmt(Principal="*"), False),                                                  # string principal: no crash
+    ({"policyName": "L", "policyDocument": "[1, 2]"}, False),                       # JSON list document
+    (_stmt(Resource="arn:aws:logs:us-west-2:999999999999:log-group:aws/spans:*"), False),  # other account
+    (_stmt(Resource="arn:aws:logs:us-east-1:123456789012:log-group:aws/spans:*"), False),  # other Region
+    (_stmt(Resource="arn:aws:logs:us-west-2:123456789012:log-group:aws/spans-old:*"), False),
+    (_stmt(Action="logs:CreateLogStream"), False),                                  # cannot write events
+    (_stmt(Effect="Deny"), False),
+])
+def test_policy_detection(policy, found):
+    assert (observability._xray_policy(FakeLogs([[policy]]), "us-west-2", "123456789012") is not None) is found
+
+
+def test_enable_completes_a_partly_configured_destination_without_claiming_it(env, capsys):
+    zero = [{"Name": "Default", "Rule": {"Probabilistic": {"DesiredSamplingPercentage": 0}}}]
+    x, logs = FakeXray([ACTIVE], rules=zero), FakeLogs([[]])
+    env["use"](x, logs)
+    assert observability.enable() == 0
+    assert logs.put and ("update_indexing", {"Name": "Default", "Rule": {"Probabilistic": {"DesiredSamplingPercentage": 100}}}) in x.calls
+    assert not [c for c in x.calls if c[0] == "update_destination"]
+    assert env["state"]["observability"]["enabled_by_lab"] is False  # it was on before: never revert it
+
+
+def test_enable_waits_for_a_pending_destination_without_claiming_it(env, capsys):
+    x, logs = FakeXray([PENDING, PENDING, ACTIVE]), FakeLogs([[SPANS_POLICY]])
+    env["use"](x, logs)
+    assert observability.enable() == 0
+    assert not [c for c in x.calls if isinstance(c, tuple)] and not logs.put
+    assert env["state"]["observability"]["enabled_by_lab"] is False
+
+
+def test_enable_records_nothing_when_switching_the_destination_fails(env, capsys):
+    class Boom(FakeXray):
+        def update_trace_segment_destination(self, **kw):
+            raise RuntimeError("LimitExceededException")
+    env["use"](Boom([OFF]), FakeLogs([[]]))
+    with pytest.raises(RuntimeError):
+        observability.enable()
+    assert "observability" not in env["state"]

@@ -29,7 +29,7 @@ Parameters:
     Type: String
     Description: Workshop Studio assets prefix (magic variable AssetsBucketPrefix, always ends with "/"). Empty = bucket root.
     Default: ""
-    AllowedPattern: "^([A-Za-z0-9._!*'()-]+/)*$"
+    AllowedPattern: "^([A-Za-z0-9._!()-]+/)*$"
     ConstraintDescription: "empty, or key segments that each end with / (e.g. abc123/assets/)"
   BundleName:
     Type: String
@@ -437,12 +437,6 @@ Resources:
   Instance:
     Type: AWS::EC2::Instance
     DependsOn: NetworkReady
-    # CREATE_COMPLETE only after UserData has unpacked the bundle and ec2/setup-ec2.sh succeeded
-    # (cfn-signal at the end of UserData); a failed setup signals FAILURE with the log tail as the reason.
-    CreationPolicy:
-      ResourceSignal:
-        Count: 1
-        Timeout: PT40M
     Properties:
       ImageId: !Ref LatestAmiId
       InstanceType: !Ref InstanceType
@@ -484,22 +478,30 @@ Resources:
           BUNDLE_URI='s3://${AssetsBucketName}/${AssetsBucketPrefix}${BundleName}'
           STEP=start
           SIGNALED=0
-          cfn_signal() {  # cfn_signal <exit-code> <reason>
+          # Pre-signed URL of this stack's SetupWait handle: it can only complete or fail that wait while the
+          # stack is being created. curl + python3 ship with AL2023, so a failed dnf can still be reported.
+          WAIT_URL='${SetupWaitHandle}'
+          cfn_signal() {  # cfn_signal SUCCESS|FAILURE <reason>
             [ "$SIGNALED" = 1 ] && return 0
             SIGNALED=1
-            /opt/aws/bin/cfn-signal --exit-code "$1" --reason "$2" \
-              --stack '${AWS::StackName}' --resource Instance --region '${AWS::Region}' \
-              || echo "cfn-signal failed: CloudFormation will report a timeout"
+            local body attempt
+            body="$(python3 -c 'import json, sys; r = sys.argv[2][:1000]; print(json.dumps({"Status": sys.argv[1], "Reason": r, "UniqueId": "adlc-setup", "Data": r}))' "$1" "$2")"
+            for attempt in 1 2 3 4 5; do
+              curl -fsS -m 30 -X PUT -H 'Content-Type:' --data-binary "$body" "$WAIT_URL" && return 0
+              echo "signal attempt $attempt failed, retrying in 5s"
+              sleep 5
+            done
+            echo "could not signal CloudFormation: the stack will time out"
           }
           fail() {  # fail <message>: signal FAILURE; the log tail goes into the reason (a rollback terminates the instance)
             echo "!! adlc bootstrap FAILED at step $STEP: $1"
             sleep 1
             local tail_txt
             tail_txt="$(tail -n 6 "$LOG" | tr -cd '[:print:]\n' | tr '\n' ' ' | cut -c1-700)"
-            cfn_signal 1 "adlc bootstrap failed at step $STEP: $1 | full log $LOG | $tail_txt"
+            cfn_signal FAILURE "adlc bootstrap failed at step $STEP: $1 | full log $LOG | $tail_txt"
             exit 1
           }
-          trap 'rc=$?; [ "$SIGNALED" = 1 ] || cfn_signal 1 "adlc bootstrap exited (rc=$rc) at step $STEP; see $LOG"' EXIT
+          trap 'rc=$?; [ "$SIGNALED" = 1 ] || cfn_signal FAILURE "adlc bootstrap exited (rc=$rc) at step $STEP; see $LOG"' EXIT
           as_lab_user() { runuser -l "$LAB_USER" -c "$1"; }
 
           echo "===== adlc bootstrap start $(date -u +%FT%TZ) bundle $BUNDLE_URI ====="
@@ -514,7 +516,7 @@ Resources:
           STEP=packages
           ok=0
           for attempt in 1 2 3 4 5; do
-            dnf install -y git jq tar gzip unzip aws-cfn-bootstrap && { ok=1; break; }
+            dnf install -y git jq tar gzip unzip && { ok=1; break; }
             echo "dnf install failed (attempt $attempt), retrying in 15s"
             sleep 15
           done
@@ -540,6 +542,10 @@ Resources:
           runuser -u "$LAB_USER" -- unzip -q -o "$WORK/bundle.zip" -d "$LAB_DIR" || fail "unzip into $LAB_DIR failed"
           rm -rf "$WORK"
           [ -f "$LAB_DIR/ec2/setup-ec2.sh" ] || fail "bundle has no ec2/setup-ec2.sh"
+          # A local git repo, as after `git clone`: tools/pull-templates.sh compares against the committed
+          # default templates (git show HEAD:...) and the handbook uses `git diff`.
+          as_lab_user "cd ~/adlc-lab && git init -q -b main && git add -A && git -c user.name='adlc lab' -c user.email=adlc-lab@example.invalid commit -q -m 'adlc-lab bundle (see WS_BUNDLE.json)'" \
+            || fail "git init of $LAB_DIR failed"
           as_lab_user "cd ~/adlc-lab && ./tools/set-suffix.sh ${LabSuffix}" || fail "tools/set-suffix.sh failed"
 
           STEP=setup
@@ -571,11 +577,25 @@ Resources:
 
           STEP=done
           echo "===== adlc bootstrap done $(date -u +%FT%TZ) transaction-search $TS ====="
-          cfn_signal 0 "adlc lab ready in $LAB_DIR (transaction search $TS)"
+          cfn_signal SUCCESS "adlc lab ready in $LAB_DIR (transaction search $TS)"
       Tags:
         - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
         - { Key: "adlc:lab", Value: agentdlc }
         - { Key: "adlc:owner", Value: !Ref LabSuffix }
+
+  # The stack reaches CREATE_COMPLETE only after UserData has unpacked the bundle and ec2/setup-ec2.sh
+  # succeeded. A WaitCondition (not a CreationPolicy) so that a FAILURE shows its reason (step + log tail)
+  # in the stack events: a rollback terminates the instance and its log with it.
+  SetupWaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  SetupWait:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: Instance
+    Properties:
+      Handle: !Ref SetupWaitHandle
+      Count: 1
+      Timeout: "2400"
 
 Outputs:
   InstanceId:
@@ -593,3 +613,6 @@ Outputs:
   RoleName:
     Description: Instance role name
     Value: !Ref InstanceRole
+  SetupResult:
+    Description: What the instance reported when setup finished
+    Value: !GetAtt SetupWait.Data

@@ -23,9 +23,25 @@
       "Effect": "Allow",
       "Action": [
         "ssm:ResumeSession",
-        "ssm:TerminateSession"
+        "ssm:TerminateSession",
+        "ssmmessages:OpenDataChannel"
       ],
-      "Resource": "arn:aws:ssm:*:*:session/*"
+      "Resource": "arn:aws:ssm:*:*:session/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/aws:ssmmessages:session-id": "${aws:userid}"
+        }
+      }
+    },
+    {
+      "Sid": "LabBucketConsoleUploads",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::adlc-*/*"
     }
   ]
 }

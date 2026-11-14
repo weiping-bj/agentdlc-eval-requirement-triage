@@ -11,7 +11,7 @@ weight: 0
 
 - 一台实验 EC2（Amazon Linux 2023），只能通过 SSM Session Manager 登录，不开放任何入站端口。
 - 实验代码已解压到 `/home/ec2-user/adlc-lab`，工具（uv + Python 3.12、Node.js、Claude Code、AWS CLI）和 `.venv` 已安装好。
-- CloudWatch Transaction Search 已在本账号本区域开启。
+- 已尝试为本账号本区域开启 CloudWatch Transaction Search；`./01-check-env.sh` 会显示状态，未开启时运行 `./02-enable-observability.sh`。
 
 ## 登录实验 EC2
 

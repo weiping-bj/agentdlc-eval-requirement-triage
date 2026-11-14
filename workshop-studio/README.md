@@ -7,14 +7,14 @@
 |------|------|
 | `contentspec.yaml` | WS 配置：每位学员一个账号（`workshop_studio`），区域 us-west-2（推荐）/ us-east-1，部署 `static/adlc-lab.yaml` 并传入 `{{.AssetsBucketName}}` / `{{.AssetsBucketPrefix}}` |
 | `static/adlc-lab.yaml` | CloudFormation（WS 按文件名把堆栈命名为 `adlc-lab`）。由 `ec2/adlc-ec2.yaml` 派生：同样无入站端口、仅 SSM、IMDSv2、同一实例角色和权限边界，另加只读实验包对象的 `s3:GetObject` |
-| `static/iam-policy.json` | 学员角色附加策略：只允许对带 `adlc:lab=agentdlc` 标签的实例开 Session Manager（另附 AWS 托管策略 `ReadOnlyAccess`） |
+| `static/iam-policy.json` | 学员角色附加策略（另附 AWS 托管策略 `ReadOnlyAccess`）：只对带 `adlc:lab=agentdlc` 标签的实例开 Session Manager、只能恢复/结束自己的会话；可在 S3 控制台向 `adlc-*` 桶上传/删除文件（手册 2.0） |
 | `content/index.zh.md` | 占位首页（手册迁移是后续任务） |
 | `assets/` | `tools/build-ws-bundle.sh` 的输出位置，zip 不提交 |
 
 ## 发布步骤
 
 ```bash
-./tools/build-ws-bundle.sh --require-clean      # 生成 workshop-studio/assets/adlc-lab.zip 并打印 sha256
+./tools/build-ws-bundle.sh      # 生成 workshop-studio/assets/adlc-lab.zip 并打印 sha256（有未提交改动时拒绝构建）
 ```
 
 1. 用 WS 控制台 Assets 页面给出的凭证/命令，把 `adlc-lab.zip` 上传到内容的 assets 位置（对象名必须是 `adlc-lab.zip`）。
@@ -22,10 +22,10 @@
 
 ## EC2 启动时做什么（UserData，root 运行一次）
 
-1. 写 `/etc/profile.d/adlc.sh`（区域、`LAB_SUFFIX=ws`），`dnf` 安装 git/jq/unzip/aws-cfn-bootstrap。
-2. 从 `s3://<AssetsBucketName>/<AssetsBucketPrefix>adlc-lab.zip` 下载、校验并以 ec2-user 身份解压到 `/home/ec2-user/adlc-lab`，写入后缀（`tools/set-suffix.sh`）。
+1. 写 `/etc/profile.d/adlc.sh`（区域、`LAB_SUFFIX=ws`），`dnf` 安装 git/jq/unzip。
+2. 从 `s3://<AssetsBucketName>/<AssetsBucketPrefix>adlc-lab.zip` 下载、校验并以 ec2-user 身份解压到 `/home/ec2-user/adlc-lab`，`git init` 并提交一次（和 git clone 一样，`tools/pull-templates.sh` 与手册里的 `git diff` 需要），写入后缀（`tools/set-suffix.sh`）。
 3. 以 ec2-user 运行 `ec2/setup-ec2.sh`（日志 `/home/ec2-user/adlc-setup.log`），再运行 `./02-enable-observability.sh`（失败只告警，学员可重跑）。
-4. `cfn-signal`：成功后堆栈才 `CREATE_COMPLETE`（超时 40 分钟）；失败时把日志末尾写进失败原因。引导日志 `/var/log/adlc-bootstrap.log`。
+4. 用 `curl` 给 `SetupWait`（WaitCondition，超时 40 分钟）发信号：成功后堆栈才 `CREATE_COMPLETE`，输出 `SetupResult` 记录结果；失败时失败步骤和日志末尾出现在堆栈事件里（回滚会删掉实例）。引导日志 `/var/log/adlc-bootstrap.log`。
 
 学员在 Session Manager 中登录后是 `ssm-user`，先执行 `sudo su - ec2-user`（自动进入 `~/adlc-lab` 并激活 `.venv`）。
 

@@ -1,5 +1,5 @@
-# AWS Workshop Studio content spec for the AgentDLC lab (Chinese handbook, one AWS account per participant).
-# Schema: ContentSpecV2 in EEContentCatalogBuilderLib (contentspec/contentspec.go); choices in workshop-studio/README.md.
+# AWS Workshop Studio content spec (ContentSpec version 2.0) for the AgentDLC lab:
+# Chinese handbook, one AWS account per participant. Choices are explained in workshop-studio/README.md.
 version: 2.0
 defaultLocaleCode: zh-CN
 localeCodes:
@@ -8,12 +8,11 @@ localeCodes:
 awsAccountConfig:
   accountSources:
     - workshop_studio
-  # Created by the lab on first use; listed so Workshop Studio provisions them up front.
-  serviceLinkedRoles:
-    - runtime-identity.bedrock-agentcore.amazonaws.com
-    - application-signals.cloudwatch.amazonaws.com
+  # No serviceLinkedRoles: the AgentCore Runtime identity and Application Signals roles are created on
+  # first use through the instance role (iam:CreateServiceLinkedRole).
   # Participants work on the lab EC2 (its instance role does the lab work). In the console they read
-  # CloudWatch / AgentCore / S3 results and open a Session Manager shell on the lab instance.
+  # CloudWatch / AgentCore / S3 results, open a Session Manager shell on the lab instance, and upload or
+  # delete files in their own adlc-* S3 bucket (handbook step 2.0).
   participantRole:
     managedPolicies:
       - arn:aws:iam::aws:policy/ReadOnlyAccess

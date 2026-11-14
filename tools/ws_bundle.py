@@ -3,6 +3,7 @@
   python3 tools/ws_bundle.py                       # -> workshop-studio/assets/adlc-lab.zip, prints its sha256
   python3 tools/ws_bundle.py --out /tmp/x.zip      # another output path
   python3 tools/ws_bundle.py --list                # only print the file list
+  python3 tools/ws_bundle.py --allow-dirty         # build from uncommitted changes (testing only)
 
 What goes in: every file git tracks (so nothing gitignored and machine-local can slip in: .venv, .lab-state,
 results, config/local.env, logs, zips), minus the paths in EXCLUDE (maintainer-only or other delivery paths).
@@ -10,8 +11,9 @@ The workshop-studio/static template unpacks the zip into ~ec2-user/adlc-lab and 
 
 Deterministic: sorted entries, fixed 1980-01-01 timestamps, file modes from git (0755 / 0644), one compression
 level, and a WS_BUNDLE.json manifest that names the source commit. The same tree gives the same bytes (with the
-same Python/zlib). Content is read from the working tree; a tree with uncommitted changes in bundled files is
-recorded as source_dirty=true and warned about (use --require-clean for a release build).
+same Python/zlib). Content is read from the working tree, so a tree with uncommitted changes in bundled files
+is refused (a maintainer's dry-run edits would ship to every participant); --allow-dirty builds it anyway and
+records source_dirty=true.
 Stdlib only.
 """
 from __future__ import annotations
@@ -128,7 +130,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", default=str(DEFAULT_OUT))
     ap.add_argument("--list", action="store_true", help="print the bundled paths and exit")
-    ap.add_argument("--require-clean", action="store_true", help="fail when bundled files have uncommitted changes")
+    ap.add_argument("--allow-dirty", action="store_true",
+                    help="build even when bundled files have uncommitted changes (recorded as source_dirty)")
     a = ap.parse_args(argv)
     files = select()
     if a.list:
@@ -136,17 +139,17 @@ def main(argv=None) -> int:
         return 0
     commit, dirty = source_state(files)
     if dirty:
-        msg = "bundled files have uncommitted changes (WS_BUNDLE.json records source_dirty=true)"
-        if a.require_clean:
-            print(f"❌ {msg}", file=sys.stderr)
+        if not a.allow_dirty:
+            print("❌ bundled files have uncommitted changes: commit them first (or --allow-dirty for a test build)",
+                  file=sys.stderr)
             return 1
-        print(f"⚠️  {msg}", file=sys.stderr)
+        print("⚠️  building from uncommitted changes (WS_BUNDLE.json records source_dirty=true)", file=sys.stderr)
     data = build_bytes(files, commit, dirty)
-    out = Path(a.out)
+    out = Path(a.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(data)
     digest = hashlib.sha256(data).hexdigest()
-    shown = out.relative_to(ROOT) if out.resolve().is_relative_to(ROOT) else out
+    shown = out.relative_to(ROOT) if out.is_relative_to(ROOT) else out
     print(f"✅ {shown}  {len(files)} files + {MANIFEST}  {len(data)} bytes  commit {commit[:12]}"
           f"{' (dirty)' if dirty else ''}", file=sys.stderr)
     print(f"{digest}  {out.name}")

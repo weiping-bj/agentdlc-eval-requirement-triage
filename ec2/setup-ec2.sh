@@ -209,7 +209,10 @@ jq --arg region "$REGION" --arg model "$MODEL" --arg fast "$FAST_MODEL" \
       AWS_REGION: $region,
       ANTHROPIC_MODEL: $model,
       ANTHROPIC_SMALL_FAST_MODEL: $fast,
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: $fast
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: $fast,
+      ANTHROPIC_DEFAULT_SONNET_MODEL: $model,
+      ANTHROPIC_DEFAULT_OPUS_MODEL: $model,
+      CLAUDE_CODE_SUBAGENT_MODEL: $model
     })' "$SETTINGS" > "$TMP_JSON"
 mv "$TMP_JSON" "$SETTINGS"
 echo "    已写入 $SETTINGS"
@@ -228,6 +231,11 @@ sed -i '/^# >>> adlc >>>$/,/^# <<< adlc <<<$/d' "$BASHRC"
   echo "export ANTHROPIC_MODEL=\"$MODEL\""
   echo "export ANTHROPIC_SMALL_FAST_MODEL=\"$FAST_MODEL\""
   echo "export ANTHROPIC_DEFAULT_HAIKU_MODEL=\"$FAST_MODEL\""
+  # the lab's IAM allows only its own models (labkit/models.py): map Claude Code's other aliases
+  # (/model sonnet|opus, subagents) onto the configured model instead of an AccessDenied
+  echo "export ANTHROPIC_DEFAULT_SONNET_MODEL=\"$MODEL\""
+  echo "export ANTHROPIC_DEFAULT_OPUS_MODEL=\"$MODEL\""
+  echo "export CLAUDE_CODE_SUBAGENT_MODEL=\"$MODEL\""
   if [ -n "$SUFFIX" ]; then echo "export LAB_SUFFIX=\"$SUFFIX\""; fi
   echo '# <<< adlc <<<'
 } >> "$BASHRC"

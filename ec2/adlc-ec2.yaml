@@ -228,6 +228,16 @@ Resources:
                   - iam:ResetServiceSpecificCredential
                   - iam:AttachUserPolicy
                   - iam:PutUserPolicy
+                  - iam:UpdateAccessKey
+                  - iam:UpdateServiceSpecificCredential
+                  - iam:UploadSSHPublicKey
+                  - iam:UploadSigningCertificate
+                  - iam:AddUserToGroup
+                  - iam:PutGroupPolicy
+                  - iam:AttachGroupPolicy
+                  - iam:CreateOpenIDConnectProvider
+                  - iam:CreateSAMLProvider
+                  - sts:GetFederationToken
                 Resource: "*"
               # First invocation of a marketplace-backed model auto-subscribes;
               # only allowed when Bedrock makes the call on our behalf.
@@ -252,7 +262,7 @@ Resources:
                 Action:
                   - iam:CreateRole
                   - iam:PutRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-${LabSuffix}-*"
                 Condition:
                   StringEquals:
                     iam:PermissionsBoundary: !Ref LabRoleBoundary
@@ -269,11 +279,11 @@ Resources:
                   - iam:ListInstanceProfilesForRole
                   - iam:TagRole
                   - iam:UpdateAssumeRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-${LabSuffix}-*"
               - Sid: LabIamPassRole
                 Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-${LabSuffix}-*"
                 Condition:
                   StringEquals:
                     iam:PassedToService:
@@ -297,6 +307,17 @@ Resources:
                   - iam:AttachRolePolicy
                   - iam:CreatePolicyVersion
                   - iam:SetDefaultPolicyVersion
+                Resource: "*"
+              # The lab exposes nothing publicly: no Lambda function URLs or resource-based grants on the
+              # lab Lambdas, no resource policies on AgentCore resources (an allowlisted model could
+              # otherwise be served to anyone).
+              - Sid: DenyPublicExposure
+                Effect: Deny
+                Action:
+                  - lambda:CreateFunctionUrlConfig
+                  - lambda:UpdateFunctionUrlConfig
+                  - lambda:AddPermission
+                  - bedrock-agentcore:PutResourcePolicy
                 Resource: "*"
               # Service-linked roles for bedrock-agentcore / application-signals /
               # observability are created on first use.
@@ -427,6 +448,16 @@ Resources:
               - iam:ResetServiceSpecificCredential
               - iam:AttachUserPolicy
               - iam:PutUserPolicy
+              - iam:UpdateAccessKey
+              - iam:UpdateServiceSpecificCredential
+              - iam:UploadSSHPublicKey
+              - iam:UploadSigningCertificate
+              - iam:AddUserToGroup
+              - iam:PutGroupPolicy
+              - iam:AttachGroupPolicy
+              - iam:CreateOpenIDConnectProvider
+              - iam:CreateSAMLProvider
+              - sts:GetFederationToken
             Resource: "*"
           - Sid: Telemetry
             Effect: Allow

@@ -73,7 +73,17 @@
         "iam:CreateServiceSpecificCredential",
         "iam:ResetServiceSpecificCredential",
         "iam:AttachUserPolicy",
-        "iam:PutUserPolicy"
+        "iam:PutUserPolicy",
+        "iam:UpdateAccessKey",
+        "iam:UpdateServiceSpecificCredential",
+        "iam:UploadSSHPublicKey",
+        "iam:UploadSigningCertificate",
+        "iam:AddUserToGroup",
+        "iam:PutGroupPolicy",
+        "iam:AttachGroupPolicy",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:CreateSAMLProvider",
+        "sts:GetFederationToken"
       ],
       "Resource": "*"
     }

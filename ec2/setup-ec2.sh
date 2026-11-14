@@ -111,7 +111,7 @@ if [ -z "$SUFFIX" ]; then
     fi
   fi
 fi
-[[ "$SUFFIX" =~ ^[a-z][a-z0-9]{1,11}$ ]] || SUFFIX=""
+{ [[ "$SUFFIX" =~ ^[a-z][a-z0-9]{1,11}$ ]] && [ "$SUFFIX" != ec2 ]; } || SUFFIX=""
 echo "    区域: $REGION   编码 Agent 模型: $MODEL   快速模型: $FAST_MODEL   后缀: ${SUFFIX:-（未识别）}"
 
 # ------------------------------------------------------------------ 3. uv + Python
@@ -212,7 +212,7 @@ jq --arg region "$REGION" --arg model "$MODEL" --arg fast "$FAST_MODEL" \
       ANTHROPIC_DEFAULT_HAIKU_MODEL: $fast,
       ANTHROPIC_DEFAULT_SONNET_MODEL: $model,
       ANTHROPIC_DEFAULT_OPUS_MODEL: $model,
-      CLAUDE_CODE_SUBAGENT_MODEL: $model
+      ANTHROPIC_DEFAULT_FABLE_MODEL: $model
     })' "$SETTINGS" > "$TMP_JSON"
 mv "$TMP_JSON" "$SETTINGS"
 echo "    已写入 $SETTINGS"
@@ -232,10 +232,10 @@ sed -i '/^# >>> adlc >>>$/,/^# <<< adlc <<<$/d' "$BASHRC"
   echo "export ANTHROPIC_SMALL_FAST_MODEL=\"$FAST_MODEL\""
   echo "export ANTHROPIC_DEFAULT_HAIKU_MODEL=\"$FAST_MODEL\""
   # the lab's IAM allows only its own models (labkit/models.py): map Claude Code's other aliases
-  # (/model sonnet|opus, subagents) onto the configured model instead of an AccessDenied
+  # (/model sonnet|opus|fable, and the subagents that use them) onto the configured model instead of an AccessDenied
   echo "export ANTHROPIC_DEFAULT_SONNET_MODEL=\"$MODEL\""
   echo "export ANTHROPIC_DEFAULT_OPUS_MODEL=\"$MODEL\""
-  echo "export CLAUDE_CODE_SUBAGENT_MODEL=\"$MODEL\""
+  echo "export ANTHROPIC_DEFAULT_FABLE_MODEL=\"$MODEL\""
   if [ -n "$SUFFIX" ]; then echo "export LAB_SUFFIX=\"$SUFFIX\""; fi
   echo '# <<< adlc <<<'
 } >> "$BASHRC"

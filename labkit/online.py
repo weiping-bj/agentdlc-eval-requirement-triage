@@ -87,7 +87,8 @@ def enable(path: str) -> int:
     if existing:
         cid = existing["onlineEvaluationConfigId"]
         ctl.update_online_evaluation_config(onlineEvaluationConfigId=cid, executionStatus="ENABLED",
-                                            evaluators=evaluators, dataSourceConfig=data_source(path))
+                                            evaluators=evaluators, dataSourceConfig=data_source(path),
+                                            evaluationExecutionRoleArn=role)
         print(f"✅ 在线评估配置 {name} 已启用（{cid}）")
     else:
         import time

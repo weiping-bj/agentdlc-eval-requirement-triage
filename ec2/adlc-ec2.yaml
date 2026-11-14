@@ -18,7 +18,7 @@ Parameters:
   LabSuffix:
     Type: String
     Description: Personal suffix, lowercase letters/digits, 2-12 chars, starts with a letter (e.g. zhang3).
-    AllowedPattern: "^[a-z][a-z0-9]{1,11}$"
+    AllowedPattern: "^(?!ec2$)[a-z][a-z0-9]{1,11}$"
     ConstraintDescription: "2-12 chars, lowercase letters/digits, must start with a letter (e.g. zhang3)."
   InstanceType:
     Type: String
@@ -238,6 +238,16 @@ Resources:
                   - iam:CreateOpenIDConnectProvider
                   - iam:CreateSAMLProvider
                   - sts:GetFederationToken
+                  - iam:UpdateSSHPublicKey
+                  - iam:UpdateSigningCertificate
+                  - iam:UpdateSAMLProvider
+                  - iam:AddClientIDToOpenIDConnectProvider
+                  - iam:UpdateOpenIDConnectProviderThumbprint
+                  - iam:PutUserPermissionsBoundary
+                  - iam:DeleteUserPermissionsBoundary
+                  - rolesanywhere:CreateTrustAnchor
+                  - rolesanywhere:CreateProfile
+                  - sts:GetSessionToken
                 Resource: "*"
               # First invocation of a marketplace-backed model auto-subscribes;
               # only allowed when Bedrock makes the call on our behalf.
@@ -308,9 +318,11 @@ Resources:
                   - iam:CreatePolicyVersion
                   - iam:SetDefaultPolicyVersion
                 Resource: "*"
-              # The lab exposes nothing publicly: no Lambda function URLs or resource-based grants on the
-              # lab Lambdas, no resource policies on AgentCore resources (an allowlisted model could
-              # otherwise be served to anyone).
+              # Nothing the lab creates may be reachable from outside the account, or serve an allowlisted
+              # model to anyone: no Lambda function URLs or resource-based grants, no AgentCore resource
+              # policies, gateways or harnesses (the lab uses none), no bucket policies / ACLs / websites (so
+              # nothing can be made public even if a public access block is lifted), no log export to other accounts. Residual: an AgentCore Runtime
+              # can still be given a custom JWT authorizer (no IAM condition key for it).
               - Sid: DenyPublicExposure
                 Effect: Deny
                 Action:
@@ -318,6 +330,18 @@ Resources:
                   - lambda:UpdateFunctionUrlConfig
                   - lambda:AddPermission
                   - bedrock-agentcore:PutResourcePolicy
+                  - bedrock-agentcore:CreateGateway*
+                  - bedrock-agentcore:UpdateGateway*
+                  - bedrock-agentcore:CreateHarness*
+                  - bedrock-agentcore:UpdateHarness*
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketAcl
+                  - s3:PutObjectAcl
+                  - s3:PutBucketWebsite
+                  - s3:DeleteBucketPolicy
+                  - logs:PutSubscriptionFilter
+                  - logs:PutDestination
+                  - logs:PutDestinationPolicy
                 Resource: "*"
               # Service-linked roles for bedrock-agentcore / application-signals /
               # observability are created on first use.
@@ -342,7 +366,7 @@ Resources:
               - Sid: LabLambda
                 Effect: Allow
                 Action: lambda:*
-                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
+                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"
               - Sid: LabS3Buckets
                 Effect: Allow
                 Action: s3:*
@@ -437,6 +461,14 @@ Resources:
               - bedrock-agentcore:GetWorkloadAccessTokenForJWT
               - bedrock-agentcore:GetWorkloadAccessTokenForUserId
             Resource: "*"
+          # A lab role is only ever used by AWS services; never by a federated (web identity / SAML) session.
+          - Sid: DenyFederatedSessions
+            Effect: Deny
+            Action: "*"
+            Resource: "*"
+            Condition:
+              "Null":
+                aws:FederatedProvider: "false"
           - Sid: DenyCredentialCreation
             Effect: Deny
             Action:
@@ -458,6 +490,16 @@ Resources:
               - iam:CreateOpenIDConnectProvider
               - iam:CreateSAMLProvider
               - sts:GetFederationToken
+              - iam:UpdateSSHPublicKey
+              - iam:UpdateSigningCertificate
+              - iam:UpdateSAMLProvider
+              - iam:AddClientIDToOpenIDConnectProvider
+              - iam:UpdateOpenIDConnectProviderThumbprint
+              - iam:PutUserPermissionsBoundary
+              - iam:DeleteUserPermissionsBoundary
+              - rolesanywhere:CreateTrustAnchor
+              - rolesanywhere:CreateProfile
+              - sts:GetSessionToken
             Resource: "*"
           - Sid: Telemetry
             Effect: Allow
@@ -487,7 +529,7 @@ Resources:
             Action:
               - lambda:InvokeFunction
               - lambda:GetFunction
-            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
+            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"
           - Sid: ReadLabBuckets
             Effect: Allow
             Action: s3:GetObject

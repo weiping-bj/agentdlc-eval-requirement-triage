@@ -230,9 +230,11 @@ def test_claude_code_aliases_map_onto_allowlisted_models():
     setup = (ROOT / "ec2" / "setup-ec2.sh").read_text(encoding="utf-8")
     for key, var in (("ANTHROPIC_MODEL", "$model"), ("ANTHROPIC_SMALL_FAST_MODEL", "$fast"),
                      ("ANTHROPIC_DEFAULT_HAIKU_MODEL", "$fast"), ("ANTHROPIC_DEFAULT_SONNET_MODEL", "$model"),
-                     ("ANTHROPIC_DEFAULT_OPUS_MODEL", "$model"), ("CLAUDE_CODE_SUBAGENT_MODEL", "$model")):
-        assert f"{key}: {var}" in setup, key
-        assert f'echo "export {key}=' in setup, key
+                     ("ANTHROPIC_DEFAULT_OPUS_MODEL", "$model"), ("ANTHROPIC_DEFAULT_FABLE_MODEL", "$model")):
+        assert f"{key}: {var}" in setup, key                                    # settings.json
+        shell = "$FAST_MODEL" if var == "$fast" else "$MODEL"
+        assert f'echo "export {key}=\\"{shell}\\""' in setup, key  # ~/.bashrc, same value
+    assert "CLAUDE_CODE_SUBAGENT_MODEL" not in setup  # subagents follow the mapped aliases (Haiku stays Haiku)
 
 
 def test_use_model_rejects_ids_outside_the_allowlist(tmp_path):
@@ -248,3 +250,124 @@ def test_use_model_rejects_ids_outside_the_allowlist(tmp_path):
     assert run("us.anthropic.claude-haiku-5-5").returncode == 0
     assert "us.anthropic.claude-haiku-5-5" in (tmp_path / "config" / "local.env").read_text()
     assert run("nova").returncode == 0 and "nova-2-lite" in (tmp_path / "config" / "local.env").read_text()
+
+
+# ---------------------------------------------------------------------------------------------- round-6 guards
+IAM_WRITE = re.compile(r"^iam:(Create|Put|Attach|Update|Delete|Detach|Add|Remove|Tag|Untag|Upload|Set|Reset|Change|PassRole)")
+IAM_SIDS = {"LabIamCreateWithBoundary": {"iam:CreateRole", "iam:PutRolePolicy"},
+            "LabIamRoles": {"iam:DeleteRole", "iam:DeleteRolePolicy", "iam:DetachRolePolicy", "iam:TagRole",
+                            "iam:UpdateAssumeRolePolicy"},
+            "LabIamPassRole": {"iam:PassRole"},
+            "ServiceLinkedRoles": {"iam:CreateServiceLinkedRole"}}
+
+
+def _walk_policies(node, path=""):
+    """Every PolicyDocument anywhere in a template (inline policies, managed policies, nested)."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k == "PolicyDocument":
+                yield path, v
+            else:
+                yield from _walk_policies(v, f"{path}/{k}")
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk_policies(v, f"{path}[{i}]")
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_template_has_no_other_iam_principal_or_policy(template):
+    t = cfn(ROOT / template)
+    iam = {r: v["Type"] for r, v in t["Resources"].items() if v["Type"].startswith("AWS::IAM::")}
+    assert iam == {"InstanceRole": "AWS::IAM::Role", "LabRoleBoundary": "AWS::IAM::ManagedPolicy",
+                   "InstanceProfile": "AWS::IAM::InstanceProfile"}, iam
+    assert not set(t["Resources"]["LabRoleBoundary"]["Properties"]) & {"Roles", "Users", "Groups"}  # never attached
+    docs = list(_walk_policies(t["Resources"]))
+    assert {p for p, _ in docs} == {"/InstanceRole/Properties/Policies[0]", "/LabRoleBoundary/Properties"}, docs
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_iam_writes_only_in_the_named_statements(template):
+    st = cfn(ROOT / template)["Resources"]["InstanceRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]
+    for s in st:
+        if s["Effect"] != "Allow":
+            continue
+        writes = {a for a in _acts(s) if IAM_WRITE.match(a) or a in ("iam:*", "*")}
+        assert writes <= IAM_SIDS.get(s.get("Sid"), set()), (s.get("Sid"), writes)
+    sids = {s.get("Sid"): s for s in st}
+    keep = sids["KeepBoundary"]
+    assert keep["Effect"] == "Deny" and keep["Resource"] == "*" and "Condition" not in keep and set(keep["Action"]) >= {
+        "iam:DeleteRolePermissionsBoundary", "iam:PutRolePermissionsBoundary", "iam:AttachRolePolicy",
+        "iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion"}
+    prot = sids["ProtectParticipantEc2Roles"]
+    assert prot["Effect"] == "Deny" and "Condition" not in prot and set(prot["Action"]) >= {
+        "iam:DeleteRole", "iam:PutRolePolicy", "iam:UpdateAssumeRolePolicy", "iam:AttachRolePolicy"}
+    assert sids["LabLambda"]["Resource"] == {"Fn::Sub": "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"}
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_deny_statements_are_unconditional_and_cover_the_exposure_paths(template):
+    t = cfn(ROOT / template)
+    role = {s.get("Sid"): s for s in t["Resources"]["InstanceRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]}
+    boundary = {s.get("Sid"): s for s in t["Resources"]["LabRoleBoundary"]["Properties"]["PolicyDocument"]["Statement"]}
+    for s in (role["DenyCredentialCreation"], role["DenyPublicExposure"], boundary["DenyCredentialCreation"]):
+        assert s["Effect"] == "Deny" and s["Resource"] == "*" and "Condition" not in s
+    assert set(role["DenyPublicExposure"]["Action"]) >= {
+        "lambda:CreateFunctionUrlConfig", "lambda:UpdateFunctionUrlConfig", "lambda:AddPermission",
+        "bedrock-agentcore:PutResourcePolicy", "bedrock-agentcore:CreateGateway*", "bedrock-agentcore:UpdateGateway*",
+        "bedrock-agentcore:CreateHarness*", "bedrock-agentcore:UpdateHarness*", "s3:PutBucketPolicy", "s3:PutBucketAcl",
+        "s3:PutObjectAcl", "s3:PutBucketWebsite", "logs:PutSubscriptionFilter", "logs:PutDestination"}
+    fed = boundary["DenyFederatedSessions"]
+    assert fed == {"Sid": "DenyFederatedSessions", "Effect": "Deny", "Action": "*", "Resource": "*",
+                   "Condition": {"Null": {"aws:FederatedProvider": "false"}}}
+    assert boundary["InvokeLabEvaluators"]["Resource"] == {"Fn::Sub": "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"}
+
+
+def test_only_labkit_aws_creates_roles_and_through_ensure_role():
+    py = [p for g in ("labkit/*.py", "tools/*.py", "agent/**/*.py", "evaluators/**/*.py", "data/tools/*.py")
+          for p in ROOT.glob(g) if p.is_file()]
+    raw = [str(p.relative_to(ROOT)) for p in py if p.name != "aws.py"
+           and re.search(r"\.(create_role|put_role_policy|attach_role_policy|update_assume_role_policy)\(", p.read_text(encoding="utf-8"))]
+    assert not raw, f"create IAM roles through labkit.aws.ensure_role (checked by this file): {raw}"
+    text = "".join(p.read_text(encoding="utf-8") for p in py if p.name != "aws.py")
+    assert not re.search(r"from \.?(labkit\.)?aws import|import labkit\.aws as|ensure_role\s*=", text)  # no aliasing
+    assert len(re.findall(r"\baws\.ensure_role\(", text)) == 3  # the three lab roles of the captured_roles fixture
+
+
+@pytest.mark.parametrize("bad", ["ec2", "Ws", "1ab", "a", "abcdefghijklm", "ws-x"])
+def test_suffix_rule_reserves_ec2_everywhere(bad, tmp_path):
+    import subprocess
+    t = cfn(ROOT / "workshop-studio/static/adlc-lab.yaml")
+    for tpl in [t, cfn(ROOT / "ec2/adlc-ec2.yaml")]:
+        assert not re.match(tpl["Parameters"]["LabSuffix"]["AllowedPattern"], bad)
+    assert not labcfg.SUFFIX_RE.match(bad)
+    for good in ("ws", "zhang3", "ec2x", "wssec2"):
+        assert re.match(t["Parameters"]["LabSuffix"]["AllowedPattern"], good) and labcfg.SUFFIX_RE.match(good)
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "config").mkdir()
+    (tmp_path / "tools" / "set-suffix.sh").write_text((ROOT / "tools" / "set-suffix.sh").read_text(encoding="utf-8"))
+    r = subprocess.run(["bash", "tools/set-suffix.sh", bad], cwd=tmp_path, capture_output=True, text=True)
+    assert r.returncode == 1 and not (tmp_path / "config" / "local.env").exists()
+    for f in ("ec2/launch-from-cloudshell.sh", "ec2/setup-ec2.sh"):
+        assert '= ec2 ]' in (ROOT / f).read_text(encoding="utf-8") or '!= ec2 ]' in (ROOT / f).read_text(encoding="utf-8"), f
+
+
+def test_online_enable_repoints_an_existing_config_at_the_refreshed_role(monkeypatch, tmp_path):
+    monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "none.env")
+    monkeypatch.setenv("LAB_SUFFIX", "zhang3")
+    aws.cfg.cache_clear()
+    from labkit import online
+    seen = {}
+
+    class Ctl:
+        def update_online_evaluation_config(self, **kw):
+            seen.update(kw)
+
+    monkeypatch.setattr(aws, "client", lambda name: Ctl())
+    monkeypatch.setattr(aws, "load_state", lambda n, default=None: {"label_accuracy": {"evaluatorId": "e1"}} if n == "evaluators" else {})
+    monkeypatch.setattr(aws, "save_state", lambda n, data: None)
+    monkeypatch.setattr(online, "find", lambda name: {"onlineEvaluationConfigId": "cfg-1"})
+    monkeypatch.setattr(online, "role_arn", lambda: "arn:aws:iam::123456789012:role/adlc-zhang3-online-eval-role-us-west-2")
+    monkeypatch.setattr(online, "data_source", lambda path: {})
+    online.enable("b")
+    assert seen["evaluationExecutionRoleArn"].endswith("adlc-zhang3-online-eval-role-us-west-2")
+    aws.cfg.cache_clear()

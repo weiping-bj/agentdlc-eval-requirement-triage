@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 S="${1:-}"
-if [[ ! "$S" =~ ^[a-z][a-z0-9]{1,11}$ ]]; then
+if [[ ! "$S" =~ ^[a-z][a-z0-9]{1,11}$ ]] || [ "$S" = ec2 ]; then
   echo "❌ 后缀需小写字母开头，2-12 位小写字母或数字，例如 zhang3" >&2; exit 1
 fi
 touch config/local.env

@@ -111,7 +111,17 @@
         "iam:AttachGroupPolicy",
         "iam:CreateOpenIDConnectProvider",
         "iam:CreateSAMLProvider",
-        "sts:GetFederationToken"
+        "sts:GetFederationToken",
+        "iam:UpdateSSHPublicKey",
+        "iam:UpdateSigningCertificate",
+        "iam:UpdateSAMLProvider",
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
+        "iam:PutUserPermissionsBoundary",
+        "iam:DeleteUserPermissionsBoundary",
+        "rolesanywhere:CreateTrustAnchor",
+        "rolesanywhere:CreateProfile",
+        "sts:GetSessionToken"
       ],
       "Resource": "*"
     }

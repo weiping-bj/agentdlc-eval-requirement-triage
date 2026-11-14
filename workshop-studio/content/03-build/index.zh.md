@@ -30,7 +30,7 @@ weight: 30
 
 ## 3.2 部署 V0 到 AgentCore Runtime {#s-3-2}
 
-AgentCore Runtime 支持直接部署代码包，不需要 Docker。一条命令完成打包、上传、建执行角色、建 Runtime 并等待就绪：
+AgentCore Runtime 支持直接部署代码包，不需要 Docker。一条命令完成打包、上传、建 Runtime 并等待就绪：
 
 ```bash
 ./30-deploy-runtime.sh
@@ -54,7 +54,7 @@ AgentCore Runtime 支持直接部署代码包，不需要 Docker。一条命令�
 ::::expand{header="脚本做了哪些事"}
 1. 用 `uv` 下载 linux/arm64 版依赖（Runtime 运行在 ARM 上），和 `agent/` 代码、能力目录、上个月的需求反馈一起打成 zip（第 2.4 步改过数据的话，新数据就在这里被打进包）；
 2. 上传到你的私有桶 `s3://adlc-ws-<账号>-<区域>/runtime/`；
-3. 创建执行角色 `adlc-ws-runtime-role-<区域>`（调用 Bedrock 模型、写 CloudWatch）；
+3. 使用执行角色 `adlc-ws-runtime-role-<区域>`（调用 Bedrock 模型、写 CloudWatch）：它和评估器、在线评估用的角色一样，由 CloudFormation 在准备环境时预先创建，实验 EC2 本身不能创建或修改 IAM 角色；
 4. 创建 Runtime `adlc_ws_agent`，入口是 `opentelemetry-instrument main.py`（自动埋点），环境变量 `AGENT_VERSION=v0`，等待状态变成 READY。
 
 以后重新部署（第 5 章）会复用已下载的依赖，并更新同一个 Runtime，版本号加 1。

@@ -15,7 +15,7 @@ import sys
 
 from . import aws
 
-ONLINE_EVALUATORS = ["label_accuracy", "label_important", "label_urgent", "label_decision", "reject_quality"]
+ONLINE_EVALUATORS = ["label_accuracy", "label_important", "label_urgent", "label_decision", "label_level", "reject_quality"]  # label_level: only registered in the P0/P1/P2 scheme
 ONLINE_BUILTINS = ["Builtin.Helpfulness"]
 
 

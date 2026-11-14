@@ -207,6 +207,76 @@ def test_long_sticky_warns_by_display_width(tmp_path):
     assert len(warns) == 1 and warns[0].startswith("cost:")
 
 
+@pytest.mark.parametrize("dim, text, warned", [
+    ("performance", "一条反馈里写了四个诉求时，常漏掉后面几个", True),   # the rehearsal's misfile
+    ("performance", "只判了第一个，后面几个没管", True),
+    ("performance", "判断结果不全，后半段的诉求常被忽略", True),
+    ("performance", "后面的诉求常被漏掉，响应里只提第一个", True),       # 响应 alone is not a performance word
+    ("quality", "一条反馈里写了四个诉求时，常漏掉后面几个", False),      # filed correctly: no warning
+    ("performance", "整批跑到一半超时，没跑出来的那部分漏掉了", False),  # really performance
+    ("performance", "大促后 200 条一晚上处理不完，会上漏评一半", False),
+    ("performance", "服务不稳定，整批经常中途失败，漏处理一部分", False),
+    ("performance", "200 条积压处理不过来，后面的反馈被漏掉", False),
+    ("performance", "内存泄漏导致整批跑到一半崩溃", False),
+    ("performance", "整批 60 条要 30 分钟内跑完", False),
+])
+def test_completeness_filed_under_performance_is_warned(dim, text, warned):
+    data = sample()
+    data["barriers"][dim] = [{"sticky_text": text, "confirmed": True, "selected": True}]
+    data["coverage"][dim] = "confirmed"
+    _, warns = GF.validate_json(data)
+    assert any(w.startswith(GF.CLASSIFY_WARNING) for w in warns) is warned, warns
+
+
+def test_backup_notes_are_classification_checked_too():
+    data = sample()
+    data["barriers"]["performance"] = [
+        {"sticky_text": "整批 200 条要 30 分钟内跑完", "confirmed": True, "selected": True},
+        {"sticky_text": "一条反馈里写了四个诉求时，常漏掉后面几个", "confirmed": True, "selected": False}]
+    _, warns = GF.validate_json(data)
+    hits = [w for w in warns if w.startswith(GF.CLASSIFY_WARNING)]
+    assert len(hits) == 1 and hits[0].endswith("一条反馈里写了四个诉求时，常漏掉后面几个")
+
+
+def test_skill_states_the_classification_rule():
+    text = (FISH_DIR / "SKILL.md").read_text(encoding="utf-8")
+    rule = text.split("**怎么归类**", 1)[1].split("###", 1)[0]
+    assert "延迟、吞吐、稳定性、可用性" in rule and "**质量**" in rule and "全不全" in rule and "稳不稳" not in rule
+    step3 = text.split("### 第 3 步", 1)[1].split("### 第 4 步", 1)[0]
+    assert "逐条核对每张便签放的方面" in step3 and "备选便签也核对" in step3
+    assert GF.CLASSIFY_WARNING.split(" -", 1)[0] in text  # the SKILL names the warning the scripts print
+    card = (ROOT / "data" / "scenario" / "role-card.md").read_text(encoding="utf-8")
+    perf = card.split("6. **性能", 1)[1].split("\n\n", 1)[0]
+    assert "诉求" not in perf and "跑到一半超时" in perf and "30 分钟内" in perf
+    look = card.split("## 5.", 1)[1].split("4. **", 1)[1].split("5. **", 1)[0]  # incident 4 of section 5
+    assert "四个诉求" in look and "漏掉后面几个" in look  # the omission lives in the quality incident
+    crit_skill = (CRIT_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert "在鱼骨图上放在性能" not in crit_skill and "skeleton --force" in crit_skill
+
+
+def test_role_card_appendix_matches_the_data():
+    import re
+    card = (ROOT / "data" / "scenario" / "role-card.md").read_text(encoding="utf-8")
+    appendix = card.split("## 附：数据对照", 1)[1]
+    caps = {c["id"] for c in json.loads((ROOT / "data" / "capability_catalog.json").read_text(encoding="utf-8"))["capabilities"]}
+    fb = {json.loads(x)["id"] for x in (ROOT / "data" / "feedback_last_month.jsonl").read_text(encoding="utf-8").splitlines() if x.strip()}
+    golden = {r["golden_id"]: r for r in CR.golden_rows()}
+    for cid in re.findall(r"\b(?:CAP|OOS)-\d{3}\b", appendix):
+        assert cid in caps, cid
+    for fid in re.findall(r"\bFB-\d{4}-\d{3}\b", appendix):
+        assert fid in fb, fid
+    for gid in re.findall(r"\bG\d{2}\b", appendix):
+        assert gid in golden, gid
+    row4 = next(line for line in appendix.splitlines() if line.startswith("| 4 "))
+    assert "G22" in row4 and "FB-2610-030" in row4 and golden["G22"]["feedback_id"] == "FB-2610-030"
+    for cap in golden["G22"]["matched_capabilities"]:
+        assert cap in row4, cap
+    row6 = next(line for line in appendix.splitlines() if line.startswith("| 6 "))
+    assert not re.findall(r"\bG\d{2}\b", row6) and "FB-2610-030" not in row6
+    for fid in ("FB-2610-012", "FB-2610-048"):  # the card says these two are not in the golden set yet
+        assert fid in fb and fid not in {r["feedback_id"] for r in golden.values()}
+
+
 @pytest.mark.parametrize("kind", ["missing", "duplicate"])
 def test_changed_template_cell_ids_hard_stop(tmp_path, kind):
     text = TEMPLATE.read_text(encoding="utf-8")

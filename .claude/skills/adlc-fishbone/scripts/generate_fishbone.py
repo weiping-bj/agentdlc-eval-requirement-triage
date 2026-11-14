@@ -53,6 +53,14 @@ CURRENT_LAYER_PREFIX = "3QwRYIxs2djGdYka4jAl-"  # the 2400x1350 editable layer; 
 # full copies (bB5O89TeUSKUgIe8cjWL-*) hidden behind it, still holding placeholders. They are dropped from the output.
 KEEP_CELLS = ("0", "1")
 COVERAGE_STATES = ("confirmed", "explored_empty", "unresolved")
+# Performance = latency / throughput / stability / availability only (SKILL.md "怎么归类"). A performance note that talks
+# about omissions and has none of the performance words is most likely completeness, i.e. quality.
+OMISSION_WORDS = ("漏", "不完整", "不全", "没覆盖", "没考虑", "丢", "忽略", "只判了", "只处理", "没管")
+PERFORMANCE_WORDS = ("秒", "分钟", "小时", "ms", "QPS", "超时", "卡住", "卡死", "慢", "延迟", "并发", "吞吐", "排队", "高峰",
+                     "不可用", "可用性", "宕", "挂了", "崩", "稳定", "失败", "报错", "积压", "处理不完", "处理不过来",
+                     "来不及", "跑完", "跑不完", "时间窗", "响应时间", "响应慢")
+CLASSIFY_WARNING = ("performance: check the dimension of this note - an omission / completeness problem belongs to "
+                    "quality, only not finishing in time / unstable / unavailable is performance (SKILL.md 怎么归类):")
 STICKY_SOFT_LIMIT = 50  # display width (CJK = 1, ASCII = 0.5); wider notes may overflow the 340x82 sticky
 
 CHECKS = [  # (key, text) in report order
@@ -162,6 +170,11 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
             err["max3"].append(f"{dim}: {len(sel)} selected barriers (max 3)")
         if confirmed and not sel:
             warns.append(f"{dim}: {len(confirmed)} confirmed barrier(s) but none selected for the diagram")
+        if dim == "performance":  # every confirmed note, backups too: the criteria step uses all of them
+            for b in confirmed:
+                text = str(b.get("sticky_text") or "").strip()
+                if any(w in text for w in OMISSION_WORDS) and not any(w in text for w in PERFORMANCE_WORDS):
+                    warns.append(f"{CLASSIFY_WARNING} {text}")
         for b in sel:
             text = str(b.get("sticky_text") or "").strip()
             if b.get("confirmed") is not True:
@@ -171,6 +184,7 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
             elif display_width(text) > STICKY_SOFT_LIMIT:
                 warns.append(f"{dim}: sticky text is {display_width(text):g} CJK characters wide (>{STICKY_SOFT_LIMIT}), "
                              f"may overflow; split it into two notes: {text}")
+
     return err, warns
 
 

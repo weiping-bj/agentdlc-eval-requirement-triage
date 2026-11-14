@@ -54,7 +54,7 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py skeleton outputs/fishbo
 | 字段 | 怎么填 |
 |------|--------|
 | `text` | “Agent …”开头，谓语落在 Agent 的输出或 trace 上；用便签和 `evidence` 里的数字（例如“整批 60 条 30 分钟内完成”“每条模型费用 ≤ 0.5 元”） |
-| `dimension` | 认知 / 质量 / 责任 / 成本 / 性能（确实不属于五维才写“其他”）。按**判据本身**定，可以和鱼骨图上的方面不同：例如“一条反馈四个诉求漏掉后面几个”在鱼骨图上放在性能，判据检查的是输出完整、判对，属于质量；成本 / 性能维只留给耗时、吞吐、费用这类读数 |
+| `dimension` | 认知 / 质量 / 责任 / 成本 / 性能（确实不属于五维才写“其他”）。按**判据本身**定，通常和鱼骨图上的方面一致；鱼骨图放错了方面（例如把“一条反馈四个诉求漏掉后面几个”放进了性能），判据照样按判据本身定（这条是质量），在 `note` 里写明；要改鱼骨图就回 adlc-fishbone 第 3 步，读回并再次确认后重新生成，然后 `skeleton --force`（或把这条的 `obstacle_id` 改成新位置）再 build。成本维只留给费用、人力读数，性能维只留给延迟、吞吐、稳定性、可用性读数 |
 | `tier` / `threshold` | 按上面的档位规则；红线写 `null` |
 | `executor` | 代码断言 / 裁判 / 内置评估器 / 指标读数；成本、性能只能是指标读数 |
 | `checks` | 从 `criteria.py catalog` 里选**确实检查这个谓语**的检查编号；一个都不对就写 `[]`（未覆盖），不要硬凑 |
@@ -108,6 +108,7 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
    ```
 
    新写的条目把 `feedback_id` 换成 `"category": "incident", "new_feedback": {"title": …, "content": …, "customer": "…（示例）", "industry": …, "customer_tier": …, "channel": …, "module": …, "submitted_at": "2026-10-xx", "feedback_type": …, "contract_commitment": "否"}`。
+   黄金样本的 `dimensions` 按 `LABELING_GUIDE.md` 第 7 节打（实验样例标签的口径：“性能”含长输入 / 多诉求），和判据的 `dimension` 是两套口径，不要互相改。
    判“拒绝”的样本必须写 `reject_points` 和 `reply_points`（话术要点至少覆盖：理解诉求、说明立场和原因、给出替代方案）。
    `can_auto_reject` 必须明确写 `true` / `false`（功能缺陷一律 `false`）；列表字段写字符串列表。`matched_capabilities` 不会写进黄金集（填写模板没有这一列），所以补样本补不了“能力目录命中率”。
 4. 再 `build`：它按 `golden_tool.py apply-feedback` 的规则在内存里试运行，通过后写出**预览**（不动 `data/`）：

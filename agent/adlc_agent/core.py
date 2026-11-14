@@ -35,12 +35,12 @@ def build_agent(version: str | None = None, model_id: str | None = None, region:
         region_name=region or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-west-2",
         **kw,
     )
-    attrs = {"s12lab.agent_version": version}
+    attrs = {"adlc.agent_version": version}
     if session_id:
         attrs["session.id"] = session_id
     attrs.update(extra_attrs or {})
     return Agent(
-        name=f"s12lab_triage_{version}",
+        name=f"adlc_triage_{version}",
         model=model,
         system_prompt=system_prompt(version),
         tools=TOOLSETS.get(version, TOOLSETS["v1"]),  # new versions (v2...) reuse the V1 tools
@@ -89,27 +89,27 @@ def parse_output(text: str) -> dict:
 
 def triage(item, version: str | None = None, model_id: str | None = None,
            session_id: str | None = None) -> dict:
-    """Triage one feedback item inside a `s12lab.triage` span.
+    """Triage one feedback item inside a `adlc.triage` span.
 
     The wrapper span carries the span contract from data/HANDOFF.md section 4:
-    s12lab.feedback_id, s12lab.agent_version and s12lab.triage_output (the final JSON),
+    adlc.feedback_id, adlc.agent_version and adlc.triage_output (the final JSON),
     so evaluators never depend on whether message bodies are present on chat spans.
     """
     version = (version or os.environ.get("AGENT_VERSION") or "v0").lower()
-    session_id = session_id or f"s12lab-{uuid.uuid4()}"
+    session_id = session_id or f"adlc-{uuid.uuid4()}"
     fid = (item.get("id") or item.get("feedback_id")) if isinstance(item, dict) else None
-    tracer = trace.get_tracer("s12lab.triage")
-    with tracer.start_as_current_span("s12lab.triage") as span:
+    tracer = trace.get_tracer("adlc.triage")
+    with tracer.start_as_current_span("adlc.triage") as span:
         span.set_attribute("session.id", session_id)
-        span.set_attribute("s12lab.agent_version", version)
+        span.set_attribute("adlc.agent_version", version)
         if fid:
-            span.set_attribute("s12lab.feedback_id", fid)
+            span.set_attribute("adlc.feedback_id", fid)
         agent = build_agent(version, model_id, session_id=session_id,
-                            extra_attrs={"s12lab.feedback_id": fid} if fid else None)
+                            extra_attrs={"adlc.feedback_id": fid} if fid else None)
         result = agent(format_input(item))
         text = str(result).strip()
         out = parse_output(text)
         if fid and not out.get("feedback_id"):
             out["feedback_id"] = fid
-        span.set_attribute("s12lab.triage_output", json.dumps(out, ensure_ascii=False))
+        span.set_attribute("adlc.triage_output", json.dumps(out, ensure_ascii=False))
     return {"session_id": session_id, "result": out, "raw": text}

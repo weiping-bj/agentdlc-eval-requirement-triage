@@ -1,4 +1,4 @@
-"""Scenario 12 business output: static HTML triage report of one batch run over last month's feedback.
+"""AgentDLC lab business output: static HTML triage report of one batch run over last month's feedback.
 
   python -m labkit.report                                    # latest run with source=feedback in .lab-state/runs.json
   python -m labkit.report --run results/run-B-v1-....jsonl   # a run JSONL (or a run_id registered in runs.json)
@@ -326,7 +326,7 @@ def build_report(recs: list, entry: dict, fb: dict, run_file: Path) -> str:
                  '<th>耗时</th></tr></thead><tbody>' + "".join(xrows) + "</tbody></table>"
                  if xrows else '<p class="muted">没有失败的条目。</p>') + "</div>")
 
-    bar = topbar(f"上月需求反馈分诊报告 · {vlabel}", "场景 12 · 需求反馈分诊 Agent · 业务输出（不需要黄金集）",
+    bar = topbar(f"上月需求反馈分诊报告 · {vlabel}", "AgentDLC 动手实验 · 需求反馈分诊 Agent · 业务输出（不需要黄金集）",
                  [("run_id", run_id), ("模型", model), ("路线", f"{letter} 版")])
     body = (head + info + f'<div class="grid2">{matrix}{modules}</div>' + full + rejects + evals + errors)
     return page(f"需求分诊报告 {vlabel} · {run_id}", bar, body, FOOTER, EXTRA_CSS)

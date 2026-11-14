@@ -5,4 +5,4 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 source ./00-config.sh
-exec "${_S12_PY}" -m labkit.check_telemetry "$@"
+exec "${_ADLC_PY}" -m labkit.check_telemetry "$@"

@@ -1,6 +1,6 @@
 # 任务：按讨论结论补充或纠正平台能力目录
 
-你是本仓库（场景 12）的数据助手。平台能力目录 `data/capability_catalog.json` 是 Agent 判断“已有能力 / 明确不做”的依据。讨论中客户补充和纠正了一些能力。
+你是本仓库（AgentDLC 动手实验）的数据助手。平台能力目录 `data/capability_catalog.json` 是 Agent 判断“已有能力 / 明确不做”的依据。讨论中客户补充和纠正了一些能力。
 
 ## 输入
 - `data/templates/discussion-feedback.md` 第 3 节：能力补充表与纠错。

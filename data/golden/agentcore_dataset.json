@@ -1,6 +1,6 @@
 {
-  "name": "s12-golden",
-  "description": "场景 12 需求价值打分黄金集（合成数据）",
+  "name": "adlc-golden",
+  "description": "AgentDLC 动手实验 需求价值打分黄金集（合成数据）",
   "scenarios": [
     {
       "scenario_id": "G01",

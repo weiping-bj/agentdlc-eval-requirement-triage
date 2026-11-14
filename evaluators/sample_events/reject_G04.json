@@ -1,23 +1,23 @@
 {
  "schemaVersion": "1.0",
  "evaluatorId": "sample-0000000000",
- "evaluatorName": "s12lab_sample_reject_quality",
+ "evaluatorName": "adlc_sample_reject_quality",
  "evaluationLevel": "TRACE",
  "evaluationInput": {
   "sessionSpans": [
    {
     "traceId": "44444444444444444444444444444444",
     "spanId": "0000000000000001",
-    "name": "s12lab.triage",
+    "name": "adlc.triage",
     "scope": {
-     "name": "s12lab.triage"
+     "name": "adlc.triage"
     },
     "startTimeUnixNano": 1730000000000000000,
     "attributes": {
-     "session.id": "s12lab-sample",
-     "s12lab.feedback_id": "FB-2610-005",
-     "s12lab.agent_version": "v1",
-     "s12lab.triage_output": "{\"feedback_id\": \"FB-2610-005\", \"important\": \"否\", \"urgent\": \"否\", \"decision\": \"拒绝\", \"level\": null, \"reasoning\": \"（示例）依据能力目录与相似需求统计\", \"reject_reason\": \"（示例）财务总账、凭证、会计核算超出 CRM 平台定位（明确不做）；平台通过集成平台的财务软件连接器对接财务系统\", \"customer_reply\": \"（示例）理解业财一体化的诉求；说明 CRM 与专业财务系统的分工；推荐用财务软件连接器同步回款与开票数据；可提供对接方案或伙伴支持\"}"
+     "session.id": "adlc-sample",
+     "adlc.feedback_id": "FB-2610-005",
+     "adlc.agent_version": "v1",
+     "adlc.triage_output": "{\"feedback_id\": \"FB-2610-005\", \"important\": \"否\", \"urgent\": \"否\", \"decision\": \"拒绝\", \"level\": null, \"reasoning\": \"（示例）依据能力目录与相似需求统计\", \"reject_reason\": \"（示例）财务总账、凭证、会计核算超出 CRM 平台定位（明确不做）；平台通过集成平台的财务软件连接器对接财务系统\", \"customer_reply\": \"（示例）理解业财一体化的诉求；说明 CRM 与专业财务系统的分工；推荐用财务软件连接器同步回款与开票数据；可提供对接方案或伙伴支持\"}"
     }
    },
    {
@@ -29,7 +29,7 @@
     "timeUnixNano": 1730000000500000000,
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-sample"
+     "session.id": "adlc-sample"
     },
     "body": {
      "input": {

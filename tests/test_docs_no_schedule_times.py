@@ -17,7 +17,7 @@ GENERATED = {"docs/mock-data.html": "data/tools/mock_views.py", "docs/catalog.ht
 GLOBS = ("docs/*.html", "docs/assets/*.js", "*.md", "*.sh", "tools/*.sh", "ec2/*.md", "ec2/*.sh", "ec2/*.yaml",
          "evaluators/README.md", "telemetry/*.md", "telemetry/*.sh", "data/*.md", "data/golden/*.md",
          "data/prompts/*.md", "data/templates/*.md", "data/templates/*.yaml", "labkit/*.py", "data/tools/*.py",
-         "agent/s12agent/prompts/*.changes.md")
+         "agent/adlc_agent/prompts/*.changes.md")
 
 
 def _scanned():

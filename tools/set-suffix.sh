@@ -10,4 +10,4 @@ fi
 touch config/local.env
 grep -v '^LAB_SUFFIX=' config/local.env > config/local.env.tmp || true
 echo "LAB_SUFFIX=$S" >> config/local.env.tmp && mv config/local.env.tmp config/local.env
-echo "✅ 个人后缀已设置为: $S   （你的资源名形如 s12lab-$S-...）"
+echo "✅ 个人后缀已设置为: $S   （你的资源名形如 adlc-$S-...）"

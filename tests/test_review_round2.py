@@ -11,10 +11,10 @@ sys.path.insert(0, str(ROOT))
 
 
 def _shell(cmd: str, env_extra: dict) -> str:
-    env = {k: v for k, v in os.environ.items() if not k.startswith("_S12_EXP_") and k not in (
+    env = {k: v for k, v in os.environ.items() if not k.startswith("_ADLC_EXP_") and k not in (
         "AWS_REGION", "LAB_SUFFIX", "AGENT_VERSION", "AGENT_MODEL_ID", "AWS_PROFILE")}
     env.update(env_extra)
-    env["S12_LOCAL_ENV"] = env_extra.get("S12_LOCAL_ENV", "/nonexistent")
+    env["ADLC_LOCAL_ENV"] = env_extra.get("ADLC_LOCAL_ENV", "/nonexistent")
     return subprocess.run(["bash", "-c", cmd], cwd=ROOT, env=env, capture_output=True, text=True).stdout
 
 
@@ -33,15 +33,15 @@ def test_n1_instructor_suffix_survives_99_cleanup_pattern():
 def test_n1_switch_version_after_sourcing_still_works(tmp_path):
     local = tmp_path / "local.env"
     local.write_text("LAB_SUFFIX=zhang3\nAGENT_VERSION=v0\n", encoding="utf-8")
-    cmd = ('source ./00-config.sh && echo "AGENT_VERSION=v1" >> "$S12_LOCAL_ENV" && '
+    cmd = ('source ./00-config.sh && echo "AGENT_VERSION=v1" >> "$ADLC_LOCAL_ENV" && '
            '(source ./00-config.sh && python3 -m labkit.config --show | grep "^AGENT_VERSION")')
-    out = _shell(cmd, {"S12_LOCAL_ENV": str(local)})
+    out = _shell(cmd, {"ADLC_LOCAL_ENV": str(local)})
     assert "v1" in out, out
 
 
 def test_boundary_covers_every_lab_role_action():
     """Static: inline policies of lab-created roles must stay inside LabRoleBoundary (ec2 template)."""
-    tpl = (ROOT / "ec2" / "s12lab-ec2.yaml").read_text(encoding="utf-8")
+    tpl = (ROOT / "ec2" / "adlc-ec2.yaml").read_text(encoding="utf-8")
     block = tpl[tpl.index("  LabRoleBoundary:"):tpl.index("\n  InstanceProfile:")]
     allowed = set(re.findall(r"-\s+([a-z0-9-]+:[A-Za-z*]+)\s*$", block, re.M))
     src = "".join((ROOT / "labkit" / f).read_text(encoding="utf-8") for f in ("runtime.py", "evaluators_reg.py", "online.py"))
@@ -82,7 +82,7 @@ def test_online_config_delete_waits_for_updating_state(monkeypatch, tmp_path):
             self.status = "ACTIVE"; self.deleted = False; self.polls = 0
         def list_online_evaluation_configs(self, **kw):
             return {"onlineEvaluationConfigs": [] if self.deleted else [
-                {"onlineEvaluationConfigName": "s12lab_zhang3_online_b", "onlineEvaluationConfigId": "s12lab_zhang3_online_b-X",
+                {"onlineEvaluationConfigName": "adlc_zhang3_online_b", "onlineEvaluationConfigId": "adlc_zhang3_online_b-X",
                  "executionStatus": "ENABLED", "status": self.status}]}
         def update_online_evaluation_config(self, **kw):
             self.status = "UPDATING"

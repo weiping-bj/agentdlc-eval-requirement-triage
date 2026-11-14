@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LA = ROOT / "evaluators" / "s12_label_accuracy"
+LA = ROOT / "evaluators" / "adlc_label_accuracy"
 
 
 def _label_scoring():

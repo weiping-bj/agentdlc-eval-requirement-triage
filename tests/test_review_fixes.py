@@ -18,7 +18,7 @@ def cfg_env(monkeypatch, tmp_path):
     monkeypatch.setattr(labcfg, "LOCAL_FILE", local)
     for k in labcfg.KEYS:
         monkeypatch.delenv(k, raising=False)
-        monkeypatch.delenv(f"_S12_EXP_{k}", raising=False)
+        monkeypatch.delenv(f"_ADLC_EXP_{k}", raising=False)
     monkeypatch.setenv("LAB_SUFFIX", "zhang3")
     return local
 
@@ -26,14 +26,14 @@ def cfg_env(monkeypatch, tmp_path):
 def test_r2_sourced_config_does_not_freeze_local_env(cfg_env, monkeypatch):
     """Finding 2: after `source ./00-config.sh`, 40-switch-version.sh must still take effect."""
     monkeypatch.setenv("AGENT_VERSION", "v0")          # exported by 00-config.sh
-    monkeypatch.setenv("_S12_EXP_AGENT_VERSION", "v0")  # its snapshot
+    monkeypatch.setenv("_ADLC_EXP_AGENT_VERSION", "v0")  # its snapshot
     cfg_env.write_text("AGENT_VERSION=v1\n", encoding="utf-8")
     assert labcfg.load()["AGENT_VERSION"] == "v1"
 
 
 def test_r2_deliberate_env_override_still_wins(cfg_env, monkeypatch):
     monkeypatch.setenv("AWS_REGION", "us-east-1")
-    monkeypatch.setenv("_S12_EXP_AWS_REGION", "us-west-2")
+    monkeypatch.setenv("_ADLC_EXP_AWS_REGION", "us-west-2")
     assert labcfg.load()["AWS_REGION"] == "us-east-1"
 
 
@@ -48,25 +48,25 @@ def test_r5_role_names_carry_region(cfg_env, monkeypatch):
 def test_r10_runtime_session_id_min_length():
     """Finding 10: Runtime requires runtimeSessionId >= 33 chars, even for short ids."""
     from labkit import batch
-    assert len(batch._session_id("s12lab-ab", "v0", "1")) >= 33
+    assert len(batch._session_id("adlc-ab", "v0", "1")) >= 33
 
 
 def test_r12_imported_session_ids_unique_per_send():
     """Finding 12: re-sending the same log file must not reuse session ids."""
     from labkit import convert_logs
-    a = convert_logs.imported_session_id("s12lab-ab", "20261105T100000Z", "sess-1")
-    b = convert_logs.imported_session_id("s12lab-ab", "20261105T100500Z", "sess-1")
+    a = convert_logs.imported_session_id("adlc-ab", "20261105T100000Z", "sess-1")
+    b = convert_logs.imported_session_id("adlc-ab", "20261105T100500Z", "sess-1")
     long_id = "c" * 40
     assert a != b and len(a) >= 33
-    assert convert_logs.imported_session_id("s12lab-ab", "T1", long_id) != convert_logs.imported_session_id("s12lab-ab", "T2", long_id)
+    assert convert_logs.imported_session_id("adlc-ab", "T1", long_id) != convert_logs.imported_session_id("adlc-ab", "T2", long_id)
 
 
-def test_r6_feedback_pool_honours_s12_data_dir(monkeypatch, tmp_path):
-    """Finding 6: customer data (S12_DATA_DIR) must replace the mock feedback pool."""
+def test_r6_feedback_pool_honours_adlc_data_dir(monkeypatch, tmp_path):
+    """Finding 6: customer data (ADLC_DATA_DIR) must replace the mock feedback pool."""
     from labkit import items
     (tmp_path / "feedback_last_month.jsonl").write_text(json.dumps({"id": "C-1", "title": "t", "content": "c"}) + "\n",
                                                          encoding="utf-8")
-    monkeypatch.setenv("S12_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ADLC_DATA_DIR", str(tmp_path))
     assert items.feedback_path() == tmp_path / "feedback_last_month.jsonl"
     assert items.load("feedback")[0]["id"] == "C-1"
 
@@ -115,8 +115,8 @@ class _Client:
         return _Pager(deny=(self.name == "lambda"))
 
     def list_buckets(self):
-        return {"Buckets": [{"Name": "s12lab-zhang3-000000000000-us-west-2"},
-                            {"Name": "s12lab-zhang3-000000000000-us-east-1"}]}
+        return {"Buckets": [{"Name": "adlc-zhang3-000000000000-us-west-2"},
+                            {"Name": "adlc-zhang3-000000000000-us-east-1"}]}
 
     def __getattr__(self, op):
         return lambda **kw: collections.defaultdict(list)
@@ -139,7 +139,7 @@ def test_r1_cleanup_survives_access_denied_listers(fake_aws):
 
 def test_r5_cleanup_buckets_only_current_region(fake_aws):
     cl = fake_aws.Cleaner(False, True)
-    assert cl.buckets() == ["s12lab-zhang3-000000000000-us-west-2"]
+    assert cl.buckets() == ["adlc-zhang3-000000000000-us-west-2"]
 
 
 def test_r8_account_level_requires_all(fake_aws, monkeypatch):

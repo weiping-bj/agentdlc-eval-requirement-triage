@@ -8,7 +8,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 source ./00-config.sh
 case "${1:-deploy}" in
-  invoke|status) exec "${_S12_PY}" -m labkit.runtime "$@" ;;
-  deploy) shift || true; exec "${_S12_PY}" -m labkit.runtime deploy "$@" ;;
-  *) exec "${_S12_PY}" -m labkit.runtime deploy "$@" ;;
+  invoke|status) exec "${_ADLC_PY}" -m labkit.runtime "$@" ;;
+  deploy) shift || true; exec "${_ADLC_PY}" -m labkit.runtime deploy "$@" ;;
+  *) exec "${_ADLC_PY}" -m labkit.runtime deploy "$@" ;;
 esac

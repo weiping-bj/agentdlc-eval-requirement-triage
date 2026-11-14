@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>遥测检查：能否被 Evaluations 使用 · 场景 12 实验手册</title>
+<title>遥测检查：能否被 Evaluations 使用 · AgentDLC 动手实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="a5-check">
@@ -31,23 +31,23 @@
   ✅ [可选] 有工具调用 span（execute_tool）→ 工具类评估器可用  (5/5)
   ✅ [可选] 记录了 token 用量 → 成本分析可用  (5/5)
   …
-  埋点来源 scope：['opentelemetry.instrumentation.botocore.bedrock-runtime', 's12lab.triage', 'strands.telemetry.tracer']   service.name：['s12lab-zhang3-local-agent']
+  埋点来源 scope：['opentelemetry.instrumentation.botocore.bedrock-runtime', 'adlc.triage', 'strands.telemetry.tracer']   service.name：['adlc-zhang3-local-agent']
   ✅ 试评估（Builtin.Helpfulness）成功：Very Helpful 0.83
 
 🟩 结论：通过 —— 数据满足 AgentCore Evaluations 的要求。继续第 6 章。</pre>
   <p>检查最多取 5 个 session（<code>--sessions</code> 可改）；A3.5 只发了 3 条时显示 <code>(3/3)</code>。最后的“试评估”会真的调用一次 Evaluations，证明服务能读懂这些数据。</p>
   <p>做了 A4 时，对导入的 5 条样例日志运行同一个检查（实测，第一次发送后马上运行）：</p>
-<pre class="out">▶ 检查 run A-imported-20261106T151120Z（imported）的 5 个 session · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-imported-logs
+<pre class="out">▶ 检查 run A-imported-20261106T151120Z（imported）的 5 个 session · 日志组 /aws/bedrock-agentcore/adlc-zhang3-imported-logs
   ⏳ 等待数据在 CloudWatch 中可查询…（15s）      ← 数据刚发出时会自动等待，最多 3 分钟
   ⏳ 等待数据在 CloudWatch 中可查询…（30s）
   ⏳ 等待数据在 CloudWatch 中可查询…（45s）
   ⏳ 等待数据在 CloudWatch 中可查询…（60s）
   ⏳ 等待数据在 CloudWatch 中可查询…（75s）
-  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0001  span=3 文档=6
-  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0002  span=2 文档=4
-  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0003  span=4 文档=8
-  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0004  span=2 文档=4
-  · s12lab-zhang3-imp-20261106T151120Z-cust-sess-0005  span=2 文档=4
+  · adlc-zhang3-imp-20261106T151120Z-cust-sess-0001  span=3 文档=6
+  · adlc-zhang3-imp-20261106T151120Z-cust-sess-0002  span=2 文档=4
+  · adlc-zhang3-imp-20261106T151120Z-cust-sess-0003  span=4 文档=8
+  · adlc-zhang3-imp-20261106T151120Z-cust-sess-0004  span=2 文档=4
+  · adlc-zhang3-imp-20261106T151120Z-cust-sess-0005  span=2 文档=4
 
 检查项（✅ 全部 session 满足 · ⚠️ 部分满足 · ❌ 都不满足）
   ✅ [必需] 能在 CloudWatch（aws/spans）按 session.id 找到 span  (5/5)
@@ -61,7 +61,7 @@
   ❌ [可选] 记录了 token 用量 → 成本分析可用  (0/5)
   ✅ [可选] 带需求编号 / 判断结果属性 → 标签准确率评估器最稳  (5/5)
   ✅ [可选] 带 service.name → 在线评估 / 控制台按 Agent 聚合  (5/5)
-  埋点来源 scope：['strands.telemetry.tracer']   service.name：['s12lab-zhang3-imported-logs']
+  埋点来源 scope：['strands.telemetry.tracer']   service.name：['adlc-zhang3-imported-logs']
   ✅ 试评估（Builtin.Helpfulness）成功：Very Helpful 0.83
 
 🟨 结论：可以评估（必需项都满足），部分可选项缺失会限制个别评估器。继续第 6 章。</pre>
@@ -92,7 +92,7 @@
 </section>
 </main>
 </div>
-<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

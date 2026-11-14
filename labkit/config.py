@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE_FILE = ROOT / "config" / "lab.env"
-LOCAL_FILE = ROOT / "config" / "local.env"  # S12_LOCAL_ENV overrides (tests / alternate profiles)
+LOCAL_FILE = ROOT / "config" / "local.env"  # ADLC_LOCAL_ENV overrides (tests / alternate profiles)
 SUFFIX_RE = re.compile(r"^[a-z][a-z0-9]{1,11}$")
 KEYS = [
     "AWS_REGION", "LAB_PREFIX", "LAB_SUFFIX", "AGENT_MODEL_ID", "JUDGE_MODEL_ID",
@@ -53,17 +53,17 @@ def parse_env_file(path: Path) -> dict:
 def load(require_suffix: bool = True) -> dict:
     cfg: dict = {}
     cfg.update(parse_env_file(BASE_FILE))
-    local = Path(os.environ["S12_LOCAL_ENV"]) if os.environ.get("S12_LOCAL_ENV") else LOCAL_FILE
+    local = Path(os.environ["ADLC_LOCAL_ENV"]) if os.environ.get("ADLC_LOCAL_ENV") else LOCAL_FILE
     cfg.update(parse_env_file(local))
     origin = {k: "file" for k in cfg}
     for k in KEYS:
         v = os.environ.get(k)
-        # `source ./00-config.sh` exports every FILE-derived key together with a _S12_EXP_<key>
+        # `source ./00-config.sh` exports every FILE-derived key together with a _ADLC_EXP_<key>
         # snapshot. An env value equal to its snapshot is only our own earlier export, so the files
         # (e.g. 40-switch-version.sh / use-model.sh writing config/local.env) still win. Values that
         # really come from the environment (EC2 ~/.bashrc region, one-off `K=v ./script`) have no
         # snapshot, so they override the files and keep doing so in child processes.
-        if v and v != os.environ.get(f"_S12_EXP_{k}"):
+        if v and v != os.environ.get(f"_ADLC_EXP_{k}"):
             cfg[k] = v
             origin[k] = "env"
     cfg["_ORIGIN"] = origin
@@ -82,7 +82,7 @@ def origin_of(cfg: dict, key: str) -> str:
 
 
 def derive(cfg: dict) -> dict:
-    p = cfg.get("LAB_PREFIX", "s12lab")
+    p = cfg.get("LAB_PREFIX", "adlc")
     s = cfg.get("LAB_SUFFIX", "") or "unset"
     r = cfg.get("AWS_REGION", "us-west-2")
     dash, us = f"{p}-{s}", f"{p}_{s}"
@@ -130,9 +130,9 @@ def main(argv: list) -> int:
             print(f"export {k}={shlex.quote(str(cfg[k]))}")
             if k in KEYS:
                 if origin_of(cfg, k) == "file":
-                    print(f"export _S12_EXP_{k}={shlex.quote(str(cfg[k]))}")
+                    print(f"export _ADLC_EXP_{k}={shlex.quote(str(cfg[k]))}")
                 else:
-                    print(f"unset _S12_EXP_{k}")
+                    print(f"unset _ADLC_EXP_{k}")
         print("export AWS_DEFAULT_REGION=\"$AWS_REGION\"")
     else:
         w = max(len(k) for k in cfg)

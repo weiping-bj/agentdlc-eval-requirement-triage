@@ -209,7 +209,7 @@ def to_feedback_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def render_user_message(inp: Dict[str, Any]) -> str:
-    """Same rendering as agent/s12agent/core.py format_input (line 1 = 需求编号)."""
+    """Same rendering as agent/adlc_agent/core.py format_input (line 1 = 需求编号)."""
     labels = [("title", "标题"), ("content", "需求描述"), ("customer", "客户"), ("industry", "行业"),
               ("customer_tier", "客户等级"), ("channel", "来源渠道"), ("module", "相关模块"), ("feedback_type", "反馈类型"),
               ("submitted_at", "提交时间"), ("contract_commitment", "合同承诺")]
@@ -222,7 +222,7 @@ def render_user_message(inp: Dict[str, Any]) -> str:
 
 def to_agentcore_dataset(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Projection to the AgentCore dataset shape. expected_response = JSON of expected labels
-    (the s12_label_accuracy evaluator parses it when passed as evaluationReferenceInputs)."""
+    (the adlc_label_accuracy evaluator parses it when passed as evaluationReferenceInputs)."""
     scen = []
     for r in rows:
         e = r.get("expected") or {}
@@ -244,7 +244,7 @@ def to_agentcore_dataset(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             "assertions": assertions,
             "metadata": {"feedback_id": r["feedback_id"], "case_type": r.get("case_type"),
                          "dimensions": r.get("dimensions") or [], "version": r.get("version"), "source": "synthetic"}})
-    return {"name": "s12-golden", "description": "场景 12 需求价值打分黄金集（合成数据）", "scenarios": scen}
+    return {"name": "adlc-golden", "description": "AgentDLC 动手实验 需求价值打分黄金集（合成数据）", "scenarios": scen}
 
 
 # ---------------------------------------------------------------- apply feedback CSV

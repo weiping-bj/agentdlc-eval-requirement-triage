@@ -1,6 +1,6 @@
 [
  {
-  "session_id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2",
+  "session_id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2",
   "feedback_id": "FB-2610-001",
   "docs": [
    {
@@ -11,7 +11,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -65,7 +65,7 @@
      "retry_attempts": 0,
      "PlatformType": "Generic",
      "aws.auth.account.access_key": "ASIAXXXXXXXXXXXXXXXX",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "UNSET"
@@ -79,7 +79,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -123,7 +123,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -138,7 +138,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -166,11 +166,11 @@
      "gen_ai.usage.completion_tokens": 177,
      "aws.genai.span_kind": "LLM",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.261022+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.server.time_to_first_token": 3487,
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "chat",
      "gen_ai.event.end_time": "2026-11-05T13:56:58.590930+00:00",
      "gen_ai.usage.input_tokens": 865,
@@ -178,7 +178,7 @@
      "gen_ai.request.model": "us.anthropic.claude-sonnet-5-5",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "OK"
@@ -192,7 +192,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -219,16 +219,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:56:58.592350+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:56:58.598762+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "OK"
@@ -242,7 +242,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -282,7 +282,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -297,7 +297,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -337,7 +337,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -352,7 +352,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -379,16 +379,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:56:58.593116+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:56:58.599214+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "OK"
@@ -402,7 +402,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -442,7 +442,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -457,7 +457,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -484,16 +484,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:56:58.597019+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:56:58.599529+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "OK"
@@ -507,7 +507,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -528,15 +528,15 @@
     "durationNano": 4339724000,
     "attributes": {
      "aws.local.service": "3",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "execute_event_loop_cycle",
      "gen_ai.event.end_time": "2026-11-05T13:56:58.600635+00:00",
      "event_loop.cycle_id": "7ee83c97-cda9-412b-99c1-aca8c7092985",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.260935+00:00",
      "PlatformType": "Generic",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2",
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents"
     },
@@ -552,7 +552,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -594,7 +594,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -609,7 +609,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -665,7 +665,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -680,7 +680,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -723,7 +723,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -738,7 +738,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -782,7 +782,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "flags": 1,
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
@@ -797,7 +797,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -811,7 +811,7 @@
     "spanId": "95a054c6707ad28f",
     "parentSpanId": "4543d3451233d495",
     "flags": 256,
-    "name": "invoke_agent s12lab_triage_v0",
+    "name": "invoke_agent adlc_triage_v0",
     "kind": "INTERNAL",
     "startTimeUnixNano": 1793887014260805000,
     "endTimeUnixNano": 1793887031199903000,
@@ -819,7 +819,7 @@
     "attributes": {
      "aws.local.service": "3",
      "gen_ai.usage.cache_write_input_tokens": 0,
-     "gen_ai.agent.name": "s12lab_triage_v0",
+     "gen_ai.agent.name": "adlc_triage_v0",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.260810+00:00",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
@@ -833,14 +833,14 @@
      "gen_ai.usage.total_tokens": 3077,
      "gen_ai.usage.completion_tokens": 989,
      "aws.genai.span_kind": "AGENT",
-     "s12lab.agent_version": "v0",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.agent_version": "v0",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "invoke_agent",
      "gen_ai.usage.input_tokens": 2088,
      "aws.genai.token_count_total": 3077,
      "gen_ai.usage.cache_read_input_tokens": 0,
      "PlatformType": "Generic",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2",
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2",
      "gen_ai.usage.cache_read.input_tokens": 0
     },
     "status": {
@@ -855,7 +855,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -909,7 +909,7 @@
      "retry_attempts": 0,
      "PlatformType": "Generic",
      "aws.auth.account.access_key": "ASIAXXXXXXXXXXXXXXXX",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "UNSET"
@@ -923,7 +923,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -946,16 +946,16 @@
      "aws.local.service": "3",
      "event_loop.cycle_id": "1f772c49-f6a2-4214-a8fe-ecd090def848",
      "gen_ai.event.start_time": "2026-11-05T13:56:58.600908+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "execute_event_loop_cycle",
      "gen_ai.event.end_time": "2026-11-05T13:57:11.199691+00:00",
      "event_loop.parent_cycle_id": "7ee83c97-cda9-412b-99c1-aca8c7092985",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "OK"
@@ -969,7 +969,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -997,11 +997,11 @@
      "gen_ai.usage.completion_tokens": 812,
      "aws.genai.span_kind": "LLM",
      "gen_ai.event.start_time": "2026-11-05T13:56:58.601332+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.server.time_to_first_token": 10238,
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "gen_ai.operation.name": "chat",
      "gen_ai.event.end_time": "2026-11-05T13:57:11.199435+00:00",
      "gen_ai.usage.input_tokens": 1223,
@@ -1009,7 +1009,7 @@
      "gen_ai.request.model": "us.anthropic.claude-sonnet-5-5",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2"
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2"
     },
     "status": {
      "code": "OK"
@@ -1023,34 +1023,34 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
      }
     },
     "scope": {
-     "name": "s12lab.triage",
+     "name": "adlc.triage",
      "version": ""
     },
     "traceId": "6aec8b2615b4c7338051aa66137850e8",
     "spanId": "4543d3451233d495",
     "flags": 256,
-    "name": "s12lab.triage",
+    "name": "adlc.triage",
     "kind": "INTERNAL",
     "startTimeUnixNano": 1793887014044585000,
     "endTimeUnixNano": 1793887031200489000,
     "durationNano": 17155904000,
     "attributes": {
      "aws.local.service": "3",
-     "aws.local.operation": "s12lab.triage",
+     "aws.local.operation": "adlc.triage",
      "aws.span.kind": "LOCAL_ROOT",
-     "s12lab.feedback_id": "FB-2610-001",
+     "adlc.feedback_id": "FB-2610-001",
      "telemetry.extended": "true",
-     "s12lab.triage_output": "{\"feedback_id\": \"FB-2610-001\", \"important\": \"是\", \"urgent\": \"否\", \"decision\": \"迭代\", \"level\": null, \"reasoning\": \"平台已有「列表页批量编辑」和「自定义对象与字段」两项能力。目前批量编辑只覆盖负责人等标准字段，没有覆盖自定义字段，所以这是对现有能力的合理扩展，不是新增一类功能。客户是战略级，销售运营每周要改几百条，使用频率高、效率损失明显，因此判定为重要。没有合同承诺，也没有明确的截止时间或业务阻断，现在可以用逐条修改或数据导入导出（是否支持按记录更新需再确认）作为替代，因此不紧急。建议排入迭代，设计时需注意几点。一是按字段类型（单选、多选、日期、关联等）分别支持，必填和校验规则要沿用单条编辑的逻辑。二是遵循字段级权限，批量修改要留下审计记录，不能绕过权限与审计。三是设置单次批量的数量上限，并给出失败项的反馈。\", \"reject_reason\": \"\", \"customer_reply\": \"您好，感谢您反馈这个需求。您提到销售运营每周要逐条修改几百条客户的自定义字段（如「客户分级」「所属大区」），确实很耗时。我们已经评估，认为让列表页批量编辑支持自定义字段是合理的，会把它纳入产品迭代规划。设计时会兼顾字段类型、字段权限和操作审计。排期确定后，客户成功经理会第一时间同步给您。在此之前，如果您想先缓解压力，我们的客户成功经理可以和您一起看看，能否借助数据导入导出提高处理效率。\"}",
+     "adlc.triage_output": "{\"feedback_id\": \"FB-2610-001\", \"important\": \"是\", \"urgent\": \"否\", \"decision\": \"迭代\", \"level\": null, \"reasoning\": \"平台已有「列表页批量编辑」和「自定义对象与字段」两项能力。目前批量编辑只覆盖负责人等标准字段，没有覆盖自定义字段，所以这是对现有能力的合理扩展，不是新增一类功能。客户是战略级，销售运营每周要改几百条，使用频率高、效率损失明显，因此判定为重要。没有合同承诺，也没有明确的截止时间或业务阻断，现在可以用逐条修改或数据导入导出（是否支持按记录更新需再确认）作为替代，因此不紧急。建议排入迭代，设计时需注意几点。一是按字段类型（单选、多选、日期、关联等）分别支持，必填和校验规则要沿用单条编辑的逻辑。二是遵循字段级权限，批量修改要留下审计记录，不能绕过权限与审计。三是设置单次批量的数量上限，并给出失败项的反馈。\", \"reject_reason\": \"\", \"customer_reply\": \"您好，感谢您反馈这个需求。您提到销售运营每周要逐条修改几百条客户的自定义字段（如「客户分级」「所属大区」），确实很耗时。我们已经评估，认为让列表页批量编辑支持自定义字段是合理的，会把它纳入产品迭代规划。设计时会兼顾字段类型、字段权限和操作审计。排期确定后，客户成功经理会第一时间同步给您。在此之前，如果您想先缓解压力，我们的客户成功经理可以和您一起看看，能否借助数据导入导出提高处理效率。\"}",
      "PlatformType": "Generic",
-     "s12lab.agent_version": "v0",
-     "session.id": "s12lab-lead-v0-FB-2610-001-5c9d35805ec2",
+     "adlc.agent_version": "v0",
+     "session.id": "adlc-lead-v0-FB-2610-001-5c9d35805ec2",
      "aws.local.environment": "generic:default"
     },
     "status": {
@@ -1060,7 +1060,7 @@
   ]
  },
  {
-  "session_id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16",
+  "session_id": "adlc-lead-v0-FB-2610-002-781dd17d5f16",
   "feedback_id": "FB-2610-002",
   "docs": [
    {
@@ -1071,7 +1071,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1125,7 +1125,7 @@
      "retry_attempts": 0,
      "PlatformType": "Generic",
      "aws.auth.account.access_key": "ASIAXXXXXXXXXXXXXXXX",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "UNSET"
@@ -1139,7 +1139,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -1183,7 +1183,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -1198,7 +1198,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1226,11 +1226,11 @@
      "gen_ai.usage.completion_tokens": 277,
      "aws.genai.span_kind": "LLM",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.260095+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.server.time_to_first_token": 4149,
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "chat",
      "gen_ai.event.end_time": "2026-11-05T13:57:02.262030+00:00",
      "gen_ai.usage.input_tokens": 854,
@@ -1238,7 +1238,7 @@
      "gen_ai.request.model": "us.anthropic.claude-sonnet-5-5",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -1252,7 +1252,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -1292,7 +1292,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -1307,7 +1307,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -1347,7 +1347,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -1362,7 +1362,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1389,16 +1389,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:57:02.263577+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:57:02.270577+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -1412,7 +1412,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1439,16 +1439,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:57:02.263202+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:57:02.270027+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -1462,7 +1462,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1489,16 +1489,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:57:02.266782+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:57:02.271011+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -1512,7 +1512,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1539,16 +1539,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:57:02.267297+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:57:02.271341+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -1562,7 +1562,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -1602,7 +1602,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -1617,7 +1617,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -1657,7 +1657,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -1672,7 +1672,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1693,15 +1693,15 @@
     "durationNano": 8012253000,
     "attributes": {
      "aws.local.service": "3",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_event_loop_cycle",
      "gen_ai.event.end_time": "2026-11-05T13:57:02.272188+00:00",
      "event_loop.cycle_id": "bcb2ea76-3ae4-41b4-81e8-60ac80c99408",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.259956+00:00",
      "PlatformType": "Generic",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16",
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents"
     },
@@ -1717,7 +1717,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -1759,7 +1759,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -1774,7 +1774,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1828,7 +1828,7 @@
      "retry_attempts": 0,
      "PlatformType": "Generic",
      "aws.auth.account.access_key": "ASIAXXXXXXXXXXXXXXXX",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "UNSET"
@@ -1842,7 +1842,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -1870,11 +1870,11 @@
      "gen_ai.usage.completion_tokens": 265,
      "aws.genai.span_kind": "LLM",
      "gen_ai.event.start_time": "2026-11-05T13:57:02.272897+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.server.time_to_first_token": 2063,
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "chat",
      "gen_ai.event.end_time": "2026-11-05T13:57:05.632279+00:00",
      "gen_ai.usage.input_tokens": 1325,
@@ -1882,7 +1882,7 @@
      "gen_ai.request.model": "us.anthropic.claude-sonnet-5-5",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -1896,7 +1896,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -1952,7 +1952,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -1967,7 +1967,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2007,7 +2007,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -2022,7 +2022,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2062,7 +2062,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -2077,7 +2077,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2104,16 +2104,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:57:05.632920+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:57:05.637291+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -2127,7 +2127,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2167,7 +2167,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -2182,7 +2182,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2209,16 +2209,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:57:05.633189+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:57:05.637654+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -2232,7 +2232,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2259,16 +2259,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:57:05.633408+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:57:05.637917+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -2282,7 +2282,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2305,16 +2305,16 @@
      "aws.local.service": "3",
      "event_loop.cycle_id": "22b7ffd4-49e4-4cc2-b662-f028d035c363",
      "gen_ai.event.start_time": "2026-11-05T13:57:02.272423+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_event_loop_cycle",
      "gen_ai.event.end_time": "2026-11-05T13:57:05.638507+00:00",
      "event_loop.parent_cycle_id": "bcb2ea76-3ae4-41b4-81e8-60ac80c99408",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -2328,7 +2328,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2382,7 +2382,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -2397,7 +2397,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2451,7 +2451,7 @@
      "retry_attempts": 0,
      "PlatformType": "Generic",
      "aws.auth.account.access_key": "ASIAXXXXXXXXXXXXXXXX",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "UNSET"
@@ -2465,7 +2465,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2521,7 +2521,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -2536,7 +2536,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2564,11 +2564,11 @@
      "gen_ai.usage.completion_tokens": 1040,
      "aws.genai.span_kind": "LLM",
      "gen_ai.event.start_time": "2026-11-05T13:57:05.639134+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.server.time_to_first_token": 9780,
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "chat",
      "gen_ai.event.end_time": "2026-11-05T13:57:18.104894+00:00",
      "gen_ai.usage.input_tokens": 1767,
@@ -2576,7 +2576,7 @@
      "gen_ai.request.model": "us.anthropic.claude-sonnet-5-5",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -2590,7 +2590,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2633,7 +2633,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -2648,7 +2648,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2671,16 +2671,16 @@
      "aws.local.service": "3",
      "event_loop.cycle_id": "e4db48e6-84f6-4b44-91f8-4252476548a2",
      "gen_ai.event.start_time": "2026-11-05T13:57:05.638695+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "execute_event_loop_cycle",
      "gen_ai.event.end_time": "2026-11-05T13:57:18.105764+00:00",
      "event_loop.parent_cycle_id": "22b7ffd4-49e4-4cc2-b662-f028d035c363",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "status": {
      "code": "OK"
@@ -2694,7 +2694,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2738,7 +2738,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16"
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16"
     },
     "flags": 1,
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
@@ -2753,7 +2753,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2767,7 +2767,7 @@
     "spanId": "54730b4235fba857",
     "parentSpanId": "de6adad67e0fb9fb",
     "flags": 256,
-    "name": "invoke_agent s12lab_triage_v0",
+    "name": "invoke_agent adlc_triage_v0",
     "kind": "INTERNAL",
     "startTimeUnixNano": 1793887014259145000,
     "endTimeUnixNano": 1793887038106608000,
@@ -2775,7 +2775,7 @@
     "attributes": {
      "aws.local.service": "3",
      "gen_ai.usage.cache_write_input_tokens": 0,
-     "gen_ai.agent.name": "s12lab_triage_v0",
+     "gen_ai.agent.name": "adlc_triage_v0",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.259165+00:00",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
@@ -2789,14 +2789,14 @@
      "gen_ai.usage.total_tokens": 5528,
      "gen_ai.usage.completion_tokens": 1582,
      "aws.genai.span_kind": "AGENT",
-     "s12lab.agent_version": "v0",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.agent_version": "v0",
+     "adlc.feedback_id": "FB-2610-002",
      "gen_ai.operation.name": "invoke_agent",
      "gen_ai.usage.input_tokens": 3946,
      "aws.genai.token_count_total": 5528,
      "gen_ai.usage.cache_read_input_tokens": 0,
      "PlatformType": "Generic",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16",
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16",
      "gen_ai.usage.cache_read.input_tokens": 0
     },
     "status": {
@@ -2811,34 +2811,34 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
      }
     },
     "scope": {
-     "name": "s12lab.triage",
+     "name": "adlc.triage",
      "version": ""
     },
     "traceId": "6aec8b268edea6dbd40e30ba11aeb231",
     "spanId": "de6adad67e0fb9fb",
     "flags": 256,
-    "name": "s12lab.triage",
+    "name": "adlc.triage",
     "kind": "INTERNAL",
     "startTimeUnixNano": 1793887014044696000,
     "endTimeUnixNano": 1793887038108735000,
     "durationNano": 24064039000,
     "attributes": {
      "aws.local.service": "3",
-     "aws.local.operation": "s12lab.triage",
+     "aws.local.operation": "adlc.triage",
      "aws.span.kind": "LOCAL_ROOT",
-     "s12lab.feedback_id": "FB-2610-002",
+     "adlc.feedback_id": "FB-2610-002",
      "telemetry.extended": "true",
-     "s12lab.triage_output": "{\"feedback_id\": \"FB-2610-002\", \"important\": \"是\", \"urgent\": \"否\", \"decision\": \"待评估\", \"level\": null, \"reasoning\": \"需求有两部分，现有能力对它们的覆盖程度不同。1) 在首页嵌入 ERP 订单页：平台有「页面布局与首页自定义组件」和「集成平台与连接器」。但查询结果只给出功能名称，没有说明自定义组件是否支持原样嵌入外部页面（如 iframe），也没有说明 ERP 登录态、单点登录和跨域怎么处理。这些要产品和研发确认。2) 按审批节点顺序重排首页，并让不同节点的人看到不同结构：平台有「权限体系」和首页自定义组件，可以按角色配置不同首页。这能覆盖大部分诉求。但「随审批节点动态变化的首页结构」平台目前没有，也不应该为单个客户做专属逻辑。客户是战略级，需求涉及首页使用体验，所以重要。没有合同承诺，也没有明确的上线时间节点，所以不紧急。建议先和客户确认真实场景：是想少切换系统，还是想让待办一眼可见。再评估能否用「角色首页 + 嵌入组件 + 审批待办组件」的通用方案满足，而不是做专属定制。\", \"reject_reason\": \"\", \"customer_reply\": \"感谢您的反馈。我们已经记录了您希望在 CRM 首页集中查看 ERP 订单信息，并让不同审批角色看到更贴合自己工作的首页。目前平台支持首页自定义组件，也支持按角色配置不同的首页。我们正在评估能否在首页嵌入外部系统页面，以及如何更好地展示审批待办。为了把方案设计得更准确，想请您补充几点：1) ERP 订单页需要展示哪些关键信息，以及是否必须完整嵌入；2) 不同审批节点的人最需要在首页看到什么；3) ERP 的登录和鉴权方式。我们的产品同事会尽快与您联系，一起确认可行方案。\"}",
+     "adlc.triage_output": "{\"feedback_id\": \"FB-2610-002\", \"important\": \"是\", \"urgent\": \"否\", \"decision\": \"待评估\", \"level\": null, \"reasoning\": \"需求有两部分，现有能力对它们的覆盖程度不同。1) 在首页嵌入 ERP 订单页：平台有「页面布局与首页自定义组件」和「集成平台与连接器」。但查询结果只给出功能名称，没有说明自定义组件是否支持原样嵌入外部页面（如 iframe），也没有说明 ERP 登录态、单点登录和跨域怎么处理。这些要产品和研发确认。2) 按审批节点顺序重排首页，并让不同节点的人看到不同结构：平台有「权限体系」和首页自定义组件，可以按角色配置不同首页。这能覆盖大部分诉求。但「随审批节点动态变化的首页结构」平台目前没有，也不应该为单个客户做专属逻辑。客户是战略级，需求涉及首页使用体验，所以重要。没有合同承诺，也没有明确的上线时间节点，所以不紧急。建议先和客户确认真实场景：是想少切换系统，还是想让待办一眼可见。再评估能否用「角色首页 + 嵌入组件 + 审批待办组件」的通用方案满足，而不是做专属定制。\", \"reject_reason\": \"\", \"customer_reply\": \"感谢您的反馈。我们已经记录了您希望在 CRM 首页集中查看 ERP 订单信息，并让不同审批角色看到更贴合自己工作的首页。目前平台支持首页自定义组件，也支持按角色配置不同的首页。我们正在评估能否在首页嵌入外部系统页面，以及如何更好地展示审批待办。为了把方案设计得更准确，想请您补充几点：1) ERP 订单页需要展示哪些关键信息，以及是否必须完整嵌入；2) 不同审批节点的人最需要在首页看到什么；3) ERP 的登录和鉴权方式。我们的产品同事会尽快与您联系，一起确认可行方案。\"}",
      "PlatformType": "Generic",
-     "s12lab.agent_version": "v0",
-     "session.id": "s12lab-lead-v0-FB-2610-002-781dd17d5f16",
+     "adlc.agent_version": "v0",
+     "session.id": "adlc-lead-v0-FB-2610-002-781dd17d5f16",
      "aws.local.environment": "generic:default"
     },
     "status": {
@@ -2848,7 +2848,7 @@
   ]
  },
  {
-  "session_id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598",
+  "session_id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598",
   "feedback_id": "FB-2610-003",
   "docs": [
    {
@@ -2859,7 +2859,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -2913,7 +2913,7 @@
      "retry_attempts": 0,
      "PlatformType": "Generic",
      "aws.auth.account.access_key": "ASIAXXXXXXXXXXXXXXXX",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "status": {
      "code": "UNSET"
@@ -2927,7 +2927,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -2971,7 +2971,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "flags": 1,
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",
@@ -2986,7 +2986,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3014,11 +3014,11 @@
      "gen_ai.usage.completion_tokens": 172,
      "aws.genai.span_kind": "LLM",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.260591+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.server.time_to_first_token": 2658,
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.feedback_id": "FB-2610-003",
      "gen_ai.operation.name": "chat",
      "gen_ai.event.end_time": "2026-11-05T13:56:57.356532+00:00",
      "gen_ai.usage.input_tokens": 842,
@@ -3026,7 +3026,7 @@
      "gen_ai.request.model": "us.anthropic.claude-sonnet-5-5",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "status": {
      "code": "OK"
@@ -3040,7 +3040,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3067,16 +3067,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:56:57.359866+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.feedback_id": "FB-2610-003",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:56:57.366445+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "status": {
      "code": "OK"
@@ -3090,7 +3090,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -3130,7 +3130,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "flags": 1,
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",
@@ -3145,7 +3145,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3172,16 +3172,16 @@
      "gen_ai.tool.json_schema": "{\"properties\": {\"keyword\": {\"description\": \"关键词\", \"type\": \"string\"}}, \"required\": [\"keyword\"], \"type\": \"object\"}",
      "aws.genai.span_kind": "TOOL",
      "gen_ai.event.start_time": "2026-11-05T13:56:57.358435+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.feedback_id": "FB-2610-003",
      "gen_ai.operation.name": "execute_tool",
      "gen_ai.event.end_time": "2026-11-05T13:56:57.367415+00:00",
      "gen_ai.tool.name": "lookup_capability",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "status": {
      "code": "OK"
@@ -3195,7 +3195,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -3235,7 +3235,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "flags": 1,
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",
@@ -3250,7 +3250,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3271,15 +3271,15 @@
     "durationNano": 3107777000,
     "attributes": {
      "aws.local.service": "3",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.feedback_id": "FB-2610-003",
      "gen_ai.operation.name": "execute_event_loop_cycle",
      "gen_ai.event.end_time": "2026-11-05T13:56:57.368250+00:00",
      "event_loop.cycle_id": "3fb33566-6e90-4daf-954a-ad74ac384a72",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.260493+00:00",
      "PlatformType": "Generic",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598",
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents"
     },
@@ -3295,7 +3295,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -3337,7 +3337,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "flags": 1,
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",
@@ -3352,7 +3352,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3406,7 +3406,7 @@
      "retry_attempts": 0,
      "PlatformType": "Generic",
      "aws.auth.account.access_key": "ASIAXXXXXXXXXXXXXXXX",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "status": {
      "code": "UNSET"
@@ -3420,7 +3420,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3443,16 +3443,16 @@
      "aws.local.service": "3",
      "event_loop.cycle_id": "749c7748-a83c-4712-b52f-ca8af4113779",
      "gen_ai.event.start_time": "2026-11-05T13:56:57.368529+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.feedback_id": "FB-2610-003",
      "gen_ai.operation.name": "execute_event_loop_cycle",
      "gen_ai.event.end_time": "2026-11-05T13:57:04.938661+00:00",
      "event_loop.parent_cycle_id": "3fb33566-6e90-4daf-954a-ad74ac384a72",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "status": {
      "code": "OK"
@@ -3466,7 +3466,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -3522,7 +3522,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "flags": 1,
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",
@@ -3537,7 +3537,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -3580,7 +3580,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "flags": 1,
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",
@@ -3595,7 +3595,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3623,11 +3623,11 @@
      "gen_ai.usage.completion_tokens": 575,
      "aws.genai.span_kind": "LLM",
      "gen_ai.event.start_time": "2026-11-05T13:56:57.368925+00:00",
-     "s12lab.agent_version": "v0",
+     "adlc.agent_version": "v0",
      "gen_ai.server.time_to_first_token": 6541,
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.feedback_id": "FB-2610-003",
      "gen_ai.operation.name": "chat",
      "gen_ai.event.end_time": "2026-11-05T13:57:04.938225+00:00",
      "gen_ai.usage.input_tokens": 1113,
@@ -3635,7 +3635,7 @@
      "gen_ai.request.model": "us.anthropic.claude-sonnet-5-5",
      "PlatformType": "Generic",
      "gen_ai.system": "strands-agents",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "status": {
      "code": "OK"
@@ -3649,34 +3649,34 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
      }
     },
     "scope": {
-     "name": "s12lab.triage",
+     "name": "adlc.triage",
      "version": ""
     },
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",
     "spanId": "e81bde57f0e02b5a",
     "flags": 256,
-    "name": "s12lab.triage",
+    "name": "adlc.triage",
     "kind": "INTERNAL",
     "startTimeUnixNano": 1793887014050215000,
     "endTimeUnixNano": 1793887024939860000,
     "durationNano": 10889645000,
     "attributes": {
      "aws.local.service": "3",
-     "aws.local.operation": "s12lab.triage",
+     "aws.local.operation": "adlc.triage",
      "aws.span.kind": "LOCAL_ROOT",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.feedback_id": "FB-2610-003",
      "telemetry.extended": "true",
-     "s12lab.triage_output": "{\"feedback_id\": \"FB-2610-003\", \"important\": \"是\", \"urgent\": \"是\", \"decision\": \"迭代\", \"level\": null, \"reasoning\": \"这是功能缺陷,不是新需求。平台有「移动端 App」和「审批流」两项能力,问题出在这两项的交互上:App 提交审批后,明细行从 12 行变成 8 行。数据丢失会直接影响报价和对账的准确性。近两周已发生 6 次,说明不是个例。客户是战略级,月底结账对账会受影响,时间上很紧。PC 端未复现,所以问题大概率在移动端的提交或同步环节。建议立即排查,不要排入普通迭代。排查方向:提交时的明细行序列化或分页,弱网下的重试或超时,以及 App 版本和机型的分布。同时建议先给客户一个临时办法:提交后在 PC 端核对行数,月底对账前重点检查已提交的单据。\", \"reject_reason\": \"\", \"customer_reply\": \"您好,感谢反馈。报价单在 App 提交审批后出现明细行丢失,我们非常重视,已按高优先级缺陷转研发排查。为尽快定位问题,请您补充几项信息:1)出问题的 App 版本号、手机机型和系统版本;2)6 次中任意 2-3 张单据的编号和提交时间;3)提交时的网络情况,比如是否是弱网或切换过网络。在修复上线前,建议销售在 App 提交后,到 PC 端或审批详情里核对一下行数。月底对账前,我们也会协助您排查近两周已提交的单据,找出受影响的数据。有进展我们会第一时间同步给您。\"}",
+     "adlc.triage_output": "{\"feedback_id\": \"FB-2610-003\", \"important\": \"是\", \"urgent\": \"是\", \"decision\": \"迭代\", \"level\": null, \"reasoning\": \"这是功能缺陷,不是新需求。平台有「移动端 App」和「审批流」两项能力,问题出在这两项的交互上:App 提交审批后,明细行从 12 行变成 8 行。数据丢失会直接影响报价和对账的准确性。近两周已发生 6 次,说明不是个例。客户是战略级,月底结账对账会受影响,时间上很紧。PC 端未复现,所以问题大概率在移动端的提交或同步环节。建议立即排查,不要排入普通迭代。排查方向:提交时的明细行序列化或分页,弱网下的重试或超时,以及 App 版本和机型的分布。同时建议先给客户一个临时办法:提交后在 PC 端核对行数,月底对账前重点检查已提交的单据。\", \"reject_reason\": \"\", \"customer_reply\": \"您好,感谢反馈。报价单在 App 提交审批后出现明细行丢失,我们非常重视,已按高优先级缺陷转研发排查。为尽快定位问题,请您补充几项信息:1)出问题的 App 版本号、手机机型和系统版本;2)6 次中任意 2-3 张单据的编号和提交时间;3)提交时的网络情况,比如是否是弱网或切换过网络。在修复上线前,建议销售在 App 提交后,到 PC 端或审批详情里核对一下行数。月底对账前,我们也会协助您排查近两周已提交的单据,找出受影响的数据。有进展我们会第一时间同步给您。\"}",
      "PlatformType": "Generic",
-     "s12lab.agent_version": "v0",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598",
+     "adlc.agent_version": "v0",
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598",
      "aws.local.environment": "generic:default"
     },
     "status": {
@@ -3691,7 +3691,7 @@
       "telemetry.sdk.language": "python",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.sdk.version": "1.45.1",
       "telemetry.auto.version": "0.22.0-aws",
       "telemetry.sdk.name": "opentelemetry"
@@ -3705,7 +3705,7 @@
     "spanId": "8eb9bf6670e757c7",
     "parentSpanId": "e81bde57f0e02b5a",
     "flags": 256,
-    "name": "invoke_agent s12lab_triage_v0",
+    "name": "invoke_agent adlc_triage_v0",
     "kind": "INTERNAL",
     "startTimeUnixNano": 1793887014259511000,
     "endTimeUnixNano": 1793887024939035000,
@@ -3713,7 +3713,7 @@
     "attributes": {
      "aws.local.service": "3",
      "gen_ai.usage.cache_write_input_tokens": 0,
-     "gen_ai.agent.name": "s12lab_triage_v0",
+     "gen_ai.agent.name": "adlc_triage_v0",
      "gen_ai.event.start_time": "2026-11-05T13:56:54.259517+00:00",
      "aws.local.environment": "generic:default",
      "gen_ai.provider.name": "strands-agents",
@@ -3727,14 +3727,14 @@
      "gen_ai.usage.total_tokens": 2702,
      "gen_ai.usage.completion_tokens": 747,
      "aws.genai.span_kind": "AGENT",
-     "s12lab.agent_version": "v0",
-     "s12lab.feedback_id": "FB-2610-003",
+     "adlc.agent_version": "v0",
+     "adlc.feedback_id": "FB-2610-003",
      "gen_ai.operation.name": "invoke_agent",
      "gen_ai.usage.input_tokens": 1955,
      "aws.genai.token_count_total": 2702,
      "gen_ai.usage.cache_read_input_tokens": 0,
      "PlatformType": "Generic",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598",
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598",
      "gen_ai.usage.cache_read.input_tokens": 0
     },
     "status": {
@@ -3749,7 +3749,7 @@
       "telemetry.sdk.version": "1.45.1",
       "service.instance.id": "7f369746-1530-4cc0-89ec-431f7fd8ba75",
       "service.name": "3",
-      "aws.log.group.names": "/aws/bedrock-agentcore/s12lab-lead-local-agent",
+      "aws.log.group.names": "/aws/bedrock-agentcore/adlc-lead-local-agent",
       "telemetry.auto.version": "0.22.0-aws",
       "aws.local.service": "3",
       "aws.service.type": "gen_ai_agent"
@@ -3793,7 +3793,7 @@
     },
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "s12lab-lead-v0-FB-2610-003-1e1fe55a3598"
+     "session.id": "adlc-lead-v0-FB-2610-003-1e1fe55a3598"
     },
     "flags": 1,
     "traceId": "6aec8b26c10e49f233e077eaf36a55a1",

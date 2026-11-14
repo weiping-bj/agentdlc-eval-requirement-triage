@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Scenario 12 lab - create your lab EC2 from AWS CloudShell.
+# AgentDLC lab - create your lab EC2 from AWS CloudShell.
 #
 #   用法 / Usage:   bash launch-from-cloudshell.sh <suffix>      例如: bash launch-from-cloudshell.sh zhang3
 #
-# - Stack name: s12lab-ec2-<suffix>, template: s12lab-ec2.yaml (same folder as this script)
+# - Stack name: adlc-ec2-<suffix>, template: adlc-ec2.yaml (same folder as this script)
 # - Region: the CloudShell region (${AWS_REGION:-$(aws configure get region)})
 # - Uses the default VPC when it exists (avoids the 5-VPCs-per-Region quota);
 #   otherwise the template creates a small dedicated VPC.
 # - Re-running is safe: an existing healthy stack is NOT redeployed (set
-#   S12LAB_UPDATE=1 to force an update), it just prints the login link again.
-# Optional env: S12LAB_INSTANCE_TYPE (t3.large | t3.xlarge | m7i.large),
-#               S12LAB_ALLOW_ANY_REGION=1 (skip the us-west-2/us-east-1 check)
+#   ADLC_UPDATE=1 to force an update), it just prints the login link again.
+# Optional env: ADLC_INSTANCE_TYPE (t3.large | t3.xlarge | m7i.large),
+#               ADLC_ALLOW_ANY_REGION=1 (skip the us-west-2/us-east-1 check)
 set -euo pipefail
 export AWS_PAGER=""
 
@@ -22,10 +22,10 @@ if [[ ! "$SUFFIX" =~ ^[a-z][a-z0-9]{1,11}$ ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE="$SCRIPT_DIR/s12lab-ec2.yaml"
+TEMPLATE="$SCRIPT_DIR/adlc-ec2.yaml"
 if [ ! -f "$TEMPLATE" ]; then
   echo "找不到模板文件: $TEMPLATE" >&2
-  echo "请把 s12lab-ec2.yaml 和本脚本下载到同一个目录。" >&2
+  echo "请把 adlc-ec2.yaml 和本脚本下载到同一个目录。" >&2
   exit 1
 fi
 
@@ -34,14 +34,14 @@ if [ -z "$REGION" ]; then
   echo "无法确定区域。请先执行: export AWS_REGION=us-west-2   (或 us-east-1)" >&2
   exit 1
 fi
-if [ "$REGION" != "us-west-2" ] && [ "$REGION" != "us-east-1" ] && [ "${S12LAB_ALLOW_ANY_REGION:-0}" != "1" ]; then
+if [ "$REGION" != "us-west-2" ] && [ "$REGION" != "us-east-1" ] && [ "${ADLC_ALLOW_ANY_REGION:-0}" != "1" ]; then
   echo "当前区域是 $REGION。本实验只支持 us-west-2 或 us-east-1。" >&2
   echo "请在控制台右上角切换到讲师指定的区域，重新打开 CloudShell 后再运行。" >&2
   exit 1
 fi
 
-STACK="s12lab-ec2-$SUFFIX"
-INSTANCE_TYPE="${S12LAB_INSTANCE_TYPE:-t3.large}"
+STACK="adlc-ec2-$SUFFIX"
+INSTANCE_TYPE="${ADLC_INSTANCE_TYPE:-t3.large}"
 aws_() { aws --region "$REGION" "$@"; }
 stack_out() {
   aws_ cloudformation describe-stacks --stack-name "$STACK" \
@@ -125,10 +125,10 @@ if [ "$STATUS" = "NONE" ]; then
     fi
     PARAMS+=("NewSubnetAz=$FIRST_AZ")
   fi
-elif [ "${S12LAB_UPDATE:-0}" = "1" ]; then
+elif [ "${ADLC_UPDATE:-0}" = "1" ]; then
   DEPLOY=1
-  if [ -n "${S12LAB_INSTANCE_TYPE:-}" ]; then PARAMS+=("InstanceType=$S12LAB_INSTANCE_TYPE"); fi
-  echo "==> S12LAB_UPDATE=1: 将更新堆栈。注意: 如果期间发布了新的 AL2023 AMI，EC2 会被重建，盘上数据会丢失。"
+  if [ -n "${ADLC_INSTANCE_TYPE:-}" ]; then PARAMS+=("InstanceType=$ADLC_INSTANCE_TYPE"); fi
+  echo "==> ADLC_UPDATE=1: 将更新堆栈。注意: 如果期间发布了新的 AL2023 AMI，EC2 会被重建，盘上数据会丢失。"
 fi
 
 if [ "$DEPLOY" = "1" ]; then
@@ -138,7 +138,7 @@ if [ "$DEPLOY" = "1" ]; then
       --stack-name "$STACK" \
       --capabilities CAPABILITY_NAMED_IAM \
       --parameter-overrides "${PARAMS[@]}" \
-      --tags s12lab:lab=scenario12 "s12lab:owner=$SUFFIX" \
+      --tags adlc:lab=agentdlc "adlc:owner=$SUFFIX" \
       --no-fail-on-empty-changeset; then
     echo "创建失败。失败原因如下（请截图发给讲师）:" >&2
     aws_ cloudformation describe-stack-events --stack-name "$STACK" --max-items 40 \
@@ -166,7 +166,7 @@ for i in $(seq 1 20); do
 done
 
 echo
-echo "==================== s12lab EC2 ===================="
+echo "==================== adlc EC2 ===================="
 echo "  后缀:      $SUFFIX"
 echo "  区域:      $REGION"
 echo "  实例 ID:   $INSTANCE_ID"

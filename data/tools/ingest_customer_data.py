@@ -13,7 +13,7 @@
   golden_candidates.jsonl     如果客户数据里带有历史判断（是否重要/是否紧急/处理建议），可作为黄金集候选
   report.md                   数据充分性报告（中文）：字段覆盖、文本质量、个人信息、能否支撑三项判断
 --use-as-input 会在 data/customer/agent_data/ 下生成 Agent 可直接读取的数据目录
-（feedback_last_month.jsonl + capability_catalog.json），再用 S12_DATA_DIR 指向它；不会改动仓库里被跟踪的 mock 文件。
+（feedback_last_month.jsonl + capability_catalog.json），再用 ADLC_DATA_DIR 指向它；不会改动仓库里被跟踪的 mock 文件。
 默认对所有文本字段（含历史拒绝理由/回复）中的手机号、座机、邮箱、身份证号打码（--no-mask 关闭）。
 """
 from __future__ import annotations
@@ -265,7 +265,7 @@ def main(argv=None) -> int:
     ap.add_argument("--mapping", help="JSON：{\"源列名\": \"目标字段\"}，目标字段见 data/schema/feedback_item.schema.json")
     ap.add_argument("--out-dir", default=os.path.join(C.DATA, "customer"))
     ap.add_argument("--no-mask", action="store_true")
-    ap.add_argument("--use-as-input", action="store_true", help="生成 data/customer/agent_data/（需求池 + 能力目录副本），并提示 export S12_DATA_DIR=… 让 Agent 与批量脚本改用客户数据")
+    ap.add_argument("--use-as-input", action="store_true", help="生成 data/customer/agent_data/（需求池 + 能力目录副本），并提示 export ADLC_DATA_DIR=… 让 Agent 与批量脚本改用客户数据")
     ap.add_argument("--strict", action="store_true", help="结论不是“充足”时退出码 1")
     ap.add_argument("--append-to-content", default="", metavar="列名1,列名2",
                     help="把这些没对应上的列以“列名: 值”一行追加到需求描述末尾，让 Agent 能读到（逗号分隔）")
@@ -322,7 +322,7 @@ def main(argv=None) -> int:
         C.write_jsonl(os.path.join(agent_dir, "feedback_last_month.jsonl"), [{k: v for k, v in it.items() if k != "extra"} for it in items])
         shutil.copyfile(C.CATALOG_PATH, os.path.join(agent_dir, "capability_catalog.json"))
         print(f"已生成 Agent 数据目录：{agent_dir}（客户数据，不进 git）")
-        print(f"让 Agent 读取它：export S12_DATA_DIR={os.path.abspath(agent_dir)}（仓库里的 mock 文件保持不变）")
+        print(f"让 Agent 读取它：export ADLC_DATA_DIR={os.path.abspath(agent_dir)}（仓库里的 mock 文件保持不变）")
     return 1 if (a.strict and not res["verdict"].startswith("充足")) else 0
 
 

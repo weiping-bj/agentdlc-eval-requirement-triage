@@ -1,4 +1,4 @@
-"""s12_label_accuracy Lambda + batch scorer."""
+"""adlc_label_accuracy Lambda + batch scorer."""
 import json
 import os
 import subprocess
@@ -6,14 +6,14 @@ import sys
 
 import pytest
 
-from s12_eval_helpers import EV, REPO, event, load_pkg, output_from_gold, triage_span
+from adlc_eval_helpers import EV, REPO, event, load_pkg, output_from_gold, triage_span
 
-lf = load_pkg("s12_label_accuracy")
+lf = load_pkg("adlc_label_accuracy")
 
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
-    for k in ("S12_SCORE_FIELD", "S12_LABEL_SCHEME", "S12_LEVEL_TOLERANCE", "S12_GOLDEN_PATH"):
+    for k in ("ADLC_SCORE_FIELD", "ADLC_LABEL_SCHEME", "ADLC_LEVEL_TOLERANCE", "ADLC_GOLDEN_PATH"):
         monkeypatch.delenv(k, raising=False)
 
 
@@ -46,19 +46,19 @@ def test_acceptable_decisions(golden_rows):
 def test_single_field_by_suffix_and_env(golden_rows, monkeypatch):
     g03 = g(golden_rows, "G03")
     spans = [triage_span(output_from_gold(g03, urgent="否", decision="拒绝"))]
-    r = lf.handler(event(spans, name="s12lab_ab12_label_urgent"))
+    r = lf.handler(event(spans, name="adlc_ab12_label_urgent"))
     assert r["value"] == 0.0 and r["label"] == "CriticalFail"
-    r = lf.handler(event(spans, name="s12lab_ab12_label_important"))
+    r = lf.handler(event(spans, name="adlc_ab12_label_important"))
     # red line (misreject) fails the whole item: even a label the agent got right scores 0
     assert r["value"] == 0.0 and r["label"] == "CriticalFail" and "原本 1/1" in r["explanation"]
-    r = lf.handler(event(spans, name="s12lab_ab12_label_decision"))
+    r = lf.handler(event(spans, name="adlc_ab12_label_decision"))
     assert r["value"] == 0.0 and r["label"] == "CriticalFail"
     ok = [triage_span(output_from_gold(g03, urgent="否"))]
-    r = lf.handler(event(ok, name="s12lab_ab12_label_important"))
+    r = lf.handler(event(ok, name="adlc_ab12_label_important"))
     assert r["value"] == 1.0 and r["label"] == "Pass"
-    monkeypatch.setenv("S12_SCORE_FIELD", "important")
-    assert lf.handler(event(ok, name="s12lab_ab12_label_urgent"))["value"] == 1.0
-    monkeypatch.setenv("S12_SCORE_FIELD", "bogus")
+    monkeypatch.setenv("ADLC_SCORE_FIELD", "important")
+    assert lf.handler(event(ok, name="adlc_ab12_label_urgent"))["value"] == 1.0
+    monkeypatch.setenv("ADLC_SCORE_FIELD", "bogus")
     assert lf.handler(event(spans))["errorCode"] == "VALIDATION_FAILED"
 
 
@@ -93,10 +93,10 @@ def test_reference_from_agentcore_dataset_projection(golden_rows):
 
 def test_level_scheme(golden_rows, monkeypatch):
     g01 = g(golden_rows, "G01")  # P1
-    monkeypatch.setenv("S12_LABEL_SCHEME", "level")
+    monkeypatch.setenv("ADLC_LABEL_SCHEME", "level")
     r = lf.handler(event([triage_span(output_from_gold(g01, level="P2"))]))
     assert r["value"] == 0.5
-    monkeypatch.setenv("S12_LEVEL_TOLERANCE", "1")
+    monkeypatch.setenv("ADLC_LEVEL_TOLERANCE", "1")
     r = lf.handler(event([triage_span(output_from_gold(g01, level="P2"))]))
     assert r["value"] == 1.0
 
@@ -118,7 +118,7 @@ def test_session_level_and_string_event(golden_rows):
 
 def test_handler_never_raises(monkeypatch):
     monkeypatch.setattr(lf, "evaluate", lambda e: 1 / 0)
-    assert lf.handler({})["errorCode"] == "S12_LABEL_EVAL_FAILED"
+    assert lf.handler({})["errorCode"] == "ADLC_LABEL_EVAL_FAILED"
 
 
 def test_bundled_copies_are_in_sync():
@@ -127,11 +127,11 @@ def test_bundled_copies_are_in_sync():
 
 
 def test_lambda_package_is_self_contained():
-    for pkg, need in (("s12_label_accuracy", {"lambda_function.py", "span_adapter.py", "golden_store.py", "label_scoring.py", "golden_set.json"}),
-                      ("s12_reject_quality", {"lambda_function.py", "span_adapter.py", "golden_store.py", "judge.py", "rubric.py",
+    for pkg, need in (("adlc_label_accuracy", {"lambda_function.py", "span_adapter.py", "golden_store.py", "label_scoring.py", "golden_set.json"}),
+                      ("adlc_reject_quality", {"lambda_function.py", "span_adapter.py", "golden_store.py", "judge.py", "rubric.py",
                                               "golden_set.json", "capability_catalog.json"})):
         assert need <= set(os.listdir(os.path.join(EV, pkg))), pkg
-    code = open(os.path.join(EV, "s12_label_accuracy", "lambda_function.py"), encoding="utf-8").read()
+    code = open(os.path.join(EV, "adlc_label_accuracy", "lambda_function.py"), encoding="utf-8").read()
     assert "bedrock_agentcore" not in code.split('"""', 2)[2]
 
 
@@ -143,7 +143,7 @@ def _write(tmp_path, rows, name="r.jsonl"):
 
 
 def test_batch_score_perfect_and_baseline(tmp_path, golden_rows):
-    bs = load_pkg("s12_label_accuracy", "batch_score")
+    bs = load_pkg("adlc_label_accuracy", "batch_score")
     perfect = [{"session_id": "s", "result": output_from_gold(r)} for r in golden_rows]
     md = tmp_path / "rep.md"
     oj = tmp_path / "rep.json"
@@ -164,7 +164,7 @@ def test_batch_score_perfect_and_baseline(tmp_path, golden_rows):
 
 
 def test_batch_score_missing_unparsed_and_spans(tmp_path, golden_rows):
-    bs = load_pkg("s12_label_accuracy", "batch_score")
+    bs = load_pkg("adlc_label_accuracy", "batch_score")
     rows = [{"result": output_from_gold(r)} for r in golden_rows[:20]] + [{"feedback_id": golden_rows[20]["feedback_id"], "raw": "无法解析"}]
     oj = tmp_path / "o.json"
     bs.main(["--results", _write(tmp_path, rows), "--out-json", str(oj)])
@@ -183,7 +183,7 @@ def test_batch_score_missing_unparsed_and_spans(tmp_path, golden_rows):
 
 
 def test_batch_score_reads_target_from_config(monkeypatch):
-    bs = load_pkg("s12_label_accuracy", "batch_score")
+    bs = load_pkg("adlc_label_accuracy", "batch_score")
     monkeypatch.delenv("TARGET_ACCURACY", raising=False)
     assert bs._cfg_target() == pytest.approx(0.70)
     monkeypatch.setenv("TARGET_ACCURACY", "0.8")
@@ -192,7 +192,7 @@ def test_batch_score_reads_target_from_config(monkeypatch):
 
 def test_batch_score_accepts_customer_log_format(tmp_path):
     """telemetry/samples/customer-agent-logs.jsonl format (agent_output is a JSON string)."""
-    bs = load_pkg("s12_label_accuracy", "batch_score")
+    bs = load_pkg("adlc_label_accuracy", "batch_score")
     line = {"session_id": "s1", "feedback_id": "FB-2610-001", "user_input": "需求编号: FB-2610-001",
             "agent_output": json.dumps({"feedback_id": "FB-2610-001", "important": "是", "urgent": "否", "decision": "迭代"}, ensure_ascii=False)}
     preds = bs.preds_from_results(_write(tmp_path, [line]))
@@ -207,12 +207,12 @@ def test_batch_score_accepts_customer_log_format(tmp_path):
 
 
 @pytest.mark.parametrize("ev_keys,expected", [
-    ({"evaluatorName": "s12lab_lead_label_important"}, "important"),
-    ({"evaluatorId": "s12lab_lead_label_urgent-jY13ehAi51"}, "urgent"),
-    ({"evaluatorArn": "arn:aws:bedrock-agentcore:us-west-2:123456789012:evaluator/s12lab_lead_label_decision-AbCdEf1234"}, "decision"),
-    ({"evaluatorName": None, "evaluatorId": "s12lab_lead_label_accuracy-jY13ehAi51"}, "all"),
-    ({"evaluatorName": "S12LAB_X_LABEL_IMPORTANT"}, "important"),
-    ({"evaluatorName": "s12lab_important_check_v2"}, "important"),  # token match
+    ({"evaluatorName": "adlc_lead_label_important"}, "important"),
+    ({"evaluatorId": "adlc_lead_label_urgent-jY13ehAi51"}, "urgent"),
+    ({"evaluatorArn": "arn:aws:bedrock-agentcore:us-west-2:123456789012:evaluator/adlc_lead_label_decision-AbCdEf1234"}, "decision"),
+    ({"evaluatorName": None, "evaluatorId": "adlc_lead_label_accuracy-jY13ehAi51"}, "all"),
+    ({"evaluatorName": "ADLC_X_LABEL_IMPORTANT"}, "important"),
+    ({"evaluatorName": "adlc_important_check_v2"}, "important"),  # token match
     ({}, "all"),
 ])
 def test_resolve_score_field_from_name_id_or_arn(ev_keys, expected):
@@ -223,7 +223,7 @@ def test_suffix_from_evaluator_id_scores_single_field(golden_rows, capsys):
     g03 = g(golden_rows, "G03")
     ev = event([triage_span(output_from_gold(g03, urgent="否"))], name=None)
     ev.pop("evaluatorName")
-    ev["evaluatorId"] = "s12lab_lead_label_urgent-jY13ehAi51"
+    ev["evaluatorId"] = "adlc_lead_label_urgent-jY13ehAi51"
     r = lf.handler(ev)
     assert r["value"] == 0.0 and "1/1" not in r["explanation"] and "0/1" in r["explanation"]
     log = capsys.readouterr().out

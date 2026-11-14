@@ -6,6 +6,6 @@ set -euo pipefail
 cd "$(dirname "$0")"
 source ./00-config.sh
 # labkit.compare prints status to stderr and only the output path to stdout
-OUT=$("${_S12_PY}" -m labkit.compare "$@" | tail -1)
+OUT=$("${_ADLC_PY}" -m labkit.compare "$@" | tail -1)
 echo "$OUT"
-[ -n "$OUT" ] && [ -f "$OUT" ] && "${_S12_PY}" -m labkit.publish "$OUT"
+[ -n "$OUT" ] && [ -f "$OUT" ] && "${_ADLC_PY}" -m labkit.publish "$OUT"

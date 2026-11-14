@@ -6,11 +6,11 @@ and regenerate the readable capability-catalog views.
     python3 evaluators/sync_shared.py --check  # exit 1 if any copy is stale (used by tests)
 
 Copies:
-  evaluators/shared/span_adapter.py, golden_store.py, pillars.py -> s12_label_accuracy/, s12_reject_quality/
+  evaluators/shared/span_adapter.py, golden_store.py, pillars.py -> adlc_label_accuracy/, adlc_reject_quality/
                                    (pillars.py = three-pillar verdict; labkit loads the shared/ copy directly)
   data/golden/golden_set.jsonl  -> */golden_set.json   ({"version", "items": {feedback_id: gold}})
-  data/capability_catalog.json  -> s12_reject_quality/capability_catalog.json
-  rubric.py                     -> evaluators/llm_judge_config/s12_reject_quality.json
+  data/capability_catalog.json  -> adlc_reject_quality/capability_catalog.json
+  rubric.py                     -> evaluators/llm_judge_config/adlc_reject_quality.json
   data/capability_catalog.json  -> docs/catalog.html, data/capability_catalog.csv   (data/tools/catalog_views.py;
                                    always the repo catalog, never --catalog: these two files are published)
   data/feedback_last_month.jsonl -> docs/mock-data.html  (data/tools/mock_views.py; categories from seed/pool.jsonl)
@@ -24,7 +24,7 @@ import sys
 
 EV = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(EV)
-PKGS = ("s12_label_accuracy", "s12_reject_quality")
+PKGS = ("adlc_label_accuracy", "adlc_reject_quality")
 SHARED = ("span_adapter.py", "golden_store.py", "pillars.py")
 
 
@@ -43,7 +43,7 @@ def _golden_bundle(golden_path: str) -> str:
 
 
 def _judge_config() -> str:
-    sys.path.insert(0, os.path.join(EV, "s12_reject_quality"))
+    sys.path.insert(0, os.path.join(EV, "adlc_reject_quality"))
     import rubric  # noqa: E402
     cfg = {"llmAsAJudge": {
         "instructions": rubric.llm_judge_instructions(),
@@ -62,8 +62,8 @@ def planned(golden_path: str, catalog_path: str) -> dict:
                 files[os.path.join(EV, pkg, name)] = f.read()
         files[os.path.join(EV, pkg, "golden_set.json")] = _golden_bundle(golden_path)
     with open(catalog_path, encoding="utf-8") as f:
-        files[os.path.join(EV, "s12_reject_quality", "capability_catalog.json")] = f.read()
-    files[os.path.join(EV, "llm_judge_config", "s12_reject_quality.json")] = _judge_config()
+        files[os.path.join(EV, "adlc_reject_quality", "capability_catalog.json")] = f.read()
+    files[os.path.join(EV, "llm_judge_config", "adlc_reject_quality.json")] = _judge_config()
     files = {p: c.encode("utf-8") for p, c in files.items()}
     files.update(_catalog_views().planned())  # repo catalog only: a --catalog (e.g. customer data) must not reach docs/
     import mock_views  # noqa: E402  (data/tools is on sys.path now)

@@ -13,7 +13,7 @@ Return:
   {"label": "FormatError", "value": 0.0, ...}                 answer present but no triage JSON
   {"label": "Skipped", ...}                                   no triage output in the trace
   {"errorCode", "errorMessage"}                               judge model call failed
-Env: JUDGE_MODEL_ID, FALLBACK_MODEL_ID, JUDGE_REGION/AWS_REGION, S12_GOLDEN_PATH, S12_CATALOG_PATH.
+Env: JUDGE_MODEL_ID, FALLBACK_MODEL_ID, JUDGE_REGION/AWS_REGION, ADLC_GOLDEN_PATH, ADLC_CATALOG_PATH.
 The Lambda role needs bedrock:InvokeModel / bedrock:Converse on the judge model(s).
 """
 from __future__ import annotations
@@ -38,7 +38,7 @@ _CLIENT = None
 def _golden():
     global _GOLDEN
     if _GOLDEN is None:
-        p = os.environ.get("S12_GOLDEN_PATH") or os.path.join(HERE, "golden_set.json")
+        p = os.environ.get("ADLC_GOLDEN_PATH") or os.path.join(HERE, "golden_set.json")
         _GOLDEN = golden_store.load_golden(p) if os.path.exists(p) else {}
     return _GOLDEN
 
@@ -46,7 +46,7 @@ def _golden():
 def _catalog():
     global _CATALOG
     if _CATALOG is None:
-        p = os.environ.get("S12_CATALOG_PATH") or os.path.join(HERE, "capability_catalog.json")
+        p = os.environ.get("ADLC_CATALOG_PATH") or os.path.join(HERE, "capability_catalog.json")
         try:
             with open(p, encoding="utf-8") as f:
                 doc = json.load(f)
@@ -135,7 +135,7 @@ def evaluate(event: dict, client=None) -> dict:
     target = event.get("evaluationTarget") or {}
     tids = target.get("traceIds") or []
     ex = sa.extract_records(spans, tids[0] if (tids and level != "SESSION") else None)
-    print(json.dumps({"s12": "reject_eval", "keys": sorted(event.keys()), "evaluatorName": event.get("evaluatorName"),
+    print(json.dumps({"adlc": "reject_eval", "keys": sorted(event.keys()), "evaluatorName": event.get("evaluatorName"),
                       "evaluatorId": event.get("evaluatorId"), "level": level, "n_spans": len(spans),
                       "n_records": len(ex["records"]), "source": ex["records"][0]["source"] if ex["records"] else None},
                      ensure_ascii=False))
@@ -181,5 +181,5 @@ def handler(event, context=None):
             event = json.loads(event)
         return evaluate(event)
     except Exception as e:
-        print("[s12_reject_quality] EXCEPTION", repr(e))
-        return {"errorCode": "S12_REJECT_JUDGE_FAILED", "errorMessage": str(e)[:500]}
+        print("[adlc_reject_quality] EXCEPTION", repr(e))
+        return {"errorCode": "ADLC_REJECT_JUDGE_FAILED", "errorMessage": str(e)[:500]}

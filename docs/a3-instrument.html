@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>埋点：OTel + ADOT → CloudWatch · 场景 12 实验手册</title>
+<title>埋点：OTel + ADOT → CloudWatch · AgentDLC 动手实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="a3-instrument">
@@ -51,7 +51,7 @@ Version: 1.x.x</pre></div>
   <p>环境变量都写在 <a data-repo="telemetry/otel_env.sh">telemetry/otel_env.sh</a>，执行一次看看效果：</p>
 <pre><code>source ./00-config.sh &amp;&amp; source telemetry/otel_env.sh</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
-<pre class="out">📡 OTel 已配置：service.name=s12lab-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent · 区域 us-west-2</pre></div>
+<pre class="out">📡 OTel 已配置：service.name=adlc-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/adlc-zhang3-local-agent · 区域 us-west-2</pre></div>
   <table>
     <tr><th>环境变量</th><th>作用（一句话）</th></tr>
     <tr><td><code>AGENT_OBSERVABILITY_ENABLED=true</code></td><td>打开 ADOT 的 GenAI 观测默认设置：100% 采样，并把 <code>session.id</code> 写到每个 span 上</td></tr>
@@ -69,28 +69,28 @@ Version: 1.x.x</pre></div>
   <div class="step-head"><span class="num">A3.4</span><h3>关键代码讲解：环境变量、session.id、最终输出</h3><span class="time">5 分钟</span></div>
   <p class="why">看 mock agent 怎样满足评估的要求：每个 span 带 session.id、一条需求一个 trace、能拿到最终输出。这一步只看不改，也不需要运行。</p>
   <p><b>① 环境变量（A3.3）在启动前设置。</b><a data-repo="10-A-run-local.sh">10-A-run-local.sh</a> 先建日志组、设置环境变量，再用 <code>opentelemetry-instrument</code> 启动批量脚本，ADOT 就在这个进程里工作：</p>
-<pre class="out" data-src="10-A-run-local.sh">"${_S12_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
+<pre class="out" data-src="10-A-run-local.sh">"${_ADLC_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
 source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"
 …
-exec "$OTEL_BIN" "${_S12_PY}" -m labkit.batch --mode local --limit "$N" "$@"</pre>
+exec "$OTEL_BIN" "${_ADLC_PY}" -m labkit.batch --mode local --limit "$N" "$@"</pre>
   <p><b>② 每条需求一个新的 session.id，放进 OTel baggage。</b><a data-repo="labkit/batch.py">labkit/batch.py</a> 的 <code>_local_one()</code>：</p>
 <pre class="out" data-src="labkit/batch.py">token = context.attach(baggage.set_baggage("session.id", sid))
 try:
     return triage(items.item_of(row), version=version, model_id=model, session_id=sid)
 finally:
     context.detach(token)</pre>
-  <p><code>sid</code> 形如 <code>s12lab-zhang3-v0-FB-2610-001-&lt;32 位十六进制&gt;</code>（<code>_session_id()</code>）。<code>AGENT_OBSERVABILITY_ENABLED=true</code> 让 ADOT 把 baggage 里的 <code>session.id</code> 写到之后产生的每个 span 上；评估服务按 session 取数据，一条需求 = 一个 session = 一个 trace。</p>
-  <p><b>③ 外层包一个 <code>s12lab.triage</code> span，把最终输出 JSON 写在上面。</b><a data-repo="agent/s12agent/core.py">agent/s12agent/core.py</a> 的 <code>triage()</code>：</p>
-<pre class="out" data-src="agent/s12agent/core.py">with tracer.start_as_current_span("s12lab.triage") as span:
+  <p><code>sid</code> 形如 <code>adlc-zhang3-v0-FB-2610-001-&lt;32 位十六进制&gt;</code>（<code>_session_id()</code>）。<code>AGENT_OBSERVABILITY_ENABLED=true</code> 让 ADOT 把 baggage 里的 <code>session.id</code> 写到之后产生的每个 span 上；评估服务按 session 取数据，一条需求 = 一个 session = 一个 trace。</p>
+  <p><b>③ 外层包一个 <code>adlc.triage</code> span，把最终输出 JSON 写在上面。</b><a data-repo="agent/adlc_agent/core.py">agent/adlc_agent/core.py</a> 的 <code>triage()</code>：</p>
+<pre class="out" data-src="agent/adlc_agent/core.py">with tracer.start_as_current_span("adlc.triage") as span:
     span.set_attribute("session.id", session_id)
-    span.set_attribute("s12lab.agent_version", version)
+    span.set_attribute("adlc.agent_version", version)
     if fid:
-        span.set_attribute("s12lab.feedback_id", fid)
+        span.set_attribute("adlc.feedback_id", fid)
     …
     out = parse_output(text)
     …
-    span.set_attribute("s12lab.triage_output", json.dumps(out, ensure_ascii=False))</pre>
-  <p>这个 span 是每条需求的根 span，评估脚本靠它找到 trace；<code>s12lab.triage_output</code> 是评估器<b>首选</b>的读取位置（<a data-repo="evaluators/README.md">evaluators/README.md</a> 第 2 节），不依赖 <code>chat</code> span 有没有记录消息正文；<code>s12lab.feedback_id</code> 用来和黄金集对应。</p>
+    span.set_attribute("adlc.triage_output", json.dumps(out, ensure_ascii=False))</pre>
+  <p>这个 span 是每条需求的根 span，评估脚本靠它找到 trace；<code>adlc.triage_output</code> 是评估器<b>首选</b>的读取位置（<a data-repo="evaluators/README.md">evaluators/README.md</a> 第 2 节），不依赖 <code>chat</code> span 有没有记录消息正文；<code>adlc.feedback_id</code> 用来和黄金集对应。</p>
   <div class="note">评估器需要的数据：① 每个 span 带 <code>session.id</code>；② 一条需求 = 一个 trace；③ 能拿到 Agent 的最终输出（JSON）。Strands 框架自动产生 <code>invoke_agent</code> / <code>chat</code> / <code>execute_tool</code> span，上面三段代码补上了其余部分。你们自己的 Agent 要加的同样三点（约 15 行，与框架无关），见 <a href="own-agent-guide.html#s-g-5">指南 G.5</a>。</div>
 </div>
 
@@ -99,8 +99,8 @@ finally:
   <p class="why">先发少量数据确认链路通了；完整黄金集在第 7 章跑（要先注册评估器、开启在线评估）。</p>
 <pre><code>./10-A-run-local.sh trace 3</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
-<pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent
-📡 OTel 已配置：service.name=s12lab-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/s12lab-zhang3-local-agent · 区域 us-west-2
+<pre class="out">  🆕 创建日志组 /aws/bedrock-agentcore/adlc-zhang3-local-agent
+📡 OTel 已配置：service.name=adlc-zhang3-local-agent · 日志组 /aws/bedrock-agentcore/adlc-zhang3-local-agent · 区域 us-west-2
 … WARNING [opentelemetry.instrumentation.logging] … Skipping installation of LoggingHandler …
 … WARNING [opentelemetry.instrumentation.instrumentor] … Attempting to instrument while already instrumented
 … INFO [strands.telemetry.metrics] … Creating Strands MetricsClient
@@ -119,18 +119,18 @@ finally:
   <p class="why">在控制台确认数据已经到达。</p>
   <ol class="clicks">
     <li>打开 CloudWatch 控制台（右上角区域与实验一致）→ 左侧 <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span>。</li>
-    <li>在 <span class="ui">Agents</span> 列表里找到 <code>s12lab-zhang3-local-agent</code>（不在 Runtime 上的 Agent 也会列出，按 service.name 显示）。</li>
-    <li>点进去 → <span class="ui">Sessions</span>：能看到 3 个 session（名字形如 <code>s12lab-zhang3-v0-FB-2610-001-…</code>）→ 点任一 session → <span class="ui">Traces</span>：能看到 <code>s12lab.triage</code> → <code>invoke_agent</code> → <code>chat</code> / <code>execute_tool lookup_capability</code> 的调用树。</li>
-    <li>（可选）CloudWatch → <span class="ui">Application Signals</span> → <span class="ui">Transaction search</span>：筛选 <code>service.name = s12lab-zhang3-local-agent</code>，看到原始 span。</li>
+    <li>在 <span class="ui">Agents</span> 列表里找到 <code>adlc-zhang3-local-agent</code>（不在 Runtime 上的 Agent 也会列出，按 service.name 显示）。</li>
+    <li>点进去 → <span class="ui">Sessions</span>：能看到 3 个 session（名字形如 <code>adlc-zhang3-v0-FB-2610-001-…</code>）→ 点任一 session → <span class="ui">Traces</span>：能看到 <code>adlc.triage</code> → <code>invoke_agent</code> → <code>chat</code> / <code>execute_tool lookup_capability</code> 的调用树。</li>
+    <li>（可选）CloudWatch → <span class="ui">Application Signals</span> → <span class="ui">Transaction search</span>：筛选 <code>service.name = adlc-zhang3-local-agent</code>，看到原始 span。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>3 个 session，每个 1 个 trace。实测的 trace 结构（span 名）：<code>s12lab.triage</code> → <code>invoke_agent s12lab_triage_v0</code> → <code>execute_event_loop_cycle</code> → <code>chat</code> / <code>execute_tool lookup_capability</code>（另有一个 <code>chat us.anthropic.claude-sonnet-5-5</code> 是 Bedrock 调用本身）。模型的输入和输出内容在你的日志组 <code>/aws/bedrock-agentcore/s12lab-zhang3-local-agent</code> 里，晚 1–3 分钟出现。控制台菜单名称可能随版本略有不同。</div>
+  <div class="expect"><span class="label">预期结果：</span>3 个 session，每个 1 个 trace。实测的 trace 结构（span 名）：<code>adlc.triage</code> → <code>invoke_agent adlc_triage_v0</code> → <code>execute_event_loop_cycle</code> → <code>chat</code> / <code>execute_tool lookup_capability</code>（另有一个 <code>chat us.anthropic.claude-sonnet-5-5</code> 是 Bedrock 调用本身）。模型的输入和输出内容在你的日志组 <code>/aws/bedrock-agentcore/adlc-zhang3-local-agent</code> 里，晚 1–3 分钟出现。控制台菜单名称可能随版本略有不同。</div>
   <p>下一步：<a href="a5-check.html">A5 遥测检查</a>。时间充裕时可以先做 <a href="a4-logs.html">A4</a>（可选：用仓库自带的样例日志，演示“只有调用日志、没法改代码”时怎样导入并评估）。</p>
 </div>
 
 </section>
 </main>
 </div>
-<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

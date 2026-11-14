@@ -16,7 +16,7 @@ from labkit import compare, compare_story, failures  # noqa: E402
 from labkit import config as labcfg  # noqa: E402
 from test_compare_report import INJ, INJ_ESC, V0, V1, well_formed  # noqa: E402
 
-PROMPTS = ROOT / "agent" / "s12agent" / "prompts"
+PROMPTS = ROOT / "agent" / "adlc_agent" / "prompts"
 FIELDS = ("important", "urgent", "decision")
 
 
@@ -115,7 +115,7 @@ def test_change_card_diffs_prompt_tools_and_model(tmp_path):
     assert "未变： us.anthropic.claude-sonnet-5-5" in text
     assert "能力目录" in text and "无法自动比较" in text
     # the shipped V1 change notes, rendered as a table
-    assert "agent/s12agent/prompts/v1.changes.md" in text
+    assert "agent/adlc_agent/prompts/v1.changes.md" in text
     assert "<th>失败原因（评估发现）</th><th>修改（文件）</th><th>预期影响的指标</th>" in card
     assert "修 V1 红线（第一步）" in text and "评审加入菜单路径（第二步）" in text
 
@@ -160,12 +160,12 @@ def test_flip_per_field_counts_add_up_to_the_gates():
 
 def _v2_root(tmp_path, monkeypatch, notes: str | None) -> Path:
     monkeypatch.setattr(labcfg, "ROOT", tmp_path)
-    p = tmp_path / "agent" / "s12agent" / "prompts"
+    p = tmp_path / "agent" / "adlc_agent" / "prompts"
     p.mkdir(parents=True)
     shutil.copy(PROMPTS / "v1.md", p / "v1.md")
     (p / "v2.md").write_text((PROMPTS / "v1.md").read_text(encoding="utf-8") + "\n## 新增口径\n- 一条新规则\n",
                              encoding="utf-8")
-    shutil.copy(ROOT / "agent" / "s12agent" / "tools.py", tmp_path / "agent" / "s12agent" / "tools.py")
+    shutil.copy(ROOT / "agent" / "adlc_agent" / "tools.py", tmp_path / "agent" / "adlc_agent" / "tools.py")
     if notes is not None:
         (p / "v2.changes.md").write_text(notes, encoding="utf-8")
     for name, ver in (("v1", "v1"), ("v2", "v2")):
@@ -182,7 +182,7 @@ def test_v2_change_notes_are_shown_and_escaped(tmp_path, monkeypatch):
     root = _v2_root(tmp_path, monkeypatch, notes)
     page = _page(tmp_path, root / "eval-v1.json", root / "eval-v2.json")
     card = _card(page, "story-changes")
-    assert "agent/s12agent/prompts/v2.changes.md" in card
+    assert "agent/adlc_agent/prompts/v2.changes.md" in card
     assert "<td>紧急被带偏</td><td><code>prompts/v2.md</code> 加事实标准</td><td>是否紧急准确率</td>" in card
     assert "<b>口径</b>" in card and "a | b" in card
     assert INJ not in page and "<img src=x" not in page and INJ_ESC in card
@@ -195,7 +195,7 @@ def test_v2_without_change_notes_is_graceful(tmp_path, monkeypatch):
     root = _v2_root(tmp_path, monkeypatch, None)
     page = _page(tmp_path, root / "eval-v1.json", root / "eval-v2.json")
     card = _plain(_card(page, "story-changes"))
-    assert "没有找到 agent/s12agent/prompts/v2.changes.md" in card and "不影响对比" in card
+    assert "没有找到 agent/adlc_agent/prompts/v2.changes.md" in card and "不影响对比" in card
     assert "prompts/v1.md" in card            # the prompt / tool diff is still there
     well_formed(page)
 
@@ -246,7 +246,7 @@ def test_render_notes_subset():
 def test_chapter_8_2_asks_the_coding_agent_for_the_change_notes():
     page = (ROOT / "docs" / "08-optimize.html").read_text(encoding="utf-8")
     prompt = page[page.index('id="s-8-2"'):page.index('id="s-8-3"')]
-    assert "7. 把总结写进 agent/s12agent/prompts/v2.changes.md" in prompt
+    assert "7. 把总结写进 agent/adlc_agent/prompts/v2.changes.md" in prompt
     assert "| 失败原因（评估发现） | 修改（文件） | 预期影响的指标 |" in prompt
     assert "v1.changes.md" in prompt.split("6. ")[1].split("\n")[0]   # step 6 protects the shipped V1 notes
 
@@ -291,13 +291,13 @@ def test_flip_rows_name_only_fields_that_changed_and_the_red_line(tmp_path):
 
 def test_change_notes_follow_the_version_chain(tmp_path, monkeypatch):
     root = _v2_root(tmp_path, monkeypatch, "基于 v1；依据 results/eval-B-v1-x.json\n\n| a | b | c |\n|-|-|-|\n| 1 | 2 | 3 |\n")
-    shutil.copy(PROMPTS / "v0.md", root / "agent" / "s12agent" / "prompts" / "v0.md")
-    shutil.copy(PROMPTS / "v1.changes.md", root / "agent" / "s12agent" / "prompts" / "v1.changes.md")
+    shutil.copy(PROMPTS / "v0.md", root / "agent" / "adlc_agent" / "prompts" / "v0.md")
+    shutil.copy(PROMPTS / "v1.changes.md", root / "agent" / "adlc_agent" / "prompts" / "v1.changes.md")
     d = json.loads(V0.read_text(encoding="utf-8"))
     d["run"].update(mode="runtime")
     _write(root / "eval-v0.json", d)
     card = _plain(_card(_page(tmp_path, root / "eval-v0.json", root / "eval-v2.json"), "story-changes"))
-    i1, i2 = card.index("V0 → V1 来自 agent/s12agent/prompts/v1.changes.md"), card.index("V1 → V2 来自 agent/s12agent/prompts/v2.changes.md")
+    i1, i2 = card.index("V0 → V1 来自 agent/adlc_agent/prompts/v1.changes.md"), card.index("V1 → V2 来自 agent/adlc_agent/prompts/v2.changes.md")
     assert i1 < i2 and "基于 v1；依据 results/eval-B-v1-x.json" in card
     assert "a b c 1 2 3" in card                                     # |-|-| is a header separator (GFM)
     for before, after in (("eval-v1.json", "eval-v1.json"), ("eval-v2.json", "eval-v1.json")):
@@ -352,7 +352,7 @@ def test_graded_scheme_shows_the_level_and_says_how_it_counts(tmp_path):
 
 def test_prompt_diff_counts_lines_that_look_like_headers(tmp_path, monkeypatch):
     monkeypatch.setattr(labcfg, "ROOT", tmp_path)
-    p = tmp_path / "agent" / "s12agent" / "prompts"
+    p = tmp_path / "agent" / "adlc_agent" / "prompts"
     p.mkdir(parents=True)
     (p / "v1.md").write_text("a\n---\nb\n", encoding="utf-8")
     (p / "v2.md").write_text("a\nb\n++ y\n", encoding="utf-8")
@@ -363,8 +363,8 @@ def test_prompt_diff_counts_lines_that_look_like_headers(tmp_path, monkeypatch):
 
 def test_toolsets_reads_later_assignments_and_flags_unreadable_lists(tmp_path, monkeypatch):
     monkeypatch.setattr(labcfg, "ROOT", tmp_path)
-    (tmp_path / "agent" / "s12agent").mkdir(parents=True)
-    (tmp_path / "agent" / "s12agent" / "tools.py").write_text(
+    (tmp_path / "agent" / "adlc_agent").mkdir(parents=True)
+    (tmp_path / "agent" / "adlc_agent" / "tools.py").write_text(
         "def a():\n    '''工具 A。'''\n\ndef b():\n    pass\n\nV1_TOOLS = [a]\n"
         "TOOLSETS: dict = {'v0': [a], 'v1': V1_TOOLS}\nTOOLSETS['v2'] = [a, mod.b]\nTOOLSETS['v3'] = make()\n", encoding="utf-8")
     sets, docs = compare_story.toolsets()

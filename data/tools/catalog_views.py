@@ -96,7 +96,7 @@ def render_html(catalog: dict) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>平台能力目录 · 场景 12 实验手册</title>
+<title>平台能力目录 · AgentDLC 动手实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="catalog">
@@ -148,7 +148,7 @@ def render_html(catalog: dict) -> str:
 
 </main>
 </div>
-<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

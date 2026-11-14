@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 V="${1:-}"
 [[ "$V" =~ ^v[0-9]+$ ]] || { echo "用法: $0 v0|v1" >&2; exit 1; }
-[ -f "agent/s12agent/prompts/$V.md" ] || { echo "❌ 找不到 agent/s12agent/prompts/$V.md" >&2; exit 1; }
+[ -f "agent/adlc_agent/prompts/$V.md" ] || { echo "❌ 找不到 agent/adlc_agent/prompts/$V.md" >&2; exit 1; }
 touch config/local.env
 grep -v '^AGENT_VERSION=' config/local.env > config/local.env.tmp || true
 echo "AGENT_VERSION=$V" >> config/local.env.tmp && mv config/local.env.tmp config/local.env

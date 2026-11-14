@@ -1,4 +1,4 @@
-# s12_reject_quality：拒绝理由与话术质量（代码型 LLM 评审，TRACE）
+# adlc_reject_quality：拒绝理由与话术质量（代码型 LLM 评审，TRACE）
 
 - **Lambda handler**：`lambda_function.handler`。整个目录 zip 部署，依赖 boto3（Lambda 运行时自带）。
 - **执行角色权限**：见 `execution-role-policy.json`。

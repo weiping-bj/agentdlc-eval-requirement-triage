@@ -29,7 +29,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor  # noqa: E402
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: E402
 
 import span_adapter  # noqa: E402
-from s12_eval_helpers import event, load_pkg, output_from_gold  # noqa: E402
+from adlc_eval_helpers import event, load_pkg, output_from_gold  # noqa: E402
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def otel():
 def _load_snippet(provider, agent):
     ns = {"__name__": "a34_snippet"}
     exec(compile(SNIPPET.read_text(encoding="utf-8"), str(SNIPPET), "exec"), ns)
-    ns["tracer"] = provider.get_tracer("s12lab.triage")  # same tracer name, local provider (no global state)
+    ns["tracer"] = provider.get_tracer("adlc.triage")  # same tracer name, local provider (no global state)
     ns["my_agent"] = agent
     return ns["handle_one"]
 
@@ -88,11 +88,11 @@ def test_snippet_tags_every_span_and_writes_the_output(otel):
     spans = exporter.get_finished_spans()
     assert len(spans) == 4
     sids = {s.attributes.get("session.id") for s in spans}
-    assert len(sids) == 1 and next(iter(sids)).startswith("s12lab-")            # every span, one session
+    assert len(sids) == 1 and next(iter(sids)).startswith("adlc-")            # every span, one session
     assert len({s.context.trace_id for s in spans}) == 1                       # one trace per item
-    wrapper = next(s for s in spans if s.name == "s12lab.triage")
-    assert wrapper.attributes["s12lab.feedback_id"] == g["feedback_id"]
-    assert json.loads(wrapper.attributes["s12lab.triage_output"]) == out
+    wrapper = next(s for s in spans if s.name == "adlc.triage")
+    assert wrapper.attributes["adlc.feedback_id"] == g["feedback_id"]
+    assert json.loads(wrapper.attributes["adlc.triage_output"]) == out
     assert baggage.get_baggage("session.id") is None                            # detached afterwards
 
 
@@ -130,7 +130,7 @@ def test_our_adapter_and_label_evaluator_read_the_captured_spans(otel):
     assert r["source"] == "attribute" and r["feedback_id"] == g["feedback_id"]
     assert (r["output"]["important"], r["output"]["urgent"], r["output"]["decision"]) == (
         g["expected"]["important"], g["expected"]["urgent"], g["expected"]["decision"])
-    res = load_pkg("s12_label_accuracy").handler(event(spans, trace=tid))
+    res = load_pkg("adlc_label_accuracy").handler(event(spans, trace=tid))
     assert res["label"] == "Pass" and res["value"] == 1.0, res
 
 
@@ -154,8 +154,8 @@ def test_feedback_id_key_variants_and_the_attribute_fallback(otel):
     out = {k: v for k, v in output_from_gold(g).items() if k != "feedback_id"}   # agent output without the id
     _load_snippet(provider, _fake_agent(provider, out))({"feedback_id": g["feedback_id"]})  # other key name
     spans = _as_dicts(exporter.get_finished_spans())
-    wrapper = next(s for s in spans if s["name"] == "s12lab.triage")
-    assert wrapper["attributes"]["s12lab.feedback_id"] == g["feedback_id"]
+    wrapper = next(s for s in spans if s["name"] == "adlc.triage")
+    assert wrapper["attributes"]["adlc.feedback_id"] == g["feedback_id"]
     rec = span_adapter.extract_records(spans, spans[0]["traceId"])
     assert rec["records"][0]["feedback_id"] == g["feedback_id"]                # read from the span attribute
     _load_snippet(provider, _fake_agent(provider, {"x": object()}))({})       # no id, odd result: no exception

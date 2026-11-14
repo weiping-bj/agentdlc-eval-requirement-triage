@@ -88,7 +88,7 @@ def repo(tmp_path):
 def run(repo, s3, **kw):
     lines = []
     kw.setdefault("default_reader", lambda root, name: {MD: DEFAULT_MD, CSV: DEFAULT_CSV}[name])
-    rc = pt.Puller(s3, "s12lab-zhang3-000000000000-us-west-2", root=repo, now=datetime(2026, 11, 7, 14, 5, 9),
+    rc = pt.Puller(s3, "adlc-zhang3-000000000000-us-west-2", root=repo, now=datetime(2026, 11, 7, 14, 5, 9),
                    out=lines.append, **kw).run()
     return rc, "\n".join(lines)
 
@@ -202,11 +202,11 @@ def test_only_allowlisted_names_and_real_templates_dir(repo):
 
 
 @pytest.mark.parametrize("arg,ok", [
-    ("s12lab-zhang3-123456789012-us-west-2", True), ("s3://s12lab-zhang3-123456789012-us-west-2/", True),
-    ("my-company-data", False), ("s12lab-", False), ("s12lab-../x", False), ("S12LAB-ZHANG3", False)])
+    ("adlc-zhang3-123456789012-us-west-2", True), ("s3://adlc-zhang3-123456789012-us-west-2/", True),
+    ("my-company-data", False), ("adlc-", False), ("adlc-../x", False), ("ADLC-ZHANG3", False)])
 def test_bucket_argument_limited_to_lab_buckets(arg, ok):
     if ok:
-        assert pt.normalize_bucket(arg) == "s12lab-zhang3-123456789012-us-west-2"
+        assert pt.normalize_bucket(arg) == "adlc-zhang3-123456789012-us-west-2"
     else:
         with pytest.raises(pt.PullError):
             pt.normalize_bucket(arg)
@@ -310,10 +310,10 @@ def test_r1_prepare_with_dry_run_is_rejected_before_any_aws_call():
 
 
 def test_r1_bucket_owner_is_pinned(repo):
-    """F11: an s12lab-* bucket in another account must not be read."""
+    """F11: an adlc-* bucket in another account must not be read."""
     s3 = FakeS3({CSV: (edited_csv_gbk(), t(6))})
     lines = []
-    pt.Puller(s3, "s12lab-zhang3-000000000000-us-west-2", root=repo, owner="000000000000",
+    pt.Puller(s3, "adlc-zhang3-000000000000-us-west-2", root=repo, owner="000000000000",
               default_reader=lambda r, n: None, out=lines.append).run()
     assert s3.kwargs and all(kw.get("ExpectedBucketOwner") == "000000000000" for _, kw in s3.kwargs)
 
@@ -396,7 +396,7 @@ def test_r2_prepare_reapplies_public_access_block():
             self.puts.append(kw)
 
     s3 = S3()
-    assert pt.ensure_private(s3, "s12lab-zhang3-000000000000-us-west-2", "000000000000") == "reapplied"
+    assert pt.ensure_private(s3, "adlc-zhang3-000000000000-us-west-2", "000000000000") == "reapplied"
     assert all(s3.puts[0]["PublicAccessBlockConfiguration"].values())
 
     class Denied(S3):
@@ -404,7 +404,7 @@ def test_r2_prepare_reapplies_public_access_block():
             raise ClientError({"Error": {"Code": "AccessDenied"}}, "GetPublicAccessBlock")
 
     with pytest.raises(pt.PullError):
-        pt.ensure_private(Denied(), "s12lab-zhang3-000000000000-us-west-2", "000000000000")
+        pt.ensure_private(Denied(), "adlc-zhang3-000000000000-us-west-2", "000000000000")
 
 
 def test_r2_config_error_is_a_friendly_message(monkeypatch, capsys):

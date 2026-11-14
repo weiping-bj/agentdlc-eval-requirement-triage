@@ -22,14 +22,14 @@ def load_pkg(pkg: str, module: str = "lambda_function"):
 
 
 def triage_span(out: dict, trace="a" * 32, fid=None, start=10, version="v1"):
-    attrs = {"session.id": "sess-1", "s12lab.agent_version": version, "s12lab.triage_output": json.dumps(out, ensure_ascii=False)}
+    attrs = {"session.id": "sess-1", "adlc.agent_version": version, "adlc.triage_output": json.dumps(out, ensure_ascii=False)}
     if fid:
-        attrs["s12lab.feedback_id"] = fid
-    return {"traceId": trace, "spanId": "s1", "name": "s12lab.triage", "scope": {"name": "s12lab.triage"},
+        attrs["adlc.feedback_id"] = fid
+    return {"traceId": trace, "spanId": "s1", "name": "adlc.triage", "scope": {"name": "adlc.triage"},
             "startTimeUnixNano": start, "attributes": attrs}
 
 
-def event(spans, trace="a" * 32, name="s12lab_test_label_accuracy", refs=None, level="TRACE"):
+def event(spans, trace="a" * 32, name="adlc_test_label_accuracy", refs=None, level="TRACE"):
     ev = {"schemaVersion": "1.0", "evaluatorId": "x-1", "evaluatorName": name, "evaluationLevel": level,
           "evaluationInput": {"sessionSpans": spans}, "evaluationReferenceInputs": refs or []}
     if level != "SESSION":

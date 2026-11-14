@@ -5,12 +5,12 @@
 #   source ./00-config.sh          # 在当前 shell 中加载
 #   ./00-config.sh                 # 直接运行：打印当前配置
 # =============================================================================
-_S12_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_S12_PY="python3"
-[ -x "$_S12_ROOT/.venv/bin/python" ] && _S12_PY="$_S12_ROOT/.venv/bin/python"
+_ADLC_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_ADLC_PY="python3"
+[ -x "$_ADLC_ROOT/.venv/bin/python" ] && _ADLC_PY="$_ADLC_ROOT/.venv/bin/python"
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-  cd "$_S12_ROOT" && exec "$_S12_PY" -m labkit.config --show
+  cd "$_ADLC_ROOT" && exec "$_ADLC_PY" -m labkit.config --show
 fi
-eval "$(cd "$_S12_ROOT" && "$_S12_PY" -m labkit.config --shell)"
+eval "$(cd "$_ADLC_ROOT" && "$_ADLC_PY" -m labkit.config --shell)"
 export AWS_PAGER=""
-export PYTHONPATH="$_S12_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$_ADLC_ROOT${PYTHONPATH:+:$PYTHONPATH}"

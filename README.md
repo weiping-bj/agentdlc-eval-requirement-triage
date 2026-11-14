@@ -1,4 +1,4 @@
-# 场景 12：需求价值打分 Agent · 评估驱动动手实验
+# AgentDLC 动手实验：需求价值打分 Agent · 评估驱动动手实验
 
 > 所有数据均为合成数据（synthetic）。本仓库是一次 Agent DLC workshop 的动手实验交付物。
 
@@ -26,7 +26,7 @@
 2. 确认 `config/lab.env` 的 `AWS_REGION` 与 workshop 区域一致（EC2 上会自动跟随实例所在区域）。
 3. 在实验账号提前开通 Anthropic 模型访问；不可用时 `./tools/use-model.sh nova`。
 4. GitHub → Settings → Pages：Branch `main`，folder `/docs`。
-5. 只在专用实验账号中部署 `ec2/s12lab-ec2.yaml`。
+5. 只在专用实验账号中部署 `ec2/adlc-ec2.yaml`。
 
 ## License
 

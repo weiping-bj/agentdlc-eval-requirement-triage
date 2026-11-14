@@ -1,4 +1,4 @@
-# s12_label_accuracy：三项标签准确率（代码型评估器，TRACE）
+# adlc_label_accuracy：三项标签准确率（代码型评估器，TRACE）
 
 - **Lambda handler**：`lambda_function.handler`。整个目录 zip 部署，只用标准库，不需要 Bedrock 权限。
 - **文件分工**：

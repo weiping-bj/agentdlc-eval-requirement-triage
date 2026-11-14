@@ -1,7 +1,7 @@
 """Data access for the agent tools: platform capability catalog + last month's feedback.
 
 Locations (first match wins):
-  1. $S12_DATA_DIR
+  1. $ADLC_DATA_DIR
   2. <package>/agent_data   (bundled into the AgentCore Runtime zip by 20-B-deploy-runtime.sh)
   3. <repo>/data            (local runs from the repo)
 File names follow data/HANDOFF.md; loaders accept a few field-name variants.
@@ -20,8 +20,8 @@ FEEDBACK_FILES = ["feedback_last_month.jsonl", "feedback.jsonl", "input/feedback
 
 def data_dir() -> Path:
     cands = []
-    if os.environ.get("S12_DATA_DIR"):
-        cands.append(Path(os.environ["S12_DATA_DIR"]))
+    if os.environ.get("ADLC_DATA_DIR"):
+        cands.append(Path(os.environ["ADLC_DATA_DIR"]))
     cands += [PKG / "agent_data", PKG.parent.parent / "data"]
     for c in cands:
         if any((c / f).exists() for f in CATALOG_FILES):

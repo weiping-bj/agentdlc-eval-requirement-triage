@@ -3,7 +3,7 @@
   python -m labkit.evaluators_reg            # create or update everything (idempotent)
   python -m labkit.evaluators_reg --list     # show registered evaluators
 
-Registered (names get the personal prefix s12lab_<suffix>_...):
+Registered (names get the personal prefix adlc_<suffix>_...):
   label_accuracy   code-based TRACE  3-label hit ratio vs golden set (the 70% target)
   label_important  code-based TRACE  single label 0/1 (console average = accuracy)
   label_urgent     code-based TRACE
@@ -29,11 +29,11 @@ EV = ROOT / "evaluators"
 LAMBDAS = {
     # key: (source dir, handler, extra env). One function per scored field, so the
     # field never depends on what the service puts into the event.
-    "label": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "all"}),
-    "label-important": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "important"}),
-    "label-urgent": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "urgent"}),
-    "label-decision": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "decision"}),
-    "reject": ("s12_reject_quality", "lambda_function.handler", {}),
+    "label": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "all"}),
+    "label-important": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "important"}),
+    "label-urgent": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "urgent"}),
+    "label-decision": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "decision"}),
+    "reject": ("adlc_reject_quality", "lambda_function.handler", {}),
 }
 CODE_EVALUATORS = [
     # (name suffix, lambda key, description)
@@ -43,7 +43,7 @@ CODE_EVALUATORS = [
     ("label_decision", "label-decision", "处理建议 单项准确率（0/1）"),
     ("reject_quality", "reject", "拒绝理由与客户话术质量（LLM 评审，非拒绝则 Skipped）"),
 ]
-JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/s12_reject_quality.json", "llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
+JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/adlc_reject_quality.json", "llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
                            "llm_judge_config/config.json"]
 
 
@@ -64,7 +64,7 @@ def lambda_role() -> str:
          "Resource": f"arn:aws:logs:*:{a}:log-group:/aws/lambda/{c['LAB_NAME']}-*"},
         {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:Converse"],
          "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]}]}
-    return aws.ensure_role(c["EVAL_LAMBDA_ROLE_NAME"], trust, inline, "s12lab evaluator Lambda role")
+    return aws.ensure_role(c["EVAL_LAMBDA_ROLE_NAME"], trust, inline, "adlc evaluator Lambda role")
 
 
 def zip_dir(src: Path) -> bytes:
@@ -110,7 +110,7 @@ def deploy_lambda(key: str, role_arn: str) -> str:
                 lam.create_function(FunctionName=name, Runtime="python3.12", Architectures=["arm64"], Role=role_arn,
                                     Handler=handler, Code={"ZipFile": code}, Timeout=120, MemorySize=512,
                                     Environment=env, Tags=aws.tags_dict(),
-                                    Description=f"s12lab evaluator ({src_dir})")
+                                    Description=f"adlc evaluator ({src_dir})")
                 break
             except lam.exceptions.InvalidParameterValueException as e:
                 if "role" in str(e).lower() and attempt < 5:

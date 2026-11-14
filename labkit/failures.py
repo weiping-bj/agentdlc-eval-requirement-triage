@@ -49,7 +49,7 @@ _EXPLAINED = re.compile(r"(是否重要|是否紧急|处理建议|优先级) (�
 _BLOCK = re.compile(r"需求 (\S+?)（")
 _NEGATION = re.compile(r"(不|暂不|不予|无需|无须|无法|没有|won'?t|not\b|^un|n't)")
 
-# The evaluator's tolerated variants (evaluators/s12_label_accuracy/span_adapter.py), for the fallback only.
+# The evaluator's tolerated variants (evaluators/adlc_label_accuracy/span_adapter.py), for the fallback only.
 _KEYS = {"important": ("important", "is_important", "importance", "是否重要", "重要"),
          "urgent": ("urgent", "is_urgent", "urgency", "是否紧急", "紧急"),
          "decision": ("decision", "action", "suggestion", "recommendation", "处理建议", "建议")}

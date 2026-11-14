@@ -9,7 +9,7 @@ import logging
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
-from s12agent.core import triage
+from adlc_agent.core import triage
 
 logging.basicConfig(level=logging.INFO)
 app = BedrockAgentCoreApp()

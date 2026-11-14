@@ -51,12 +51,12 @@ def session_docs(sid: str, log_group: str | None, start: int, end: int | None = 
 
 
 def trace_ids(docs: list) -> list:
-    """Trace ids that contain an agent invocation (s12lab.triage or invoke_agent span)."""
+    """Trace ids that contain an agent invocation (adlc.triage or invoke_agent span)."""
     out = []
     for d in docs:
         name = d.get("name", "")
         attrs = d.get("attributes", {}) or {}
-        if name == "s12lab.triage" or attrs.get("gen_ai.operation.name") == "invoke_agent" or name.startswith("invoke_agent"):
+        if name == "adlc.triage" or attrs.get("gen_ai.operation.name") == "invoke_agent" or name.startswith("invoke_agent"):
             t = d.get("traceId")
             if t and t not in out:
                 out.append(t)

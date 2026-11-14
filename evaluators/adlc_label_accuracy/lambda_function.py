@@ -15,12 +15,12 @@ label  = Pass (all correct) | Fail | CriticalFail (red line: rejected a must-not
          | Skipped (no answer in trace, or no ground truth for this feedback id; value omitted).
 
 Which labels are scored (first match wins):
-  env S12_SCORE_FIELD = all | important | urgent | decision | level
+  env ADLC_SCORE_FIELD = all | important | urgent | decision | level
   evaluatorName / evaluatorId / evaluatorArn (id tail "-XXXXXXXXXX" stripped) ending in
   _important | _urgent | _decision | _level  -> that single label (value 0/1)
   otherwise all (binary scheme: important+urgent+decision; level scheme: level+decision)
-Other env: S12_LABEL_SCHEME=binary|level (default binary), S12_LEVEL_TOLERANCE=0|1 (default 0),
-           S12_GOLDEN_PATH (default golden_set.json next to this file).
+Other env: ADLC_LABEL_SCHEME=binary|level (default binary), ADLC_LEVEL_TOLERANCE=0|1 (default 0),
+           ADLC_GOLDEN_PATH (default golden_set.json next to this file).
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ SUFFIX_FIELDS = (("_important", "important"), ("_urgent", "urgent"), ("_decision
 def _golden():
     global _GOLDEN
     if _GOLDEN is None:
-        path = os.environ.get("S12_GOLDEN_PATH") or os.path.join(HERE, "golden_set.json")
+        path = os.environ.get("ADLC_GOLDEN_PATH") or os.path.join(HERE, "golden_set.json")
         _GOLDEN = ls.load_golden(path) if os.path.exists(path) else {}
     return _GOLDEN
 
@@ -68,8 +68,8 @@ def _name_candidates(event_or_name) -> list:
 
 
 def resolve_score_field(event_or_name) -> str:
-    """S12_SCORE_FIELD env > evaluator name/id/arn suffix (_important/_urgent/_decision/_level) > token match > all."""
-    env = (os.environ.get("S12_SCORE_FIELD") or "").strip().lower()
+    """ADLC_SCORE_FIELD env > evaluator name/id/arn suffix (_important/_urgent/_decision/_level) > token match > all."""
+    env = (os.environ.get("ADLC_SCORE_FIELD") or "").strip().lower()
     if env:
         return env
     names = _name_candidates(event_or_name)
@@ -142,14 +142,14 @@ def evaluate(event: dict) -> dict:
     target = event.get("evaluationTarget") or {}
     trace_ids = target.get("traceIds") or []
     trace_id = trace_ids[0] if (trace_ids and level != "SESSION") else None
-    scheme = (os.environ.get("S12_LABEL_SCHEME") or "binary").strip().lower()
-    tol = int(os.environ.get("S12_LEVEL_TOLERANCE") or "0")
+    scheme = (os.environ.get("ADLC_LABEL_SCHEME") or "binary").strip().lower()
+    tol = int(os.environ.get("ADLC_LEVEL_TOLERANCE") or "0")
     field = resolve_score_field(event)
-    print(json.dumps({"s12": "label_eval", "keys": sorted(event.keys()), "evaluatorName": event.get("evaluatorName"),
+    print(json.dumps({"adlc": "label_eval", "keys": sorted(event.keys()), "evaluatorName": event.get("evaluatorName"),
                       "evaluatorId": event.get("evaluatorId"), "level": level, "n_spans": len(spans),
                       "trace": trace_id, "field": field, "scheme": scheme}, ensure_ascii=False))
     if field not in ("all",) + ls.BINARY_FIELDS + ("level",):
-        return {"errorCode": "VALIDATION_FAILED", "errorMessage": f"unknown S12_SCORE_FIELD {field!r}"}
+        return {"errorCode": "VALIDATION_FAILED", "errorMessage": f"unknown ADLC_SCORE_FIELD {field!r}"}
 
     ex = sa.extract_records(spans, trace_id)
     if not ex["trace_matched"]:
@@ -197,5 +197,5 @@ def handler(event, context=None):
             event = json.loads(event)
         return evaluate(event)
     except Exception as e:  # never let the evaluation job see an unhandled exception
-        print("[s12_label_accuracy] EXCEPTION", repr(e))
-        return {"errorCode": "S12_LABEL_EVAL_FAILED", "errorMessage": str(e)[:500]}
+        print("[adlc_label_accuracy] EXCEPTION", repr(e))
+        return {"errorCode": "ADLC_LABEL_EVAL_FAILED", "errorMessage": str(e)[:500]}

@@ -2,11 +2,11 @@
 
 During the group discussion the EC2 does not exist yet and it has no inbound ports, so the group's recorder edits
 the two template files on a laptop and, once the hands-on part starts, drags them into the participant's
-private s12lab bucket in the S3 console. This module brings them onto the EC2.
+private adlc bucket in the S3 console. This module brings them onto the EC2.
 
   python -m labkit.pull_templates --prepare     # create the private bucket if missing, print name + console link
   python -m labkit.pull_templates               # copy the two files into data/templates/
-  python -m labkit.pull_templates --bucket s12lab-zhang3-<account>-us-west-2   # a group-mate's bucket
+  python -m labkit.pull_templates --bucket adlc-zhang3-<account>-us-west-2   # a group-mate's bucket
   python -m labkit.pull_templates --dry-run     # show what would happen, write nothing
   python -m labkit.pull_templates --force       # also replace an EC2-edited file with an unedited upload
 
@@ -39,7 +39,7 @@ CSV_REQUIRED = ("golden_id", "操作")
 MAX_BYTES = 2_000_000
 MAX_CANDIDATES = 30
 RECORD = "last-pulled.json"  # in data/templates/.backup/: what this tool wrote last time, per file
-BUCKET_RE = re.compile(r"^s12lab-[a-z0-9][a-z0-9-]{1,54}[a-z0-9]$")
+BUCKET_RE = re.compile(r"^adlc-[a-z0-9][a-z0-9-]{1,56}[a-z0-9]$")  # S3 max 63 = 5 + 1 + 56 + 1
 BEIJING = timezone(timedelta(hours=8))  # attendees' wall clock; the EC2 itself runs in UTC
 
 
@@ -54,7 +54,7 @@ def normalize_bucket(arg: str) -> str:
         b = b[len("s3://"):]
     b = b.rstrip("/")
     if not BUCKET_RE.match(b):
-        raise PullError(f"桶名 {arg!r} 不对：只能是实验桶（以 s12lab- 开头，例如 s12lab-zhang3-123456789012-us-west-2）")
+        raise PullError(f"桶名 {arg!r} 不对：只能是实验桶（以 adlc- 开头，例如 adlc-zhang3-123456789012-us-west-2）")
     return b
 
 
@@ -614,7 +614,7 @@ def _aws_hint(e) -> str:
         code = str(e.response.get("Error", {}).get("Code", ""))
     name = type(e).__name__
     if code in ("AccessDenied", "403", "AllAccessDisabled") or "AccessDenied" in str(e):
-        return "没有权限（AccessDenied）：请在实验 EC2 上运行（实例角色 s12lab-ec2-…），桶名要以 s12lab- 开头、属于本账号"
+        return "没有权限（AccessDenied）：请在实验 EC2 上运行（实例角色 adlc-ec2-…），桶名要以 adlc- 开头、属于本账号"
     if name in ("NoCredentialsError", "PartialCredentialsError") or code in ("ExpiredToken", "InvalidClientTokenId"):
         return "没有可用的 AWS 凭证：请在实验 EC2 上运行（它用实例角色，不需要密钥）"
     if name in ("EndpointConnectionError", "ConnectTimeoutError", "ReadTimeoutError"):
@@ -647,7 +647,7 @@ def main(argv=None) -> int:
                 from .runtime import ensure_bucket
                 ensure_bucket()  # creates it private (all four public-access blocks) and tagged
             print(f"✅ 你的私有桶：{own}")
-            print("   名字规则：s12lab-<个人后缀>-<12 位账号 ID>-<区域>；只在本实验账号内可见")
+            print("   名字规则：adlc-<个人后缀>-<12 位账号 ID>-<区域>；只在本实验账号内可见")
             print("👉 在笔记本浏览器打开下面的链接（需已登录控制台），点「上传」，把 discussion-feedback.md 和")
             print("   golden-set-feedback.csv 拖进去（不要改文件名；放在 templates/ 文件夹里也可以），再点「上传」：")
             print(f"   {console_url(own, region)}")

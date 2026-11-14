@@ -5,17 +5,17 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 source ./00-config.sh
-OTEL_BIN="$(dirname "${_S12_PY}")/opentelemetry-instrument"
+OTEL_BIN="$(dirname "${_ADLC_PY}")/opentelemetry-instrument"
 [ -x "$OTEL_BIN" ] || OTEL_BIN="opentelemetry-instrument"
 P="${1:-b}"
 if [ "$P" = "a" ]; then
-  "${_S12_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
+  "${_ADLC_PY}" -m labkit.loggroup "$LOCAL_LOG_GROUP"
   source telemetry/otel_env.sh "$LOCAL_SERVICE_NAME" "$LOCAL_LOG_GROUP"
-  "$OTEL_BIN" "${_S12_PY}" -m labkit.batch --mode local --source feedback --workers 6
+  "$OTEL_BIN" "${_ADLC_PY}" -m labkit.batch --mode local --source feedback --workers 6
 else
-  "${_S12_PY}" -m labkit.batch --mode runtime --source feedback --workers 6
+  "${_ADLC_PY}" -m labkit.batch --mode runtime --source feedback --workers 6
 fi
 # labkit.report prints status to stderr and only the output path to stdout
-OUT=$("${_S12_PY}" -m labkit.report | tail -1)
+OUT=$("${_ADLC_PY}" -m labkit.report | tail -1)
 echo "$OUT"
-[ -n "$OUT" ] && [ -f "$OUT" ] && "${_S12_PY}" -m labkit.publish "$OUT"
+[ -n "$OUT" ] && [ -f "$OUT" ] && "${_ADLC_PY}" -m labkit.publish "$OUT"

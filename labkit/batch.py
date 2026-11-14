@@ -30,7 +30,7 @@ def _session_id(prefix: str, version: str, fid: str) -> str:
 def _local_one(row: dict, version: str, model: str, sid: str) -> dict:
     from opentelemetry import baggage, context  # provided by strands / ADOT
     sys.path.insert(0, str(Path(aws.cfg()["LAB_ROOT"]) / "agent"))
-    from s12agent.core import triage
+    from adlc_agent.core import triage
 
     token = context.attach(baggage.set_baggage("session.id", sid))
     try:

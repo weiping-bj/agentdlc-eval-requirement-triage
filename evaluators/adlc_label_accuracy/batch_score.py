@@ -2,13 +2,13 @@
 """本地批量打分：按三大支柱（红线 / 门禁 / 观测）给出结论，并输出“自动拒绝列表 + 重要/紧急分布”。
 
     # 直接用 Agent 的输出（JSONL，每行一个输出对象，或 {"result": {...}} / {"session_id":..,"result":..}）
-    python3 evaluators/s12_label_accuracy/batch_score.py --results results/v0.jsonl --report-md results/v0-score.md
+    python3 evaluators/adlc_label_accuracy/batch_score.py --results results/v0.jsonl --report-md results/v0-score.md
     # 用从 CloudWatch 导出的 spans（JSON 数组 / JSONL / {"sessionSpans": [...]}），按 trace 拆分
-    python3 evaluators/s12_label_accuracy/batch_score.py --spans results/v0-spans.json
+    python3 evaluators/adlc_label_accuracy/batch_score.py --spans results/v0-spans.json
     # 带上 31-run-eval.sh 已有的话术评审结果（不重新调用评审模型），三大支柱才完整
-    python3 evaluators/s12_label_accuracy/batch_score.py --results results/run-A-v1-....jsonl --reject-eval results/eval-A-v1-....json
+    python3 evaluators/adlc_label_accuracy/batch_score.py --results results/run-A-v1-....jsonl --reject-eval results/eval-A-v1-....json
     # 只看分布（不打分，例如跑完 60 条全量输入后）
-    python3 evaluators/s12_label_accuracy/batch_score.py --results results/all.jsonl --distribution-only
+    python3 evaluators/adlc_label_accuracy/batch_score.py --results results/all.jsonl --distribution-only
 
 结论 = 没有红线 且 门禁全部达标（规则见 pillars.py）：
   红线（一票否决）：误拒不可自动拒绝的需求；话术评审的 red_flags（需 --reject-eval）。有 1 条就不通过，该条整条判错。
@@ -305,14 +305,14 @@ def main(argv=None) -> int:
     src.add_argument("--spans", help="导出的 span 文档 JSON/JSONL")
     ap.add_argument("--golden", default=os.path.join(REPO, "data", "golden", "golden_set.jsonl"))
     ap.add_argument("--target", type=float, default=None)
-    ap.add_argument("--scheme", choices=["binary", "level"], default=os.environ.get("S12_LABEL_SCHEME", "binary"))
-    ap.add_argument("--level-tolerance", type=int, default=int(os.environ.get("S12_LEVEL_TOLERANCE", "0")))
+    ap.add_argument("--scheme", choices=["binary", "level"], default=os.environ.get("ADLC_LABEL_SCHEME", "binary"))
+    ap.add_argument("--level-tolerance", type=int, default=int(os.environ.get("ADLC_LEVEL_TOLERANCE", "0")))
     ap.add_argument("--reject-eval", help="31-run-eval.sh 的 results/eval-<run_id>.json：读取其中已有的 reject_quality 结果"
                                           "（不重新调用评审模型），补全话术红线和话术门禁")
     ap.add_argument("--distribution-only", action="store_true")
     ap.add_argument("--out-json")
     ap.add_argument("--report-md")
-    ap.add_argument("--title", default="场景 12 · 标签准确率评估报告")
+    ap.add_argument("--title", default="AgentDLC 动手实验 · 标签准确率评估报告")
     ap.add_argument("--fail-under", action="store_true", help="结论不是“通过”（有红线、门禁未达标或未评估）时退出码 1")
     a = ap.parse_args(argv)
     preds = preds_from_results(a.results) if a.results else preds_from_spans(a.spans)

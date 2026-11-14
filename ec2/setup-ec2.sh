@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Scenario 12 lab - install the toolchain ON the lab EC2 (Amazon Linux 2023).
+# AgentDLC lab - install the toolchain ON the lab EC2 (Amazon Linux 2023).
 #
 #   Run as ec2-user from the cloned repo:   bash ec2/setup-ec2.sh
 #
 # Idempotent (safe to re-run). Installs: uv + Python 3.12, Node.js (>=20),
 # AWS CLI v2 (verify), Claude Code (npm, user prefix ~/.npm-global), configures
 # Claude Code for Amazon Bedrock via the EC2 instance role, creates .venv and
-# installs requirements.txt. Log: ~/s12lab-setup.log
+# installs requirements.txt. Log: ~/adlc-setup.log
 #
 # Region / model ids: read from config/lab.env when present (plain KEY=VALUE:
 # AWS_REGION, CODING_AGENT_MODEL_ID, CODING_AGENT_FAST_MODEL_ID); otherwise the
@@ -24,10 +24,10 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
-LOG="$HOME/s12lab-setup.log"
+LOG="$HOME/adlc-setup.log"
 exec > >(tee -a "$LOG") 2>&1
 trap 'echo; echo "!! 第 $LINENO 行出错，安装中止。完整日志: $LOG  （可直接重新运行本脚本）" >&2' ERR
-echo "===== s12lab setup start $(date '+%F %T') ($REPO_ROOT) ====="
+echo "===== adlc setup start $(date '+%F %T') ($REPO_ROOT) ====="
 
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 step() { echo; echo "==> [$1/$TOTAL] $2"; }
@@ -101,13 +101,13 @@ if [ -z "$SUFFIX" ]; then
   IID="$(imds instance-id)"
   if [ -n "$IID" ]; then
     SUFFIX="$(aws ec2 describe-tags --region "$REGION" \
-      --filters "Name=resource-id,Values=$IID" "Name=key,Values=s12lab:owner" \
+      --filters "Name=resource-id,Values=$IID" "Name=key,Values=adlc:owner" \
       --query 'Tags[0].Value' --output text 2>/dev/null || true)"
     if [ -z "$SUFFIX" ] || [ "$SUFFIX" = "None" ]; then
       SUFFIX="$(aws ec2 describe-tags --region "$REGION" \
         --filters "Name=resource-id,Values=$IID" "Name=key,Values=Name" \
         --query 'Tags[0].Value' --output text 2>/dev/null || true)"
-      SUFFIX="${SUFFIX#s12lab-}"
+      SUFFIX="${SUFFIX#adlc-}"
     fi
   fi
 fi
@@ -216,9 +216,9 @@ echo "    已写入 $SETTINGS"
 
 BASHRC="$HOME/.bashrc"
 touch "$BASHRC"
-sed -i '/^# >>> s12lab >>>$/,/^# <<< s12lab <<<$/d' "$BASHRC"
+sed -i '/^# >>> adlc >>>$/,/^# <<< adlc <<<$/d' "$BASHRC"
 {
-  echo '# >>> s12lab >>>'
+  echo '# >>> adlc >>>'
   echo '# Managed by ec2/setup-ec2.sh - re-run that script to update this block.'
   # shellcheck disable=SC2016  # $HOME/$PATH must expand when .bashrc runs, not now
   echo 'case ":$PATH:" in *":$HOME/.npm-global/bin:"*) ;; *) export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH" ;; esac'
@@ -229,9 +229,9 @@ sed -i '/^# >>> s12lab >>>$/,/^# <<< s12lab <<<$/d' "$BASHRC"
   echo "export ANTHROPIC_SMALL_FAST_MODEL=\"$FAST_MODEL\""
   echo "export ANTHROPIC_DEFAULT_HAIKU_MODEL=\"$FAST_MODEL\""
   if [ -n "$SUFFIX" ]; then echo "export LAB_SUFFIX=\"$SUFFIX\""; fi
-  echo '# <<< s12lab <<<'
+  echo '# <<< adlc <<<'
 } >> "$BASHRC"
-echo "    已更新 $BASHRC（# >>> s12lab >>> 标记块）"
+echo "    已更新 $BASHRC（# >>> adlc >>> 标记块）"
 
 # ------------------------------------------------------------------ 8. Python venv
 step 8 "创建实验 Python 虚拟环境 .venv 并安装依赖"
@@ -252,7 +252,7 @@ trap - ERR
 ARN="$(aws sts get-caller-identity --region "$REGION" --query Arn --output text 2>/dev/null \
   | sed -E 's/[0-9]{12}/<account>/g' || true)"
 echo
-echo "==================== s12lab 安装完成 ===================="
+echo "==================== adlc 安装完成 ===================="
 printf '  %-12s %s\n' "python(.venv)" "$(.venv/bin/python --version 2>&1)"
 printf '  %-12s %s\n' "node"   "$(node --version 2>&1 || echo 未安装)"
 printf '  %-12s %s\n' "npm"    "$(npm --version 2>&1 || echo 未安装)"

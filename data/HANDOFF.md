@@ -36,9 +36,9 @@
 | `data/templates/` | 讨论用模板：`discussion-feedback.md`、`golden-set-feedback.csv`（已预填 30 行）、`mock-data-params.yaml`、`column-mapping.example.json`、`extra-feedback.example.jsonl` |
 | `data/prompts/01~05` | 客户数据评估、mock 重新生成、黄金集更新、能力目录更新、切换分级 |
 | `data/tools/` | 脚本。`seed/pool.jsonl` 是 60 条带标注的种子库 |
-| `evaluators/s12_label_accuracy/` | 标签准确率 Lambda，另含 `batch_score.py`（本地批量打分 + 分布报告） |
-| `evaluators/s12_reject_quality/` | 拒绝话术 LLM 评审 Lambda，另含 `execution-role-policy.json` |
-| `evaluators/llm_judge_config/s12_reject_quality.json` | 原生 LLM-as-judge 配置，可直接作为 `--evaluator-config` 使用 |
+| `evaluators/adlc_label_accuracy/` | 标签准确率 Lambda，另含 `batch_score.py`（本地批量打分 + 分布报告） |
+| `evaluators/adlc_reject_quality/` | 拒绝话术 LLM 评审 Lambda，另含 `execution-role-policy.json` |
+| `evaluators/llm_judge_config/adlc_reject_quality.json` | 原生 LLM-as-judge 配置，可直接作为 `--evaluator-config` 使用 |
 | `evaluators/shared/` | 适配层与黄金集加载的权威副本；`sync_shared.py` 负责复制到各 Lambda |
 | `evaluators/sample_events/`、`run_local.py` | 本地调用 handler 的样例事件 |
 
@@ -64,8 +64,8 @@
 ### span 埋点
 
 - 读取顺序：
-  1. 首选属性 `s12lab.triage_output`（输出 JSON 字符串）；
-  2. 再取 `s12lab.feedback_id`；
+  1. 首选属性 `adlc.triage_output`（输出 JSON 字符串）；
+  2. 再取 `adlc.feedback_id`；
   3. 都没有时，再解析最终 assistant 文本：events / span_events / log-record body，按事件时间取最新的一条。
 - 每个 span 带 `session.id`。
 
@@ -88,7 +88,7 @@
 | Bedrock 权限 | 不需要 | 需要 `bedrock:InvokeModel` / `Converse` |
 
 - **标签准确率**：
-  - 打分项按评估器名后缀决定：`_important` / `_urgent` / `_decision` 只打单项，其它名字打三项。`S12_SCORE_FIELD` 可覆盖。
+  - 打分项按评估器名后缀决定：`_important` / `_urgent` / `_decision` 只打单项，其它名字打三项。`ADLC_SCORE_FIELD` 可覆盖。
   - 名字依次从 `evaluatorName`、`evaluatorId`、`evaluatorArn` 读取，并去掉 id 末尾的 `-XXXXXXXXXX`。
   - 每次调用打印一行 JSON 日志。
 - **拒绝话术**：
@@ -107,7 +107,7 @@
   - mock agent 已对 Claude 模型去掉 temperature。
 - **用 G26（集成链路故障）替换原“导入按编码更新”样例**：让“紧急=是”有 6 条，避免“全判否”就拿到 80% 以上的假高分。批量报告同时给出各类别召回率。
 - **客户真实数据只写 `data/customer/`**：该目录已加入 .gitignore。
-  - `--use-as-input` 生成 `data/customer/agent_data/`，再用 `S12_DATA_DIR` 指向它（Agent 的 `data.py` 优先读这个变量），不再覆盖仓库里的 mock 文件。
+  - `--use-as-input` 生成 `data/customer/agent_data/`，再用 `ADLC_DATA_DIR` 指向它（Agent 的 `data.py` 优先读这个变量），不再覆盖仓库里的 mock 文件。
   - Supersedes：之前是“覆盖 `data/feedback_last_month.jsonl` 并留 .bak”。改动原因：该文件被 git 跟踪，客户数据可能被提交到公开仓库。
 - **目标 trace 不在 session 里时，两个评估器都返回 `Skipped`**，不借用其它 trace 的输出。
   - Supersedes：之前是“改用整个 session 并在说明里注明”。改动原因：会给错误的 trace 打分。
@@ -115,9 +115,9 @@
   - Supersedes：之前是“整条替换”。改动原因：只写三项标签的参考输入会让严重错误（CriticalFail）判定失效。
 - **适配层已用真实 span 验证**：样例为 `telemetry/fixtures/local-adot-v0-sessions.json`（Strands 1.64 + ADOT 0.22，split 模式），3 个 session 全部正确解析。
   - 属性路径直接取到输出；
-  - 去掉 `s12lab.triage_output` 后，仍能从 log record 的 `body.output.messages` 和 `需求编号:` 行还原。
+  - 去掉 `adlc.triage_output` 后，仍能从 log record 的 `body.output.messages` 和 `需求编号:` 行还原。
   - `test_span_adapter.py` 有针对这份样例的测试。
-- **原生 LLM-as-judge 配置**：由 `./30-create-evaluators.sh` 注册为 `…_reject_quality_llm`（手册第 6 章）；如果服务拒绝档位或模型 ID，调整 `evaluators/s12_reject_quality/rubric.py`，运行 `python3 evaluators/sync_shared.py` 重新生成配置，再运行 `./30-create-evaluators.sh`。
+- **原生 LLM-as-judge 配置**：由 `./30-create-evaluators.sh` 注册为 `…_reject_quality_llm`（手册第 6 章）；如果服务拒绝档位或模型 ID，调整 `evaluators/adlc_reject_quality/rubric.py`，运行 `python3 evaluators/sync_shared.py` 重新生成配置，再运行 `./30-create-evaluators.sh`。
 
 ## 5. 待确认问题（已按默认值处理）
 

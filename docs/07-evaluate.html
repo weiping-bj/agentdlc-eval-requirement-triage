@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>跑黄金集（V0）并评估 · 场景 12 实验手册</title>
+<title>跑黄金集（V0）并评估 · AgentDLC 动手实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="07-evaluate">
@@ -48,7 +48,7 @@
 <pre class="out">▶ 分诊报告：A-v0-20261106T065342Z · 30 条
 ✅ 分诊报告已生成（本地文件，可直接用浏览器打开）：
 results/triage-report-A-v0-20261106T065342Z.html
-☁️  已上传到私有桶 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/reports/triage-report-A-v0-20261106T065342Z.html
+☁️  已上传到私有桶 s3://adlc-zhang3-&lt;account&gt;-us-west-2/reports/triage-report-A-v0-20261106T065342Z.html
 👉 在笔记本浏览器打开（需已登录控制台），点右上角「打开」查看：
    https://us-west-2.console.aws.amazon.com/s3/object/…</pre>
   如果桶是这次新建的，上传前会多一行“🪣 已创建 S3 桶 …”。</div>
@@ -117,19 +117,19 @@ results/triage-report-A-v0-20261106T065342Z.html
   <div class="step-head"><span class="num">7.4</span><h3>在控制台查看评估结果</h3><span class="time">5 分钟</span></div>
   <p class="why">在 CloudWatch / Evaluations 控制台看到同样的分数和解释，Demo 时直接用。</p>
   <ol class="clicks">
-    <li>CloudWatch → <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → 点你的 Agent（A 版 <code>s12lab-zhang3-local-agent</code>，B 版 <code>s12lab_zhang3_agent</code>）。</li>
+    <li>CloudWatch → <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span> → 点你的 Agent（A 版 <code>adlc-zhang3-local-agent</code>，B 版 <code>adlc_zhang3_agent</code>）。</li>
     <li><span class="ui">Sessions</span> / <span class="ui">Traces</span>：30 个新 session；点开任一 trace 看 Agent 的推理、工具调用和输出。</li>
     <li><span class="ui">Evaluations</span> 页签：在线评估的结果。session 空闲 2 分钟后才开始打分，所以 7.1 跑完后约 <b>5–10 分钟</b>才会陆续出现；可以看到每个评估器的平均分、分布和每个 session / trace 的得分与解释。</li>
     <li>（可选）CloudWatch → <span class="ui">Metrics</span> → 命名空间 <code>Bedrock-AgentCore/Evaluations</code>，可以给评估分数配告警。</li>
   </ol>
   <div class="expect"><span class="label">预期结果：</span>Evaluations 页签里每个评估器都有平均分和分布；在线评估不传黄金集参考输入，评估器用自带的黄金集按需求编号对答案，所以 label_important / label_urgent / label_decision 的平均分与 7.2 基本一致。控制台菜单名称可能随版本略有不同。
   <p>同样的分数也是 CloudWatch 指标（命名空间 <code>Bedrock-AgentCore/Evaluations</code>，维度 <code>service.name</code> + <code>onlineEvaluationConfigId</code>），A 版（不在 Runtime 上的 Agent）和 B 版都已实测能看到。实测示例（V0 + V1 两次黄金集共 60 个 session 的平均）：</p>
-<pre class="out">s12lab_zhang3_label_accuracy    service=s12lab_zhang3_agent.DEFAULT   avg=0.81 n=60
-s12lab_zhang3_label_decision    service=s12lab_zhang3_agent.DEFAULT   avg=0.73 n=60
-s12lab_zhang3_label_important   service=s12lab_zhang3_agent.DEFAULT   avg=0.78 n=60
-s12lab_zhang3_label_urgent      service=s12lab_zhang3_agent.DEFAULT   avg=0.90 n=60
-s12lab_zhang3_reject_quality    service=s12lab_zhang3_agent.DEFAULT   avg=0.60 n=18
-Builtin.Helpfulness             service=s12lab_zhang3_agent.DEFAULT   avg=0.85 n=60</pre>
+<pre class="out">adlc_zhang3_label_accuracy    service=adlc_zhang3_agent.DEFAULT   avg=0.81 n=60
+adlc_zhang3_label_decision    service=adlc_zhang3_agent.DEFAULT   avg=0.73 n=60
+adlc_zhang3_label_important   service=adlc_zhang3_agent.DEFAULT   avg=0.78 n=60
+adlc_zhang3_label_urgent      service=adlc_zhang3_agent.DEFAULT   avg=0.90 n=60
+adlc_zhang3_reject_quality    service=adlc_zhang3_agent.DEFAULT   avg=0.60 n=18
+Builtin.Helpfulness             service=adlc_zhang3_agent.DEFAULT   avg=0.85 n=60</pre>
   <p>想在控制台分别看 V0 和 V1：把时间范围分别设成两次运行的时间段（第 9.3 步）。</p></div>
 </div>
 
@@ -170,8 +170,8 @@ FB-2610-014  FormatError：trace 中有 Agent 回复，但解析不出约定的 
   <p>这次 V0 错得最多的是“处理建议”（16 条），维度上认知最多（10 条）。你的数字会和上面不同（每次运行有波动），读法一样。和 7.2 对数时注意：7.2 把格式错误的条目按三项全错算，所以 7.2 每一项的错误数 = 这里的条数 + “其他未通过”的条数（例如是否重要 9 + 1 = 10 条错，即 67%）。</p></div>
   <p><b>怎么读：拿上面两条举例。</b></p>
   <ul>
-    <li><code>FB-2610-009</code> 只错在“建议”（期望 拒绝，实际 待评估）。黄金集标的是 <span class="pill b">认知</span>，理由是“查重与合并已支持（CAP-004），客户未配置”：平台早就支持，客户只是没配置。V0 知道有这个功能名，但它自己写了“我只查到功能名称，没有查到细节”，看不到支持状态和配置方法，所以既没拒绝也没给配置路径。问题在<b>工具</b>：能力查询要返回支持状态和用法，改 <a data-repo="agent/s12agent/tools.py">tools.py</a>（8.1 表格里“工具输出”那一行）。</li>
-    <li><code>FB-2610-026</code> 错在“紧急”（期望 是，实际 否）和“建议”（期望 迭代，实际 待评估）。黄金集标的是 <span class="pill r">责任</span>，理由是“安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝”。V0 的推理是“客户没有明确说着急……所以按规则标‘否’”：它只看客户措辞，没有“影响正在发生就算紧急”的事实标准；处理建议也只敢给“待评估”。所以问题在<b>提示词</b>：“紧急”要按事实判断（8.1 表格里“提示词口径”那一行），处理建议要写明“必须修复的缺陷（故障、数据、安全类）判迭代”（V1 的 <a data-repo="agent/s12agent/prompts/v1.md">prompts/v1.md</a> 就是这样写的）。</li>
+    <li><code>FB-2610-009</code> 只错在“建议”（期望 拒绝，实际 待评估）。黄金集标的是 <span class="pill b">认知</span>，理由是“查重与合并已支持（CAP-004），客户未配置”：平台早就支持，客户只是没配置。V0 知道有这个功能名，但它自己写了“我只查到功能名称，没有查到细节”，看不到支持状态和配置方法，所以既没拒绝也没给配置路径。问题在<b>工具</b>：能力查询要返回支持状态和用法，改 <a data-repo="agent/adlc_agent/tools.py">tools.py</a>（8.1 表格里“工具输出”那一行）。</li>
+    <li><code>FB-2610-026</code> 错在“紧急”（期望 是，实际 否）和“建议”（期望 迭代，实际 待评估）。黄金集标的是 <span class="pill r">责任</span>，理由是“安全漏洞 + 个人信息泄露风险，影响正在发生，不可拒绝”。V0 的推理是“客户没有明确说着急……所以按规则标‘否’”：它只看客户措辞，没有“影响正在发生就算紧急”的事实标准；处理建议也只敢给“待评估”。所以问题在<b>提示词</b>：“紧急”要按事实判断（8.1 表格里“提示词口径”那一行），处理建议要写明“必须修复的缺陷（故障、数据、安全类）判迭代”（V1 的 <a data-repo="agent/adlc_agent/prompts/v1.md">prompts/v1.md</a> 就是这样写的）。</li>
   </ul>
   <p>其余条目照这个办法，对照下表归类：</p>
   <table>
@@ -188,7 +188,7 @@ FB-2610-014  FormatError：trace 中有 Agent 回复，但解析不出约定的 
 </section>
 </main>
 </div>
-<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

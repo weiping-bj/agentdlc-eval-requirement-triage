@@ -36,7 +36,7 @@ def _content_ok(docs, kind: str) -> bool:
             if kind == "output" and n in ("gen_ai.choice", "gen_ai.assistant.message"):
                 return True
         attrs = d.get("attributes", {}) or {}
-        if kind == "output" and (attrs.get("s12lab.triage_output") or attrs.get("gen_ai.output.messages")):
+        if kind == "output" and (attrs.get("adlc.triage_output") or attrs.get("gen_ai.output.messages")):
             return True
         if kind == "input" and attrs.get("gen_ai.input.messages"):
             return True
@@ -61,7 +61,7 @@ def check_session(sid: str, log_group: str, start: int) -> dict:
         "o_tools": "execute_tool" in ops,
         "o_model": any(a.get("gen_ai.request.model") for a in attrs),
         "o_tokens": any(a.get("gen_ai.usage.input_tokens") or a.get("gen_ai.usage.prompt_tokens") for a in attrs),
-        "o_triage": any(a.get("s12lab.triage_output") or a.get("s12lab.feedback_id") for a in attrs),
+        "o_triage": any(a.get("adlc.triage_output") or a.get("adlc.feedback_id") for a in attrs),
         "o_service": bool(res - {None, ""}),
         "scopes": sorted(s for s in scopes if s), "service_names": sorted(x for x in res if x),
         "trace_ids": spans.trace_ids(docs), "_docs": docs,

@@ -49,7 +49,7 @@ def search_capabilities(query: str) -> str:
     out = []
     for c in hits:
         # how_to = the catalog menu path. The reviewer's catalog excerpt carries it too
-        # (evaluators/s12_reject_quality/lambda_function.capability_hints), so a path quoted verbatim can be verified.
+        # (evaluators/adlc_reject_quality/lambda_function.capability_hints), so a path quoted verbatim can be verified.
         out.append({
             "id": data.g(c, "id", "capability_id"),
             "name": data.g(c, "name", "title"),

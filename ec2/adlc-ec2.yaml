@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  Scenario 12 lab - one participant EC2 (Amazon Linux 2023), SSM Session Manager
+  AgentDLC lab - one participant EC2 (Amazon Linux 2023), SSM Session Manager
   only (no inbound ports, no key pair), instance role for Bedrock / AgentCore /
-  CloudWatch lab work. Stack name convention: s12lab-ec2-<suffix>.
+  CloudWatch lab work. Stack name convention: adlc-ec2-<suffix>.
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -72,18 +72,18 @@ Resources:
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
-        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
-        - { Key: "s12lab:lab", Value: scenario12 }
-        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Condition: CreateVpc
     Properties:
       Tags:
-        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
-        - { Key: "s12lab:lab", Value: scenario12 }
-        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
   VpcGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -101,9 +101,9 @@ Resources:
       AvailabilityZone: !If [HasNewSubnetAz, !Ref NewSubnetAz, !Select [0, !GetAZs ""]]
       MapPublicIpOnLaunch: true
       Tags:
-        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}-public" }
-        - { Key: "s12lab:lab", Value: scenario12 }
-        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}-public" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -111,9 +111,9 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       Tags:
-        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}-public" }
-        - { Key: "s12lab:lab", Value: scenario12 }
-        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}-public" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
   PublicDefaultRoute:
     Type: AWS::EC2::Route
@@ -146,30 +146,30 @@ Resources:
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: !Sub "s12lab ${LabSuffix} - no inbound, SSM only"
+      GroupDescription: !Sub "adlc ${LabSuffix} - no inbound, SSM only"
       VpcId: !If [CreateVpc, !Ref Vpc, !Ref VpcId]
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: 0.0.0.0/0
           Description: All outbound (dnf/pip/npm/git, SSM, AWS APIs)
       Tags:
-        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
-        - { Key: "s12lab:lab", Value: scenario12 }
-        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
   # ---------------------------------------------------------------------------
   # Instance role.
   # NOTE: the inline policy is INTENTIONALLY BROAD. It is meant for a 1-day
   # workshop in a dedicated, disposable lab account, so that participants (and
   # the coding agent running on this EC2) can create AgentCore resources,
-  # s12lab* IAM roles, Lambda functions, S3 buckets and observability config
+  # adlc* IAM roles, Lambda functions, S3 buckets and observability config
   # without permission friction. Do not reuse it for real workloads.
   # ---------------------------------------------------------------------------
   InstanceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "s12lab-ec2-${LabSuffix}-${AWS::Region}"
-      Description: !Sub "Scenario 12 lab EC2 role for ${LabSuffix}"
+      RoleName: !Sub "adlc-ec2-${LabSuffix}-${AWS::Region}"
+      Description: !Sub "AgentDLC lab EC2 role for ${LabSuffix}"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -179,7 +179,7 @@ Resources:
       ManagedPolicyArns:
         - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
       Policies:
-        - PolicyName: s12lab-workshop
+        - PolicyName: adlc-workshop
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -218,7 +218,7 @@ Resources:
                 Action:
                   - iam:CreateRole
                   - iam:PutRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc*"
                 Condition:
                   StringEquals:
                     iam:PermissionsBoundary: !Ref LabRoleBoundary
@@ -235,11 +235,11 @@ Resources:
                   - iam:ListInstanceProfilesForRole
                   - iam:TagRole
                   - iam:UpdateAssumeRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc*"
               - Sid: LabIamPassRole
                 Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc*"
                 Condition:
                   StringEquals:
                     iam:PassedToService:
@@ -283,17 +283,17 @@ Resources:
                   - iam:AttachRolePolicy
                   - iam:DetachRolePolicy
                   - iam:UpdateAssumeRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/s12lab-ec2-*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-ec2-*"
               - Sid: LabLambda
                 Effect: Allow
                 Action: lambda:*
-                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:s12lab*"
+                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc*"
               - Sid: LabS3Buckets
                 Effect: Allow
                 Action: s3:*
                 Resource:
-                  - !Sub "arn:${AWS::Partition}:s3:::s12lab-*"
-                  - !Sub "arn:${AWS::Partition}:s3:::s12lab-*/*"
+                  - !Sub "arn:${AWS::Partition}:s3:::adlc-*"
+                  - !Sub "arn:${AWS::Partition}:s3:::adlc-*/*"
               - Sid: S3ListBuckets
                 Effect: Allow
                 Action: s3:ListAllMyBuckets
@@ -303,7 +303,7 @@ Resources:
                 Action: logs:*
                 Resource:
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"
-                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/s12lab*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/adlc*"
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans"
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans:*"
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/application-signals/data"
@@ -341,15 +341,15 @@ Resources:
                   - cloudformation:List*
                 Resource: "*"
       Tags:
-        - { Key: "s12lab:lab", Value: scenario12 }
-        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
   # Permissions boundary for every IAM role the lab scripts create (see labkit/aws.py).
   LabRoleBoundary:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub "s12lab-boundary-${LabSuffix}-${AWS::Region}"
-      Description: Upper bound for roles created by the s12lab scripts
+      ManagedPolicyName: !Sub "adlc-boundary-${LabSuffix}-${AWS::Region}"
+      Description: Upper bound for roles created by the adlc scripts
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -390,16 +390,16 @@ Resources:
             Action:
               - lambda:InvokeFunction
               - lambda:GetFunction
-            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:s12lab*"
+            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc*"
           - Sid: ReadLabBuckets
             Effect: Allow
             Action: s3:GetObject
-            Resource: !Sub "arn:${AWS::Partition}:s3:::s12lab-*/*"
+            Resource: !Sub "arn:${AWS::Partition}:s3:::adlc-*/*"
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      InstanceProfileName: !Sub "s12lab-ec2-${LabSuffix}-${AWS::Region}"
+      InstanceProfileName: !Sub "adlc-ec2-${LabSuffix}-${AWS::Region}"
       Roles: [!Ref InstanceRole]
 
   # ---------------------------------------------------------------------------
@@ -437,21 +437,21 @@ Resources:
           #!/bin/bash
           # Minimal OS bootstrap only. The lab repo is cloned manually by the participant.
           set -uo pipefail
-          cat > /etc/profile.d/s12lab.sh <<'EOF'
+          cat > /etc/profile.d/adlc.sh <<'EOF'
           export AWS_REGION=${AWS::Region}
           export AWS_DEFAULT_REGION=${AWS::Region}
           export LAB_SUFFIX=${LabSuffix}
           EOF
-          chmod 0644 /etc/profile.d/s12lab.sh
+          chmod 0644 /etc/profile.d/adlc.sh
           for attempt in 1 2 3 4 5; do
             dnf install -y git jq tar gzip unzip && break
             echo "dnf install failed (attempt $attempt), retrying in 15s" >&2
             sleep 15
           done
       Tags:
-        - { Key: Name, Value: !Sub "s12lab-${LabSuffix}" }
-        - { Key: "s12lab:lab", Value: scenario12 }
-        - { Key: "s12lab:owner", Value: !Ref LabSuffix }
+        - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
+        - { Key: "adlc:lab", Value: agentdlc }
+        - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
 Outputs:
   InstanceId:

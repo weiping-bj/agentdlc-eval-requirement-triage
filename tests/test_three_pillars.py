@@ -104,7 +104,7 @@ import pytest  # noqa: E402
 
 
 @pytest.mark.parametrize("reject", [None, {"label": "Skipped"}, {"label": "不适用"}, {"label": "FormatError", "value": 0.0},
-                                    {"errorCode": "S12_REJECT_JUDGE_FAILED", "errorMessage": "x"}])
+                                    {"errorCode": "ADLC_REJECT_JUDGE_FAILED", "errorMessage": "x"}])
 @pytest.mark.parametrize("decision", ["拒绝", "建议拒绝", "Reject"])
 def test_a_rejection_without_a_judged_verdict_never_passes(reject, decision):
     s = _session("R", decision)
@@ -138,11 +138,11 @@ def test_label_accuracy_error_alone_does_not_make_the_verdict_incomplete():
 
 def test_batch_score_and_evaluate_agree_on_the_same_run(tmp_path):
     """Cross-tool: batch_score on a run file vs labkit.evaluate / compare on eval sessions built from it."""
-    from s12_cross import build_pair  # tests/s12_cross.py
+    from adlc_cross import build_pair  # tests/adlc_cross.py
     run, ev, rej = build_pair(tmp_path)
     import subprocess
     oj = tmp_path / "bs.json"
-    subprocess.run([sys.executable, str(ROOT / "evaluators/s12_label_accuracy/batch_score.py"), "--results", str(run),
+    subprocess.run([sys.executable, str(ROOT / "evaluators/adlc_label_accuracy/batch_score.py"), "--results", str(run),
                     "--reject-eval", str(rej), "--out-json", str(oj)], check=True, capture_output=True)
     b = json.loads(oj.read_text(encoding="utf-8"))["pillars"]
     e = evaluate.summarize(json.loads(ev.read_text(encoding="utf-8"))["sessions"], 0.7)["pillars"]

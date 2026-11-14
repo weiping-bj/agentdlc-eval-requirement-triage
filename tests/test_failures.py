@@ -28,7 +28,7 @@ def _score(label, explanation=""):
 
 
 def _expl(fid, gid, parts):
-    """The label_accuracy evaluator's explanation format (evaluators/s12_label_accuracy/label_scoring.explain)."""
+    """The label_accuracy evaluator's explanation format (evaluators/adlc_label_accuracy/label_scoring.explain)."""
     body = "；".join(f"{n} {'对' if ok else '错'}（期望 {e}，实际 {a}）" for n, ok, e, a in parts)
     return f"需求 {fid}（{gid}）：{sum(p[1] for p in parts)}/{len(parts)} 项正确。{body}。[来源 attribute，版本 v0]"
 

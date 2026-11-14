@@ -5,7 +5,7 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from s12_eval_helpers import GOLDEN  # noqa: E402
+from adlc_eval_helpers import GOLDEN  # noqa: E402
 
 
 @pytest.fixture

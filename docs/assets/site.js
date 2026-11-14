@@ -1,4 +1,4 @@
-/* 场景 12 实验手册 - 共享脚本：顶栏、目录、仓库链接、复制按钮
+/* AgentDLC 动手实验手册 - 共享脚本：顶栏、目录、仓库链接、复制按钮
  *
  * 仓库地址只在这里定义一次（占位符）。正式发布前在仓库根目录运行：
  *   ./tools/set-repo-url.sh https://github.com/<owner>/<name>
@@ -101,7 +101,7 @@ function buildTopbar() {
   bar.innerHTML = `
     <div>
       <div class="title">需求价值打分 Agent · 动手实验手册</div>
-      <div class="subtitle">场景 12 · Strands Agent + AgentCore Observability + AgentCore Evaluations · 评估驱动的 Agent 迭代</div>
+      <div class="subtitle">AgentDLC 动手实验 · Strands Agent + AgentCore Observability + AgentCore Evaluations · 评估驱动的 Agent 迭代</div>
     </div>
     <div class="spacer"></div>
     <a class="btn" href="${REPO_URL}" target="_blank" rel="noopener">GitHub 仓库 ↗</a>`;

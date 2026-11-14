@@ -1,20 +1,20 @@
 """One real Bedrock call path for the LLM judge (good vs bad rejection).
 
-Runs only when AWS credentials are available. Set S12_SKIP_BEDROCK=1 to skip.
+Runs only when AWS credentials are available. Set ADLC_SKIP_BEDROCK=1 to skip.
 Uses the model from JUDGE_MODEL_ID / config/lab.env (default Claude Sonnet 5.5), fallback Nova.
 """
 import os
 
 import pytest
 
-from s12_eval_helpers import load_pkg
+from adlc_eval_helpers import load_pkg
 
-lf = load_pkg("s12_reject_quality")
+lf = load_pkg("adlc_reject_quality")
 judge = lf.judge
 
 
 def _creds_ok():
-    if os.environ.get("S12_SKIP_BEDROCK") == "1":
+    if os.environ.get("ADLC_SKIP_BEDROCK") == "1":
         return False
     try:
         import boto3
@@ -23,7 +23,7 @@ def _creds_ok():
         return False
 
 
-@pytest.mark.skipif(not _creds_ok(), reason="no AWS credentials (or S12_SKIP_BEDROCK=1)")
+@pytest.mark.skipif(not _creds_ok(), reason="no AWS credentials (or ADLC_SKIP_BEDROCK=1)")
 def test_real_judge_ranks_good_above_bad(golden_rows):
     m = judge.resolve_models()
     c = judge.BedrockJudgeClient(m["model"], m["fallback"], m["region"])
@@ -39,13 +39,13 @@ def test_real_judge_ranks_good_above_bad(golden_rows):
     rg = judge.judge_rejection(c, req, good, gold, lf.capability_hints(req))
     rb = judge.judge_rejection(c, req, bad, gold, lf.capability_hints(req))
     print("model", c.used_model, "good", rg["result"], "bad", rb["result"], "usage", c.usage)
-    if os.environ.get("S12_ALLOW_FALLBACK") != "1":
+    if os.environ.get("ADLC_ALLOW_FALLBACK") != "1":
         assert c.used_model == m["model"], f"primary judge model not used (fell back to {c.used_model})"
     assert 0.0 <= rb["result"]["value"] < rg["result"]["value"] <= 1.0
     assert rg["result"]["label"] == "Pass" and rb["result"]["label"] == "Fail"
 
 
-@pytest.mark.skipif(not _creds_ok(), reason="no AWS credentials (or S12_SKIP_BEDROCK=1)")
+@pytest.mark.skipif(not _creds_ok(), reason="no AWS credentials (or ADLC_SKIP_BEDROCK=1)")
 def test_real_native_judge_instructions_pick_sensible_grades(golden_rows):
     """Render the native LLM-as-judge instructions like the service would and check the grade picked.
 
@@ -54,7 +54,7 @@ def test_real_native_judge_instructions_pick_sensible_grades(golden_rows):
     import json as _json
     import re as _re
     cfg = _json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                       "llm_judge_config", "s12_reject_quality.json"), encoding="utf-8"))["llmAsAJudge"]
+                                       "llm_judge_config", "adlc_reject_quality.json"), encoding="utf-8"))["llmAsAJudge"]
     m = judge.resolve_models()
     c = judge.BedrockJudgeClient(m["model"], m["fallback"], m["region"])
     g04 = next(r for r in golden_rows if r["golden_id"] == "G04")

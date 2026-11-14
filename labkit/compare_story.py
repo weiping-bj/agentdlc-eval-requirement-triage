@@ -4,9 +4,9 @@
      (红线 / 门禁 / 观测, the rule in evaluators/shared/pillars.py).
   2. 优化前评估发现的问题 - the 7.5 analysis (labkit.failures.analyze) of the "before" evaluation: wrong items
      by field and by golden five-dimension label, next to the 7.5 reading table (典型失败现象 / 多半是哪里的问题).
-  3. 改了什么 - model (run records), prompt (line diff of agent/s12agent/prompts/<v>.md), tools (TOOLSETS in
-     agent/s12agent/tools.py, read with ast, no import), capability catalog (not recorded per run: the card says
-     so) and the change notes agent/s12agent/prompts/v<N>.changes.md, one per step: v<N>.changes.md describes
+  3. 改了什么 - model (run records), prompt (line diff of agent/adlc_agent/prompts/<v>.md), tools (TOOLSETS in
+     agent/adlc_agent/tools.py, read with ast, no import), capability catalog (not recorded per run: the card says
+     so) and the change notes agent/adlc_agent/prompts/v<N>.changes.md, one per step: v<N>.changes.md describes
      v<N-1> -> v<N>, so V0 -> V2 shows v1 then v2 (v1 is shipped, v2 is written by the coding agent in 8.2;
      a missing file gets a note, a same-version or reversed pair gets none).
   4. 效果验证 - per-item and per-field flips between the two evaluations. An item is right when every label gate
@@ -33,8 +33,8 @@ from . import items as labitems
 
 VERSION_RE = re.compile(r"v\d{1,3}")
 MOCK_MODES = {"local", "runtime"}
-PROMPTS_DIR = Path("agent") / "s12agent" / "prompts"
-TOOLS_FILE = Path("agent") / "s12agent" / "tools.py"
+PROMPTS_DIR = Path("agent") / "adlc_agent" / "prompts"
+TOOLS_FILE = Path("agent") / "adlc_agent" / "tools.py"
 CHANGES_SUFFIX = ".changes.md"
 MAX_NOTES = 20000    # characters of a change-notes file shown on the page
 MAX_DIFF_LINES = 400
@@ -299,7 +299,7 @@ def toolsets() -> tuple:
 
 
 def _tools_of(sets: dict, v: str) -> tuple:
-    """(tool names or None, note): agent/s12agent/core.py falls back to the v1 tools for a version TOOLSETS lacks."""
+    """(tool names or None, note): agent/adlc_agent/core.py falls back to the v1 tools for a version TOOLSETS lacks."""
     if v in sets:
         return sets[v], ("" if sets[v] is not None else f"读不到 {v} 的工具列表（不是直接写出的列表）")
     if "v1" in sets:
@@ -508,7 +508,7 @@ def changes_card(b, a) -> str:
         rows.append(("提示词", cmp.esc(summary)))
         sets, docs = toolsets()
         if sets is None:
-            rows.append(("工具", '<span class="muted">读不到 agent/s12agent/tools.py 的 TOOLSETS</span>'))
+            rows.append(("工具", '<span class="muted">读不到 agent/adlc_agent/tools.py 的 TOOLSETS</span>'))
         else:
             tb, nb = _tools_of(sets, vb)
             ta, na = _tools_of(sets, va)

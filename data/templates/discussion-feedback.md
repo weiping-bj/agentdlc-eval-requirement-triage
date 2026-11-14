@@ -1,4 +1,4 @@
-# 分组讨论反馈（场景 12：需求价值打分）
+# 分组讨论反馈（AgentDLC 动手实验：需求价值打分）
 
 > 记录员现场填写。动手环节由 coding agent 读取本文件，按 [`data/prompts/03-update-golden-set.md`](../prompts/03-update-golden-set.md) 更新黄金集，按 [`02-regenerate-mock-data.md`](../prompts/02-regenerate-mock-data.md) 更新 mock 数据。
 > 要填的只有：`【填写】` 处、表格里的空白格、勾选框；没讨论到的保留默认值（已按 [`LABELING_GUIDE.md`](../golden/LABELING_GUIDE.md) 预填）。

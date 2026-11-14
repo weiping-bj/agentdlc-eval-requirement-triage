@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "s12/golden_item",
+  "$id": "adlc/golden_item",
   "title": "黄金集条目",
   "description": "data/golden/golden_set.jsonl 每行一条；标注标准见 data/golden/LABELING_GUIDE.md。",
   "type": "object",

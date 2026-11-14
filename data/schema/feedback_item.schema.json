@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "s12/feedback_item",
+  "$id": "adlc/feedback_item",
   "title": "需求反馈条目（Agent 输入）",
   "description": "data/feedback_last_month.jsonl 每行一条。必需：id、title、content；推荐：customer、customer_tier、module、submitted_at、feedback_type。",
   "type": "object",

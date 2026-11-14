@@ -9,8 +9,8 @@ cd "$(dirname "$0")/.."
 _local=0   # exact flags only (argparse runs with allow_abbrev=False, so --no-up is rejected there too)
 for _a in "$@"; do case "$_a" in --no-upload|-h|--help) _local=1 ;; esac; done
 if [ "$_local" = 1 ]; then   # local only: no lab config (LAB_SUFFIX) and no AWS needed
-  _S12_PY="python3"; [ -x .venv/bin/python ] && _S12_PY=".venv/bin/python"
+  _ADLC_PY="python3"; [ -x .venv/bin/python ] && _ADLC_PY=".venv/bin/python"
 else
   source ./00-config.sh
 fi
-exec "${_S12_PY}" -m labkit.data_pages "$@"
+exec "${_ADLC_PY}" -m labkit.data_pages "$@"

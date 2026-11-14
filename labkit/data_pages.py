@@ -54,7 +54,7 @@ PAGES = {"catalog": ("data-catalog.html", "能力目录"),
 # inline script would not run; style-src needs 'unsafe-inline' for the templates' style="" attributes.
 CSP = ("default-src 'none'; style-src 'unsafe-inline'; script-src {scripts}; img-src data:; "
        "base-uri 'none'; form-action 'none'")
-_CSP_META = '<meta http-equiv="Content-Security-Policy" content="__S12_CSP__">'
+_CSP_META = '<meta http-equiv="Content-Security-Policy" content="__ADLC_CSP__">'
 _SCRIPT_RX = re.compile(r"<script>(.*?)</script>", re.S)
 STANDALONE_CSS = """
 .layout { max-width: 1680px; }
@@ -216,7 +216,7 @@ def standalone(page: str, title: str, label: str, src: dict, count: str, extra_n
     s = re.sub(r'<p\b[^>]*\bdata-handbook-only\b[^>]*>.*?</p>\n?', "", s, flags=re.S)
     s = _A_RX.sub(_anchor, s)
     s = s.replace('<nav id="toc"></nav>\n', "").replace('<nav id="toc"></nav>', "")
-    bar = topbar(f"{label}（当前版本）· 场景 12", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
+    bar = topbar(f"{label}（当前版本）· AgentDLC 动手实验", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
                  [("生成于", f"{stamp} 北京时间"), ("sha256", src["sha"][:12])])
     s = s.replace('<div id="topbar"></div>', bar, 1)
     banner = (f'<section class="card" id="snapshot"><div class="warn"><b>这是 EC2 上数据文件的当前版本</b>'
@@ -228,7 +228,7 @@ def standalone(page: str, title: str, label: str, src: dict, count: str, extra_n
     s = s.replace("</footer>", f" · 生成于 {E(stamp)} 北京时间</footer>", 1)
     if not sample:
         s = _not_sample(s)
-    s = s.replace("__S12_CSP__", _csp(s), 1)
+    s = s.replace("__ADLC_CSP__", _csp(s), 1)
     bad = external_refs(s)
     if bad or "<style>" not in s or "script-src" not in s or "id=\"snapshot\"" not in s:
         raise ValueError(f"{label}：页面不是自包含的，未发布：{sorted(set(bad)) or '缺少内联样式 / CSP / 版本说明'}")
@@ -240,15 +240,15 @@ def failure_page(label: str, src_path, err: str, now: Optional[datetime] = None)
     never keeps claiming to be the current version."""
     stamp = (now or datetime.now(timezone.utc)).astimezone(BEIJING).strftime("%Y-%m-%d %H:%M")
     s = (f'<!doctype html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n{_CSP_META}\n'
-         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>{E(label)}（生成失败）· 场景 12</title>\n'
+         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>{E(label)}（生成失败）· AgentDLC 动手实验</title>\n'
          f"<style>\n{load_css()}\n{STANDALONE_CSS}</style>\n</head>\n<body>\n"
-         + topbar(f"{label}（生成失败）· 场景 12", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
+         + topbar(f"{label}（生成失败）· AgentDLC 动手实验", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
                   [("生成于", f"{stamp} 北京时间")])
          + f'\n<div class="layout"><main>\n<section class="card" id="snapshot"><div class="danger"><b>{E(label)}这次没能生成</b>'
          f"（{E(stamp)} 北京时间），上一版已被这张说明替换，免得把旧数据当成当前版本。<br>来源：<code>{E(shown(src_path))}</code>"
          f"<br>原因：<code>{E(err)}</code><br>在 EC2 上修好数据文件（黄金集可先运行 <code>python3 data/tools/golden_tool.py validate</code>）"
          f"后重新运行 <code>./tools/publish-data-pages.sh</code>。</div></section>\n</main></div>\n</body>\n</html>\n")
-    s = s.replace("__S12_CSP__", _csp(s), 1)
+    s = s.replace("__ADLC_CSP__", _csp(s), 1)
     bad = external_refs(s)
     if bad:
         raise ValueError(f"{label}：失败说明页不是自包含的：{sorted(set(bad))}")
@@ -391,7 +391,7 @@ def render_golden_html(rows: List[dict], cap_names: Optional[Dict[str, str]] = N
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>黄金集 · 场景 12 实验手册</title>
+<title>黄金集 · AgentDLC 动手实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="golden-set">
@@ -425,7 +425,7 @@ def render_golden_html(rows: List[dict], cap_names: Optional[Dict[str, str]] = N
 
 </main>
 </div>
-<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 <script>
 (function () {{
@@ -463,7 +463,7 @@ def build_catalog(catalog_path, now=None) -> Tuple[str, str]:
     catalog = CV.load(str(catalog_path))
     n = len(catalog.get("capabilities") or [])
     label = PAGES["catalog"][1]
-    page = standalone(CV.render_html(catalog), f"{label}（当前版本，{n} 项）· 场景 12", label,
+    page = standalone(CV.render_html(catalog), f"{label}（当前版本，{n} 项）· AgentDLC 动手实验", label,
                       source_info(catalog_path), f"{n} 项", now=now, sample=_is_repo_file(catalog_path, C.CATALOG_PATH))
     return page, f"{n} 项"
 
@@ -477,7 +477,7 @@ def build_mock(feedback_path, pool_path=C.POOL_PATH, extra_path: Optional[str] =
     unknown = sum(1 for c in cats if c == MV.UNKNOWN)
     note = (f"<br>⚠️ 有 {unknown} 条不在种子库或补充条目里，类别分布里记为“未能归类”。" if unknown else "")
     label = PAGES["mock"][1]
-    page = standalone(MV.render_html(feedback, cats), f"{label}（当前版本，{len(feedback)} 条）· 场景 12", label,
+    page = standalone(MV.render_html(feedback, cats), f"{label}（当前版本，{len(feedback)} 条）· AgentDLC 动手实验", label,
                       source_info(feedback_path), f"{len(feedback)} 条", note, now=now,
                       sample=_is_repo_file(feedback_path, C.FEEDBACK_PATH))
     return page, f"{len(feedback)} 条"
@@ -492,7 +492,7 @@ def build_golden(golden_path, catalog_path=C.CATALOG_PATH, now=None) -> Tuple[st
         cap_names = {}
     label = PAGES["golden"][1]
     notes = golden_freeze_note(golden_path) + golden_validation_note(rows, golden_path, set(cap_names) or None)
-    page = standalone(render_golden_html(rows, cap_names), f"{label}（当前版本，{len(rows)} 条）· 场景 12", label,
+    page = standalone(render_golden_html(rows, cap_names), f"{label}（当前版本，{len(rows)} 条）· AgentDLC 动手实验", label,
                       source_info(golden_path), f"{len(rows)} 条", notes, now=now, orig_note=GOLDEN_ORIG_NOTE,
                       sample=_is_repo_file(golden_path, C.GOLDEN_PATH))
     return page, f"{len(rows)} 条"
@@ -528,8 +528,8 @@ def main(argv=None) -> int:
     kinds = _kinds(a.only)
     out_dir = Path(a.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    if os.environ.get("S12_DATA_DIR"):
-        print(f"ℹ️  设置了 S12_DATA_DIR={os.environ['S12_DATA_DIR']}：Agent 读的是那里的数据；"
+    if os.environ.get("ADLC_DATA_DIR"):
+        print(f"ℹ️  设置了 ADLC_DATA_DIR={os.environ['ADLC_DATA_DIR']}：Agent 读的是那里的数据；"
               "要展示那份数据，请用 --feedback / --catalog 指定文件。")
     print(f"▶ 按 EC2 上的当前数据生成网页 → {shown(out_dir)}/")
     builders = {"catalog": (a.catalog, lambda: build_catalog(a.catalog)),

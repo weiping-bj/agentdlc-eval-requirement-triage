@@ -40,7 +40,7 @@ def role_arn() -> str:
          "Resource": [f"arn:aws:lambda:{r}:{a}:function:{c['LAB_NAME']}-eval-*"]},
         {"Effect": "Allow", "Action": ["cloudwatch:PutMetricData"], "Resource": "*"},
     ]}
-    return aws.ensure_role(c["ONLINE_EVAL_ROLE_NAME"], trust, inline, "s12lab online evaluation role")
+    return aws.ensure_role(c["ONLINE_EVAL_ROLE_NAME"], trust, inline, "adlc online evaluation role")
 
 
 def config_name(path: str) -> str:
@@ -95,7 +95,7 @@ def enable(path: str) -> int:
             try:
                 r = ctl.create_online_evaluation_config(
                     onlineEvaluationConfigName=name,
-                    description=f"s12lab online evaluation (path {path.upper()})",
+                    description=f"adlc online evaluation (path {path.upper()})",
                     rule={"samplingConfig": {"samplingPercentage": 100.0}, "sessionConfig": {"sessionTimeoutMinutes": 2}},
                     dataSourceConfig=data_source(path), evaluators=evaluators,
                     evaluationExecutionRoleArn=role, enableOnCreate=True, tags=aws.tags_dict())

@@ -15,7 +15,7 @@ evaluations written by older evaluator versions are read under the current rule 
 
 Above the score details the page tells the optimization story in four cards (labkit/compare_story.py):
 evaluators and their pillar, the problems the "before" evaluation found (the 7.5 analysis of labkit.failures),
-what changed (model, prompt and tool diff, change notes agent/s12agent/prompts/<version>.changes.md) and the
+what changed (model, prompt and tool diff, change notes agent/adlc_agent/prompts/<version>.changes.md) and the
 per-item flips.
 
 The page-building helpers at the top of this module are shared with labkit.report.
@@ -39,7 +39,7 @@ from labkit import items as labitems
 def _load_pillars():
     """evaluators/shared/pillars.py (canonical copy; loaded by path next to this package, not via sys.path)."""
     path = Path(__file__).resolve().parent.parent / "evaluators" / "shared" / "pillars.py"
-    spec = importlib.util.spec_from_file_location("s12_shared_pillars", path)
+    spec = importlib.util.spec_from_file_location("adlc_shared_pillars", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -317,7 +317,7 @@ def feedback_index(extra_paths=()) -> dict:
     Used for display only (titles, customer details, expected labels). Earlier files win.
     """
     import os
-    data_dir = os.environ.get("S12_DATA_DIR")
+    data_dir = os.environ.get("ADLC_DATA_DIR")
     customer = [str(Path(data_dir) / n) for n in ("feedback_last_month.jsonl", "feedback.jsonl")] if data_dir else []
     cands = [*extra_paths, *customer, *labitems.GOLDEN_CANDIDATES, *labitems.FEEDBACK_CANDIDATES, SEED_POOL]
     idx: dict = {}
@@ -1107,12 +1107,12 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
     story = compare_story.story_html(b, a, pb, pa, specs, target, fb)
 
     region = a.data.get("region") or b.data.get("region") or "—"
-    bar = topbar(f"场景 12 · 评估对比 {vb} vs {va}", "需求反馈分诊 Agent · AgentCore Evaluations 前后对比（红线 · 门禁 · 观测）",
+    bar = topbar(f"AgentDLC 动手实验 · 评估对比 {vb} vs {va}", "需求反馈分诊 Agent · AgentCore Evaluations 前后对比（红线 · 门禁 · 观测）",
                  [("优化前", b.run_id), ("优化后", a.run_id), ("区域", region)])
     head = (f'<div class="card"><h2>{esc(vb)}（基线）→ {esc(va)}（优化后）：红线 0 条，且门禁各 ≥{esc(t)}，才算通过</h2>'
             f'{verdict}{notes_html}<div class="kpis">{kpis}</div>{compare_story.nav_html()}</div>'
             f'<div class="card"><h2>两次运行</h2><div class="runs">{_run_box(b, "优化前")}{_run_box(a, "优化后")}</div></div>')
-    return page(f"评估对比 {vb} vs {va} · 场景 12", bar,
+    return page(f"评估对比 {vb} vs {va} · AgentDLC 动手实验", bar,
                 head + story + _pillars_section(b, a, pb, pa) + chart + table + cases_html,
                 FOOTER, PILLAR_CSS + compare_story.STORY_CSS)
 

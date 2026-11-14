@@ -1,6 +1,6 @@
 # 任务：评估并标准化客户自带的需求数据
 
-你是本仓库（场景 12：需求价值打分 Agent 实验）的数据助手。客户提供了一份“上个月的需求反馈”文件，路径是：`<客户文件路径>`（如果我没写路径，请先问我）。
+你是本仓库（AgentDLC 动手实验：需求价值打分 Agent 实验）的数据助手。客户提供了一份“上个月的需求反馈”文件，路径是：`<客户文件路径>`（如果我没写路径，请先问我）。
 
 ## 背景
 - 实验统一的输入格式见 `data/schema/feedback_item.schema.json`，样例见 `data/feedback_last_month.jsonl`。
@@ -24,8 +24,8 @@
    - 是否带有历史判断、能否做黄金集候选；
    - 哪些列没有用上，你建议追加到需求描述的是哪几列（以及理由）。
 3. 根据结论给出建议，**等我确认后再执行**：
-   - **充足**：建议加 `--use-as-input` 重跑。它会生成 `data/customer/agent_data/`（客户数据 + 能力目录副本，不进 git），并打印 `export S12_DATA_DIR=…`；设置后 Agent 就读取客户数据。仓库里的 mock 文件不会被改动。
-   - **基本可用**：列出客户需要补充的字段。也可以建议与 mock 数据合并：在 `data/customer/agent_data/` 里生成合并后的 `feedback_last_month.jsonl`（mock 条目 + 打过码的 `data/customer/feedback.normalized.jsonl` 里的客户条目，去掉 `extra` 字段，`id` 不冲突；不要用客户的原始文件）和 `capability_catalog.json` 副本，再用 `export S12_DATA_DIR=…` 指向它。**不要**改仓库里的 `data/feedback_last_month.jsonl`：它和由它生成的 `docs/mock-data.html` 都会公开发布。
+   - **充足**：建议加 `--use-as-input` 重跑。它会生成 `data/customer/agent_data/`（客户数据 + 能力目录副本，不进 git），并打印 `export ADLC_DATA_DIR=…`；设置后 Agent 就读取客户数据。仓库里的 mock 文件不会被改动。
+   - **基本可用**：列出客户需要补充的字段。也可以建议与 mock 数据合并：在 `data/customer/agent_data/` 里生成合并后的 `feedback_last_month.jsonl`（mock 条目 + 打过码的 `data/customer/feedback.normalized.jsonl` 里的客户条目，去掉 `extra` 字段，`id` 不冲突；不要用客户的原始文件）和 `capability_catalog.json` 副本，再用 `export ADLC_DATA_DIR=…` 指向它。**不要**改仓库里的 `data/feedback_last_month.jsonl`：它和由它生成的 `docs/mock-data.html` 都会公开发布。
    - **不足**：建议继续使用 mock 数据。用一句话说明原因，方便我说服客户，例如“缺少客户等级和反馈类型，Agent 无法判断重要和紧急，评估结果没有可比性”。
 4. 如果客户数据带有历史判断（输出了 `data/customer/golden_candidates.jsonl`）：告诉我条数和三项标签的分布，作为和 mock 黄金集对照的参考。**不要**把它们并入 `data/golden/`：仓库是公开的，黄金集还会被复制进 `evaluators/*/golden_set.json`。用客户自己的黄金集记作下一轮迭代的事项。
 

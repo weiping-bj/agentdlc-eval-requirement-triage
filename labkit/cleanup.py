@@ -1,7 +1,7 @@
 """Chapter 10: delete every lab resource and prove nothing is left.
 
-  python -m labkit.cleanup                 # my resources (prefix s12lab, my suffix)
-  python -m labkit.cleanup --all           # instructor: every s12lab* resource in this account+region (+ EC2 stacks)
+  python -m labkit.cleanup                 # my resources (prefix adlc, my suffix)
+  python -m labkit.cleanup --all           # instructor: every adlc* resource in this account+region (+ EC2 stacks)
   python -m labkit.cleanup --all --account-level   # + revert Transaction Search, delete aws/spans
   python -m labkit.cleanup --verify-only   # only list what is left
 Deletion order respects dependencies: online eval configs -> evaluators -> Lambdas ->
@@ -182,14 +182,14 @@ class Cleaner:
         for page in cfn.get_paginator("list_stacks").paginate(StackStatusFilter=[
                 "CREATE_COMPLETE", "UPDATE_COMPLETE", "ROLLBACK_COMPLETE", "CREATE_FAILED", "UPDATE_ROLLBACK_COMPLETE",
                 "DELETE_FAILED", "CREATE_IN_PROGRESS", "UPDATE_IN_PROGRESS"]):
-            out += [s["StackName"] for s in page["StackSummaries"] if s["StackName"].startswith("s12lab-ec2-")]
+            out += [s["StackName"] for s in page["StackSummaries"] if s["StackName"].startswith("adlc-ec2-")]
         if not self.all:
-            out = [s for s in out if s == f"s12lab-ec2-{self.c['LAB_SUFFIX']}"]
+            out = [s for s in out if s == f"adlc-ec2-{self.c['LAB_SUFFIX']}"]
         return out
 
     # ---- delete ----
     def run(self, account_level: bool, delete_stacks: bool) -> None:
-        print(f"▶ 清理范围：{'本账号所有 s12lab 资源' if self.all else '我的资源 ' + self.dash + '*'} · 区域 {self.c['AWS_REGION']}")
+        print(f"▶ 清理范围：{'本账号所有 adlc 资源' if self.all else '我的资源 ' + self.dash + '*'} · 区域 {self.c['AWS_REGION']}")
         cfgs = self.safe('在线评估配置', self.online_configs)
         cfg_ids = [x["onlineEvaluationConfigId"] for x in cfgs]
         result_groups = [g for g in self.safe('评估结果日志组', lambda: self.eval_result_groups(cfg_ids))]
@@ -223,7 +223,7 @@ class Cleaner:
                 for ap in iam.list_attached_role_policies(RoleName=name).get("AttachedPolicies", []):
                     iam.detach_role_policy(RoleName=name, PolicyArn=ap["PolicyArn"])
                 iam.delete_role(RoleName=name)
-            if rn.startswith("s12lab-ec2-"):
+            if rn.startswith("adlc-ec2-"):
                 continue  # owned by the EC2 CloudFormation stack
             self.act(f"删除 IAM 角色 {rn}", del_role)
         if delete_stacks:

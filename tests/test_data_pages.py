@@ -348,7 +348,7 @@ def test_no_upload_makes_no_aws_call(tmp_path, monkeypatch):
 def test_shell_wrapper_runs_locally_without_lab_config(tmp_path):
     env = {k: v for k, v in os.environ.items() if not k.startswith(("AWS_", "LAB_"))}
     env.update(AWS_SHARED_CREDENTIALS_FILE="/dev/null", AWS_CONFIG_FILE="/dev/null", AWS_EC2_METADATA_DISABLED="true",
-               S12_LOCAL_ENV=str(tmp_path / "none.env"))
+               ADLC_LOCAL_ENV=str(tmp_path / "none.env"))
     r = subprocess.run(["bash", str(ROOT / "tools" / "publish-data-pages.sh"), "--no-upload", "--out-dir", str(tmp_path)],
                        capture_output=True, text=True, env=env, timeout=120)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -410,7 +410,7 @@ class FakeS3:
         raise AssertionError(f"unexpected S3 call: {name}")
 
 
-BUCKET = "s12lab-test-123456789012-us-west-2"
+BUCKET = "adlc-test-123456789012-us-west-2"
 HTML_ARGS = {"ContentType": "text/html; charset=utf-8", "ExpectedBucketOwner": OWNER}
 
 

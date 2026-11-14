@@ -28,7 +28,7 @@ def _section(page: str, sid: str, next_sid: str) -> str:
 def test_a34_code_excerpts_are_real_source_lines():
     a34 = _section(_read(DOCS / "a3-instrument.html"), "s-a3-4", "s-a3-5")
     blocks = re.findall(r'<pre class="out" data-src="([^"]+)">(.*?)</pre>', a34, re.S)
-    assert {src for src, _ in blocks} == {"10-A-run-local.sh", "labkit/batch.py", "agent/s12agent/core.py"}
+    assert {src for src, _ in blocks} == {"10-A-run-local.sh", "labkit/batch.py", "agent/adlc_agent/core.py"}
     for src, body in blocks:
         source = [ln.strip() for ln in _read(ROOT / src).splitlines()]
         # each run of lines between "…" markers must appear contiguously, and the runs in order
@@ -68,8 +68,8 @@ def test_guide_query_uses_what_the_snippet_writes():
     g9 = _section(_read(GUIDE), "s-g-9", "s-g-10")
     query = html.unescape(re.search(r"<pre><code>(fields .*?)</code></pre>", g9, re.S).group(1))
     snippet = _read(ROOT / "telemetry" / "snippets" / "a34_session_wrapper.py")
-    assert 'name = "s12lab.triage"' in query and '"s12lab.triage"' in snippet
-    for attr in ("session.id", "s12lab.feedback_id", "s12lab.triage_output"):
+    assert 'name = "adlc.triage"' in query and '"adlc.triage"' in snippet
+    for attr in ("session.id", "adlc.feedback_id", "adlc.triage_output"):
         assert f"attributes.{attr}" in query and f'"{attr}"' in snippet
     assert "resource.attributes.service.name" in query and "-local-agent" in query
 
@@ -97,7 +97,7 @@ def test_guide_is_linked_from_index_and_the_chapters():
 
 def test_route_switch_buttons_are_gone():
     js, css = _read(DOCS / "assets" / "site.js"), _read(DOCS / "assets" / "style.css")
-    for s in ("data-set-path", "setPath", "s12lab-path", "我的路线"):
+    for s in ("data-set-path", "setPath", "adlc-path", "我的路线"):
         assert s not in js
     assert "body.path-a" not in css and "path-switch" not in css
     for p in DOCS.glob("*.html"):
@@ -133,9 +133,9 @@ def test_imported_run_window_covers_a_long_log_file(tmp_path, monkeypatch):
     import time
     from labkit import aws, convert_logs
     state, results = tmp_path / ".lab-state", tmp_path / "results"
-    cfg = {"LAB_NAME": "s12lab-zz", "RESULTS_DIR": str(results), "STATE_DIR": str(state), "LAB_ROOT": str(tmp_path),
-           "CONVERTED_SERVICE_NAME": "s12lab-zz-imported-logs",
-           "CONVERTED_LOG_GROUP": "/aws/bedrock-agentcore/s12lab-zz-imported-logs"}
+    cfg = {"LAB_NAME": "adlc-zz", "RESULTS_DIR": str(results), "STATE_DIR": str(state), "LAB_ROOT": str(tmp_path),
+           "CONVERTED_SERVICE_NAME": "adlc-zz-imported-logs",
+           "CONVERTED_LOG_GROUP": "/aws/bedrock-agentcore/adlc-zz-imported-logs"}
     monkeypatch.setattr(aws, "cfg", lambda: cfg)
     old = int((time.time() - 3 * 86400) * 1000)  # both log groups created days ago: window not clamped
     logs = type("L", (), {"describe_log_groups": lambda self, logGroupNamePrefix: {"logGroups": [

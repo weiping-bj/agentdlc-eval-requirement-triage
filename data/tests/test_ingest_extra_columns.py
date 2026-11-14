@@ -59,7 +59,7 @@ def test_append_to_content_puts_chosen_columns_into_the_description(tmp_path):
     assert "已追加到需求描述：影响用户数、所属区域" in rep
     sec = rep.split("这些列没有用上", 1)[1].split("\n## ", 1)[0]
     assert "影响用户数" not in sec and "| 空列 | 0 |" in sec
-    from s12agent import core
+    from adlc_agent import core
     assert "影响用户数: 500" in core.format_input(items[0])                # the agent now sees it
 
 

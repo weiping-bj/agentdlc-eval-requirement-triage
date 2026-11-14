@@ -66,14 +66,14 @@ def build_zip() -> Path:
             if p.is_file() and "__pycache__" not in p.parts and p.name != ".complete":
                 add(zf, p, str(p.relative_to(deps))); n += 1
         add(zf, ROOT / "agent" / "main.py", "main.py"); n += 1
-        for p in sorted((ROOT / "agent" / "s12agent").rglob("*")):
+        for p in sorted((ROOT / "agent" / "adlc_agent").rglob("*")):
             if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc":
-                add(zf, p, "s12agent/" + str(p.relative_to(ROOT / "agent" / "s12agent"))); n += 1
-        data_dir = Path(os.environ["S12_DATA_DIR"]) if os.environ.get("S12_DATA_DIR") else ROOT / "data"
+                add(zf, p, "adlc_agent/" + str(p.relative_to(ROOT / "agent" / "adlc_agent"))); n += 1
+        data_dir = Path(os.environ["ADLC_DATA_DIR"]) if os.environ.get("ADLC_DATA_DIR") else ROOT / "data"
         for f in DATA_FILES:
             src = data_dir / f
             if src.exists():
-                add(zf, src, f"s12agent/agent_data/{f}"); n += 1
+                add(zf, src, f"adlc_agent/agent_data/{f}"); n += 1
     print(f"  📦 打包完成：{out.relative_to(ROOT)}（{n} 个文件，{out.stat().st_size/1e6:.1f} MB）")
     return out
 
@@ -117,7 +117,7 @@ def ensure_role() -> str:
          "Resource": [f"arn:aws:bedrock-agentcore:{r}:{a}:workload-identity-directory/default",
                       f"arn:aws:bedrock-agentcore:{r}:{a}:workload-identity-directory/default/workload-identity/*"]},
     ]}
-    return aws.ensure_role(c["RUNTIME_ROLE_NAME"], trust, inline, "s12lab AgentCore Runtime execution role")
+    return aws.ensure_role(c["RUNTIME_ROLE_NAME"], trust, inline, "adlc AgentCore Runtime execution role")
 
 
 def find_runtime(name: str):
@@ -155,7 +155,7 @@ def deploy(version: str) -> dict:
         networkConfiguration={"networkMode": "PUBLIC"},
         protocolConfiguration={"serverProtocol": "HTTP"},
         environmentVariables={"AGENT_VERSION": version, "AGENT_MODEL_ID": c["AGENT_MODEL_ID"]},
-        description=f"s12lab scenario 12 triage agent ({version})",
+        description=f"AgentDLC lab triage agent ({version})",
     )
     existing = find_runtime(c["RUNTIME_NAME"])
     for attempt in range(6):

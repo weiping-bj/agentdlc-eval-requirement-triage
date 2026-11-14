@@ -20,11 +20,11 @@ def test_config_derives_valid_names(monkeypatch):
     name_re = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,47}$")
     for k in ("RUNTIME_NAME", "EVALUATOR_LABEL_NAME", "EVALUATOR_JUDGE_NAME", "ONLINE_EVAL_NAME"):
         assert name_re.match(c[k]), (k, c[k])
-    assert c["RUNTIME_NAME"] == "s12lab_zhang3_agent"
-    assert c["LAB_NAME"] == "s12lab-zhang3"
+    assert c["RUNTIME_NAME"] == "adlc_zhang3_agent"
+    assert c["LAB_NAME"] == "adlc-zhang3"
     for k in ("RUNTIME_ROLE_NAME", "EVAL_LAMBDA_ROLE_NAME", "ONLINE_EVAL_ROLE_NAME"):
-        assert len(c[k]) <= 64 and c[k].startswith("s12lab-zhang3-")
-        assert not c[k].startswith("s12lab-ec2-"), "s12lab-ec2-* roles are protected by the EC2 role's Deny"
+        assert len(c[k]) <= 64 and c[k].startswith("adlc-zhang3-")
+        assert not c[k].startswith("adlc-ec2-"), "adlc-ec2-* roles are protected by the EC2 role's Deny"
 
 
 def test_config_rejects_bad_suffix(monkeypatch):
@@ -78,7 +78,7 @@ def test_check_flags_missing_required(tmp_path, capsys):
 
 def test_agent_parse_and_format():
     pytest.importorskip("strands")
-    from s12agent import core
+    from adlc_agent import core
     out = core.parse_output('```json\n{"feedback_id":"FB-1","important":"是","urgent":"否","decision":"迭代"}\n```')
     assert out["decision"] == "迭代" and "_warnings" not in out
     bad = core.parse_output('{"important":"maybe","urgent":"否","decision":"x"}')
@@ -90,7 +90,7 @@ def test_agent_parse_and_format():
 
 def test_v0_v1_prompts_and_toolsets():
     pytest.importorskip("strands")
-    from s12agent import core, tools
+    from adlc_agent import core, tools
     assert set(tools.TOOLSETS) == {"v0", "v1"}
     assert len(tools.TOOLSETS["v1"]) > len(tools.TOOLSETS["v0"])
     v0, v1 = core.system_prompt("v0"), core.system_prompt("v1")
@@ -101,7 +101,7 @@ def test_v0_v1_prompts_and_toolsets():
 
 def test_v1_tools_find_catalog_and_similar_requests():
     pytest.importorskip("strands")
-    from s12agent import tools
+    from adlc_agent import tools
     caps = json.loads(tools.search_capabilities._tool_func("列表页批量编辑自定义字段"))
     assert any("批量" in c.get("name", "") for c in caps)
     sim = json.loads(tools.find_similar_requests._tool_func("列表页批量修改自定义字段"))

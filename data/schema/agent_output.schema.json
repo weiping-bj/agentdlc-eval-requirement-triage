@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "s12/agent_output",
+  "$id": "adlc/agent_output",
   "title": "Agent 分诊输出（评估器契约）",
-  "description": "Agent 最终消息只输出一个这样的 JSON；同时写入 span 属性 s12lab.triage_output。批量模式可输出 {\"results\": [ ... ]}。",
+  "description": "Agent 最终消息只输出一个这样的 JSON；同时写入 span 属性 adlc.triage_output。批量模式可输出 {\"results\": [ ... ]}。",
   "type": "object",
   "required": [
     "feedback_id",

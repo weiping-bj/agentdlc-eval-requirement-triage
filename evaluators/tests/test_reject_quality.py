@@ -1,13 +1,13 @@
-"""s12_reject_quality: code-based LLM judge (mocked Bedrock) + native LLM-as-judge config."""
+"""adlc_reject_quality: code-based LLM judge (mocked Bedrock) + native LLM-as-judge config."""
 import json
 import os
 import re
 
 import pytest
 
-from s12_eval_helpers import EV, event, load_pkg, output_from_gold, triage_span
+from adlc_eval_helpers import EV, event, load_pkg, output_from_gold, triage_span
 
-lf = load_pkg("s12_reject_quality")
+lf = load_pkg("adlc_reject_quality")
 judge = lf.judge
 rubric = judge.rubric
 
@@ -98,7 +98,7 @@ def test_handler_returns_error_code_on_judge_failure(golden_rows, monkeypatch):
     c, _ = client(["not json at all"])
     monkeypatch.setattr(lf, "_client", lambda: c)
     r = lf.handler(event([triage_span(output_from_gold(g(golden_rows, "G04")))]))
-    assert r["errorCode"] == "S12_REJECT_JUDGE_FAILED"
+    assert r["errorCode"] == "ADLC_REJECT_JUDGE_FAILED"
 
 
 def test_format_error_and_skipped():
@@ -129,7 +129,7 @@ def test_resolve_models_reads_repo_config(monkeypatch, tmp_path):
 
 
 def test_native_llm_judge_config_is_online_safe():
-    path = os.path.join(EV, "llm_judge_config", "s12_reject_quality.json")
+    path = os.path.join(EV, "llm_judge_config", "adlc_reject_quality.json")
     cfg = json.load(open(path, encoding="utf-8"))["llmAsAJudge"]
     ph = set(re.findall(r"\{([a-z_]+)\}", cfg["instructions"]))
     assert ph == {"context", "assistant_turn"}
@@ -208,7 +208,7 @@ def test_path_rule_in_both_judges():
     assert "how_to" in rubric.PATH_RULE and "插入、追加、替换或删去任何一级" in rubric.PATH_RULE
     assert "话术所说功能" in rubric.PATH_RULE and "别的功能的路径" in rubric.PATH_RULE  # a real path on the wrong feature
     assert rubric.PATH_RULE in rubric.judge_user_prompt("r", "x", "y")
-    cfg = json.load(open(os.path.join(EV, "llm_judge_config", "s12_reject_quality.json"), encoding="utf-8"))
+    cfg = json.load(open(os.path.join(EV, "llm_judge_config", "adlc_reject_quality.json"), encoding="utf-8"))
     assert rubric.PATH_RULE in cfg["llmAsAJudge"]["instructions"].split("【评分档位】")[0]
 
 

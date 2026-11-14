@@ -50,7 +50,7 @@ def bucket_name() -> str:
 
 def tags_dict() -> dict:
     c = cfg()
-    return {"s12lab:lab": "scenario12", "s12lab:owner": c["LAB_SUFFIX"]}
+    return {"adlc:lab": "agentdlc", "adlc:owner": c["LAB_SUFFIX"]}
 
 
 def tags_list(key_name: str = "Key", value_name: str = "Value") -> list:
@@ -72,7 +72,7 @@ def wait_until(fn, desc: str, timeout: int = 600, interval: int = 10):
 def ensure_role(name: str, trust: dict, inline: dict, description: str = "") -> str:
     """Create (or update) an IAM role with one inline policy; return its ARN."""
     iam = client("iam")
-    on_lab_ec2 = "assumed-role/s12lab-ec2-" in caller_arn()
+    on_lab_ec2 = "assumed-role/adlc-ec2-" in caller_arn()
     if on_lab_ec2 and not boundary_arn():
         raise SystemExit(f"❌ 找不到实验权限边界 {cfg()['BOUNDARY_POLICY_NAME']}（由 EC2 堆栈创建）。"
                          f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致（当前 {cfg()['AWS_REGION']}）。")

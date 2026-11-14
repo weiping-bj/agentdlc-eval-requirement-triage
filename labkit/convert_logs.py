@@ -223,11 +223,11 @@ def send(path: str) -> int:
                 ctx = trace.set_span_in_context(root)
                 attrs = {"gen_ai.operation.name": "invoke_agent", "gen_ai.system": "strands-agents",
                          "gen_ai.agent.name": agent_name, "gen_ai.request.model": model, "session.id": sid,
-                         "s12lab.source": "imported-logs"}
+                         "adlc.source": "imported-logs"}
                 if fid:
-                    attrs["s12lab.feedback_id"] = fid
+                    attrs["adlc.feedback_id"] = fid
                 if tri:
-                    attrs["s12lab.triage_output"] = json.dumps(tri, ensure_ascii=False)
+                    attrs["adlc.triage_output"] = json.dumps(tri, ensure_ascii=False)
                 root.set_attributes(attrs)
                 tools = r.get("tool_calls") or []
                 step = dur / (len(tools) + 2)

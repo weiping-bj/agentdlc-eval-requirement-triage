@@ -21,7 +21,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from labkit import aws, convert_logs  # noqa: E402
 
-GROUP = "/aws/bedrock-agentcore/s12lab-zz-imported-logs"
+GROUP = "/aws/bedrock-agentcore/adlc-zz-imported-logs"
 DAY = 86400
 
 
@@ -64,8 +64,8 @@ def _send(tmp_path, monkeypatch, n, created, tools=0, capsys=None):
     """Run convert_logs.send() on n log lines with fake CloudWatch groups; return what it emitted."""
     tmp_path.mkdir(parents=True, exist_ok=True)
     state, results = tmp_path / ".lab-state", tmp_path / "results"
-    cfg = {"LAB_NAME": "s12lab-zz", "LAB_SUFFIX": "zz", "RESULTS_DIR": str(results), "STATE_DIR": str(state),
-           "LAB_ROOT": str(tmp_path), "CONVERTED_SERVICE_NAME": "s12lab-zz-imported-logs",
+    cfg = {"LAB_NAME": "adlc-zz", "LAB_SUFFIX": "zz", "RESULTS_DIR": str(results), "STATE_DIR": str(state),
+           "LAB_ROOT": str(tmp_path), "CONVERTED_SERVICE_NAME": "adlc-zz-imported-logs",
            "CONVERTED_LOG_GROUP": GROUP}
     monkeypatch.setattr(aws, "cfg", lambda: cfg)
     logs = FakeLogs(created)
@@ -197,7 +197,7 @@ def test_missing_aws_spans_warns_and_bounds_by_the_target_group(tmp_path, monkey
 
 def test_creation_lookups_are_not_traced_as_part_of_the_imported_service(tmp_path, monkeypatch):
     """The describe calls run inside the opentelemetry-instrument process; botocore spans for them
-    would show up as extra traces under s12lab-<suffix>-imported-logs."""
+    would show up as extra traces under adlc-<suffix>-imported-logs."""
     now = time.time()
     r = _send(tmp_path, monkeypatch, 2, {GROUP: now - 3, "aws/spans": now - 30 * DAY})
     describes = [c for c in r.logs.calls if c[0] == "describe"]

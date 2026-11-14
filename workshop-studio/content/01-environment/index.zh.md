@@ -57,7 +57,7 @@ Session Manager 的会话空闲一段时间会断开。重新连接后，**第�
   ✅ boto3 1.44.3
 ② 配置与身份
   ✅ 区域 us-west-2 · 个人后缀 ws · 资源名前缀 adlc-ws
-  ✅ 身份 arn:aws:sts::<account>:assumed-role/adlc-ec2-ws-us-west-2/i-004ec8d0bf9e853b0
+  ✅ 身份 arn:aws:sts::<account>:assumed-role/adlc-ec2-ws-us-west-2/i-004e…
 ③ Bedrock 模型
   ✅ Agent 模型 us.anthropic.claude-sonnet-5-5 可用（回复：收到）
 ④ CloudWatch Transaction Search

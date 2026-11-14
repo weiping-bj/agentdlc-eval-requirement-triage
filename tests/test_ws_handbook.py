@@ -262,3 +262,9 @@ def test_the_scenario_stays_in_marked_places():
     assert (ROOT / "data" / "scenario" / "role-card.md").is_file()
     t = all_text()
     assert t.count('header="场景包') >= 3 and "数据对照" not in t
+
+
+def test_no_account_ids_or_full_instance_ids_in_the_handbook():
+    t = all_text() + text(WS / "SHOTLIST.md")
+    assert not re.search(r"(?<!\d)\d{12}(?!\d)", t), "a 12-digit AWS account id is in the handbook (use <account>)"
+    assert not re.search(r"\bi-[0-9a-f]{17}\b", t), "a full EC2 instance id is in the handbook (shorten it)"

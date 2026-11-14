@@ -5,6 +5,7 @@
   python3 .claude/skills/adlc-criteria/scripts/criteria.py catalog          # what the lab's evaluators already check
   python3 .claude/skills/adlc-criteria/scripts/criteria.py golden           # the current golden set, one line per item
   python3 .claude/skills/adlc-criteria/scripts/criteria.py candidates       # last month's feedback not in the golden set
+  python3 .claude/skills/adlc-criteria/scripts/criteria.py hints            # the sample scenario's pain point -> data ids
   python3 .claude/skills/adlc-criteria/scripts/criteria.py build <dir>      # validate the draft -> criteria.json + criteria.md
   python3 .claude/skills/adlc-criteria/scripts/criteria.py verify <dir>     # after the golden additions were applied
 
@@ -39,6 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 SKILL_DIR = Path(__file__).resolve().parent.parent
 REPO = SKILL_DIR.parent.parent.parent
 CATALOG_FILE = SKILL_DIR / "evaluator-coverage.json"
+SCENARIO_MAP = SKILL_DIR / "scenario-map.json"  # facilitator data for the sample scenario (kept out of the role card)
 TOOLS = REPO / "data" / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
@@ -99,9 +101,26 @@ def check_fishbone(fishbone) -> None:
         raise CriteriaError(f"鱼骨图还没被业务方最终确认（status={fishbone.get('status')!r}）：先完成 adlc-fishbone 第 3 步")
 
 
-def scenario_of(fishbone: dict) -> str:
+def _lab_card() -> str:
+    try:
+        return Path(str(json.loads(SCENARIO_MAP.read_text(encoding="utf-8")).get("role_card") or "")).name or "role-card.md"
+    except (OSError, ValueError, AttributeError):
+        return "role-card.md"
+
+
+def scenario_of(fishbone: dict, draft: Optional[dict] = None) -> str:
+    """'lab' only when the draft says so AND the fishbone shows the lab's role card among its background material
+    (or an older fishbone file says scenario=lab). A fishbone that says 'own' is never overridden."""
     meta = fishbone.get("metadata") if isinstance(fishbone.get("metadata"), dict) else {}
-    return str(meta.get("scenario") or "lab")
+    legacy = str(meta.get("scenario") or "")
+    if legacy == "own":
+        return "own"
+    want = draft.get("scenario").strip() if isinstance(draft, dict) and isinstance(draft.get("scenario"), str) else ""
+    background = meta.get("background") if isinstance(meta.get("background"), list) else []
+    lab_material = legacy == "lab" or any(isinstance(b, str) and Path(b).name == _lab_card() for b in background)
+    if want == "lab":
+        return "lab" if lab_material else "unverified"
+    return want or ("lab" if legacy == "lab" else "")
 
 
 def golden_rows(path: str = C.GOLDEN_PATH) -> List[dict]:
@@ -516,9 +535,10 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
     if errors:
         raise CriteriaError("判据草稿有问题，没有写入：\n  " + "\n  ".join(errors))
     applied = applied_rows(draft, {r["id"] for r in rows}, golden)
-    if draft.get("golden_proposals") and scenario_of(fishbone) != "lab":
-        raise CriteriaError("这是小组自己的场景（metadata.scenario 不是 lab）：实验的黄金集是需求分诊 Agent 的数据契约，"
-                            "不要往里补样本，把 golden_proposals 清空")
+    scen = scenario_of(fishbone, draft)
+    if draft.get("golden_proposals") and scen != "lab":
+        why = ("鱼骨图的背景材料里没有实验角色卡" if scen == "unverified" else "这不是实验场景")
+        raise CriteriaError(f"{why}：实验黄金集只收需求分诊 Agent（实验场景）的样本，这次不补黄金样本，把 golden_proposals 清空")
     summary, csv_rows, extra, pwarns = proposals(draft, {r["id"] for r in rows}, golden, feedback)
     warns += pwarns
     planned = Counter(p["criterion"] for p in summary)
@@ -535,7 +555,7 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
            "summary": {"tier": dict(Counter(r["tier"] for r in rows)), "coverage": dict(Counter(r["coverage"] for r in rows)),
                        "executor": dict(Counter(r["executor"] for r in rows)),
                        "golden_fixable": [r["id"] for r in rows if r["golden_fixable"]]},
-           "golden_proposals": summary, "golden_applied": applied,
+           "scenario": scen, "golden_proposals": summary, "golden_applied": applied,
            "apply_steps": apply_steps(d, len(extra)) if summary else []}
     if write:
         (d / OUT_JSON).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -676,7 +696,7 @@ def skeleton(out_dir, force: bool = False) -> Path:
                            "evidence": o["evidence"], "text": "", "dimension": o["fishbone_dimension"], "tier": "",
                            "threshold": "", "executor": "", "checks": [], "golden_ids": [], "golden_gap": "", "note": ""}
                           for i, o in enumerate(obs, 1)],
-             "golden_proposals": []}
+             "scenario": "", "golden_proposals": []}
     path.write_text(json.dumps(draft, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
 
@@ -722,6 +742,24 @@ def candidate_lines(feedback: List[dict], golden: List[dict]) -> List[str]:
     return out
 
 
+def hint_lines(path: Path = SCENARIO_MAP) -> List[str]:
+    """The sample scenario's pain points with their catalog / feedback / golden ids (facilitator only)."""
+    doc = _read_json(path)
+    out = [f"场景对照（{doc.get('role_card')}；只给主持人和判据环节用，不要念给业务方）："]
+    for p in doc.get("pain_points") or []:
+        ids = " ".join(f"{k}={','.join(p.get(k) or []) or '—'}" for k in ("catalog", "feedback", "golden", "not_in_golden"))
+        out.append(f"{p.get('no')} {p.get('title')}（{p.get('dimension_hint')}）| {ids} | {p.get('note')}")
+    return out
+
+
+def output_lines(d: Path, doc: dict) -> List[str]:
+    """Absolute path + what it is, one line per file the build wrote."""
+    roles = [(OUT_JSON, "判据表（结构化，以它为准）"), (OUT_MD, "判据表（Markdown）"),
+             (PROPOSAL_CSV, "黄金样本提议（golden-set-feedback.csv 格式，预览，未写入）"),
+             (PROPOSAL_EXTRA, "新写的需求反馈（extra-feedback.jsonl 格式，预览，未写入）"), (DRAFT, "判据草稿")]
+    return [f"  {(d / name).resolve()}  —— {role}" for name, role in roles if (d / name).exists()]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="障碍 → 判据 → 黄金集（adlc-criteria skill）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -731,6 +769,7 @@ def main(argv=None) -> int:
     sub.add_parser("catalog")
     sub.add_parser("golden")
     sub.add_parser("candidates")
+    sub.add_parser("hints")
     s = sub.add_parser("build")
     s.add_argument("out_dir")
     s = sub.add_parser("verify")
@@ -742,6 +781,8 @@ def main(argv=None) -> int:
             print("\n".join(catalog_lines(load_catalog())))
         elif a.cmd == "golden":
             print("\n".join(golden_lines(golden_rows())))
+        elif a.cmd == "hints":
+            print("\n".join(hint_lines()))
         elif a.cmd == "candidates":
             print("\n".join(candidate_lines(feedback_rows(), golden_rows())))
         elif a.cmd == "skeleton":
@@ -761,8 +802,9 @@ def main(argv=None) -> int:
             for w in doc["warnings"]:
                 print("   ⚠️ " + w)
             if doc["golden_proposals"]:
-                print(f"   黄金样本提议 {len(doc['golden_proposals'])} 条（预览，未写入 data/）→ {_rel(d / PROPOSAL_CSV)}"
-                      + (f"、{_rel(d / PROPOSAL_EXTRA)}" if (d / PROPOSAL_EXTRA).exists() else ""))
+                print(f"   黄金样本提议 {len(doc['golden_proposals'])} 条（预览，未写入 data/）")
+            print(f"输出目录：{d.resolve()}")
+            print("\n".join(output_lines(d, doc)))
         elif a.cmd == "verify":
             ok, lines = verify(a.out_dir, a.before_apply)
             print("\n".join(lines))

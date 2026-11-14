@@ -101,12 +101,26 @@ def check_fishbone(fishbone) -> None:
         raise CriteriaError(f"鱼骨图还没被业务方最终确认（status={fishbone.get('status')!r}）：先完成 adlc-fishbone 第 3 步")
 
 
+def _lab_card() -> str:
+    try:
+        return Path(str(json.loads(SCENARIO_MAP.read_text(encoding="utf-8")).get("role_card") or "")).name or "role-card.md"
+    except (OSError, ValueError, AttributeError):
+        return "role-card.md"
+
+
 def scenario_of(fishbone: dict, draft: Optional[dict] = None) -> str:
-    """'lab' only when the criteria draft (or an older fishbone file) says so; the generic fishbone skill does not."""
-    if isinstance(draft, dict) and isinstance(draft.get("scenario"), str) and draft["scenario"].strip():
-        return draft["scenario"].strip()
+    """'lab' only when the draft says so AND the fishbone shows the lab's role card among its background material
+    (or an older fishbone file says scenario=lab). A fishbone that says 'own' is never overridden."""
     meta = fishbone.get("metadata") if isinstance(fishbone.get("metadata"), dict) else {}
-    return str(meta.get("scenario") or "")
+    legacy = str(meta.get("scenario") or "")
+    if legacy == "own":
+        return "own"
+    want = draft.get("scenario").strip() if isinstance(draft, dict) and isinstance(draft.get("scenario"), str) else ""
+    background = meta.get("background") if isinstance(meta.get("background"), list) else []
+    lab_material = legacy == "lab" or any(isinstance(b, str) and Path(b).name == _lab_card() for b in background)
+    if want == "lab":
+        return "lab" if lab_material else "unverified"
+    return want or ("lab" if legacy == "lab" else "")
 
 
 def golden_rows(path: str = C.GOLDEN_PATH) -> List[dict]:
@@ -521,9 +535,10 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
     if errors:
         raise CriteriaError("判据草稿有问题，没有写入：\n  " + "\n  ".join(errors))
     applied = applied_rows(draft, {r["id"] for r in rows}, golden)
-    if draft.get("golden_proposals") and scenario_of(fishbone, draft) != "lab":
-        raise CriteriaError("草稿的 scenario 不是 lab：只有实验场景（需求分诊 Agent）才能往实验黄金集里补样本；"
-                            "确认是实验场景就在 criteria-draft.json 写 \"scenario\": \"lab\"，否则把 golden_proposals 清空")
+    scen = scenario_of(fishbone, draft)
+    if draft.get("golden_proposals") and scen != "lab":
+        why = ("鱼骨图的背景材料里没有实验角色卡" if scen == "unverified" else "这不是实验场景")
+        raise CriteriaError(f"{why}：实验黄金集只收需求分诊 Agent（实验场景）的样本，这次不补黄金样本，把 golden_proposals 清空")
     summary, csv_rows, extra, pwarns = proposals(draft, {r["id"] for r in rows}, golden, feedback)
     warns += pwarns
     planned = Counter(p["criterion"] for p in summary)
@@ -540,7 +555,7 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
            "summary": {"tier": dict(Counter(r["tier"] for r in rows)), "coverage": dict(Counter(r["coverage"] for r in rows)),
                        "executor": dict(Counter(r["executor"] for r in rows)),
                        "golden_fixable": [r["id"] for r in rows if r["golden_fixable"]]},
-           "scenario": scenario_of(fishbone, draft), "golden_proposals": summary, "golden_applied": applied,
+           "scenario": scen, "golden_proposals": summary, "golden_applied": applied,
            "apply_steps": apply_steps(d, len(extra)) if summary else []}
     if write:
         (d / OUT_JSON).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

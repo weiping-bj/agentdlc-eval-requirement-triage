@@ -37,7 +37,7 @@ ls -td outputs/fishbone/*/ | head -5
 ```
 
 用刚做完的那个目录（有多个、拿不准时问一句“用哪一个？”）。目录里要有 `fishbone-data.json` 且 `status` 是 `approved_for_render`（脚本会检查）；没有就先用 `adlc-fishbone` skill。鱼骨图改过之后，判据表要重新 build（实验的发布工具会比对两者）。
-判断是不是**实验场景**（需求反馈分诊 Agent，业务方用的是角色卡 `data/scenario/role-card.md`）：看鱼骨图的 `use_case` 和 qa-record 里的背景材料；拿不准就问一句。是实验场景就运行：
+判断是不是**实验场景**（需求反馈分诊 Agent，业务方用的是角色卡 `data/scenario/role-card.md`）：鱼骨图 `metadata.background` 里有 `role-card.md`，`use_case` 也是需求反馈分诊；拿不准就问一句。是实验场景就运行：
 
 ```bash
 python3 .claude/skills/adlc-criteria/scripts/criteria.py hints
@@ -52,7 +52,7 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py skeleton outputs/fishbo
 ```
 
 它写 `criteria-draft.json`（每条已确认障碍一条空判据，已存在就不覆盖），并打印可选的检查（`catalog`）和当前黄金集（`golden`）。
-草稿里的 `scenario` 填 `lab`（实验场景）或 `own`（小组自己的场景）；只有 `lab` 才能做第 4 步。没问到的方面（鱼骨图 `not_asked`）没有障碍，也就没有判据。
+草稿里的 `scenario` 填 `lab`（实验场景）或 `own`（小组自己的场景）；只有 `lab`、并且鱼骨图的背景材料里有实验角色卡时，脚本才接受第 4 步的黄金样本。没问到的方面（鱼骨图 `not_asked`）没有障碍，也就没有判据。
 
 ### 第 2 步：写判据（不提问，约 3–5 分钟）
 

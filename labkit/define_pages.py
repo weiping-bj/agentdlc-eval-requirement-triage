@@ -150,7 +150,7 @@ def _meta_rows(meta: dict, keys) -> str:
     out = []
     for k, cn in keys:
         v = meta.get(k)
-        v = MODE_CN.get(str(v), v) if k == "mode" else v  # never show express / standard to the user
+        v = MODE_CN.get(str(v or "").strip().lower(), MODE_CN.get(str(v or "").strip(), v)) if k == "mode" else v  # never English
         if k in OPTIONAL_META and not str(v or "").strip():
             continue
         out.append(f"<div class=\"muted\">{E(cn)}</div><div>{E(v) or '—'}</div>")

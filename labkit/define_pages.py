@@ -241,7 +241,7 @@ def render_criteria(doc: dict, src: dict, now: Optional[datetime] = None) -> str
             f"<td class=\"pre small\">{E(p.get('why'))}</td></tr>" for p in props)
         prop_html = ("<section class=\"card\"><h2>提议补充的黄金样本</h2><div class=\"warn\">这是提议：要业务方同意后才写入黄金集。"
                      "写入并冻结后要重新运行 <code>./40-create-evaluators.sh</code>（黄金集打包在评估器 Lambda 里）；"
-                     "新增了需求反馈时，B 版还要重新运行 <code>./30-deploy-runtime.sh</code>。</div>"
+                     "新增了需求反馈时，还要重新运行 <code>./30-deploy-runtime.sh</code>（相似需求工具读的是打包进 Runtime 的需求反馈）。</div>"
                      "<table class=\"t\"><tr><th>判据</th><th>需求编号</th><th>标题</th><th>期望标签</th><th>为什么补这条</th></tr>"
                      f"{prow}</table></section>\n")
     done = [p for p in _list(doc.get("golden_applied")) if isinstance(p, dict)]

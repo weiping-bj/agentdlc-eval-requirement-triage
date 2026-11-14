@@ -6,7 +6,7 @@
   python -m labkit.cleanup --verify-only   # only list what is left
 Deletion order respects dependencies: online eval configs -> evaluators -> Lambdas ->
 Runtime -> S3 -> log groups -> IAM roles. The EC2 CloudFormation stack is deleted by --all
-(participants delete their own stack in the console, step 10.3).
+(participants delete their own stack in the console; a Workshop Studio account is reclaimed by the event).
 """
 from __future__ import annotations
 
@@ -303,7 +303,7 @@ class Cleaner:
             print(f"  {'✅' if not stacks else '❌'} EC2 堆栈: {len(stacks)} {stacks if stacks else ''}")
             left += len(stacks)
         elif stacks:
-            print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：最后在第 10.3 步删除）")
+            print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：这台 EC2 最后删除）")
         if self.list_errors:
             print(f"⚠️  有 {len(self.list_errors)} 类资源无法列出（权限不足）：{self.list_errors}，结论不完整")
             return 3

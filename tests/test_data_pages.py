@@ -235,9 +235,10 @@ def test_a_customer_file_is_not_called_synthetic(tmp_path, modified):
 
 def test_banner_wording_and_csp_per_page(tmp_path):
     assert _run(["--no-upload", "--out-dir", tmp_path]) == 0
-    assert "手册里没有黄金集网页版" in _read(tmp_path, "golden") and "同名网页" not in _read(tmp_path, "golden")
+    assert "手册里没有黄金集网页版" in _read(tmp_path, "golden") and "实验包里自带的是" not in _read(tmp_path, "golden")
+    assert all("A/B 通用" not in _read(tmp_path, k) for k in ("catalog", "mock", "golden"))
     for kind in ("catalog", "mock"):
-        assert "手册里的同名网页是仓库里的" in _read(tmp_path, kind)
+        assert "实验包里自带的是" in _read(tmp_path, kind) and "GitHub" not in _read(tmp_path, kind)
     import base64
     import re as _re
     for kind, n in (("catalog", 0), ("mock", 1), ("golden", 1)):

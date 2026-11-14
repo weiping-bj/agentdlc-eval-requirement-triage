@@ -219,7 +219,7 @@ def test_own_agent_runs_do_not_show_mock_agent_files(tmp_path, monkeypatch):
         (root / n).write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
     page = _page(tmp_path, root / "eval-v1.json", root / "eval-v2.json")
     card = _plain(_card(page, "story-changes"))
-    assert "不对比 mock agent 的提示词和工具文件" in card and "G.15" in card
+    assert "不对比 mock agent 的提示词和工具文件" in card and "自带 Agent 接入指南" in card
     assert "v2.changes.md" not in card and "prompts/v1-ref.md" not in card
 
 

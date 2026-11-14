@@ -1,14 +1,14 @@
-"""Chapter 9 compare page: the four cards that tell the optimization story, above the score details.
+"""Chapter 5 (optimize) compare page: the four cards that tell the optimization story, above the score details.
 
   1. 评估器清单 - every evaluator found in the two evaluations, what it measures and which pillar it feeds
      (红线 / 门禁 / 观测, the rule in evaluators/shared/pillars.py).
-  2. 优化前评估发现的问题 - the 7.5 analysis (labkit.failures.analyze) of the "before" evaluation: wrong items
-     by field and by golden five-dimension label, next to the 7.5 reading table (典型失败现象 / 多半是哪里的问题).
+  2. 优化前评估发现的问题 - the 4.7 analysis (labkit.failures.analyze) of the "before" evaluation: wrong items
+     by field and by golden five-dimension label, next to the 4.7 reading table (典型失败现象 / 多半是哪里的问题).
   3. 改了什么 - model (run records), prompt (line diff of agent/adlc_agent/prompts/<v>.md), tools (TOOLSETS in
      agent/adlc_agent/tools.py, read with ast, no import), capability catalog (not recorded per run: the card says
      so) and the change notes agent/adlc_agent/prompts/v<N>.changes.md, one per step: v<N>.changes.md describes
-     v<N-1> -> v<N>, so V0 -> V2 shows v1 then v2 (v1 is shipped, v2 is written by the coding agent in 8.2;
-     a missing file gets a note, a same-version or reversed pair gets none).
+     v<N-1> -> v<N> (v1-ref.changes.md is shipped with V1 参考版; v1.changes.md is written by Claude Code in 5.2;
+     a missing file gets a note, a same-version or reversed pair gets none; v1 vs v1-ref shows both).
   4. 效果验证 - per-item and per-field flips between the two evaluations. An item is right when every label gate
      is right after the red-line veto (pillars._vetoed, the gates' own rule); the flip lists name only the
      fields whose evaluator verdict changed, and the red line itself. The "before" failures of card 2 are
@@ -125,7 +125,7 @@ def evaluators_card(b, a, target: float) -> str:
             '<th style="width:12%">属于哪个支柱</th><th style="width:30%">怎么用进结论</th></tr></thead>'
             f'<tbody>{body}</tbody></table>'
             '<p class="small muted">误拒还有一个来源：Agent 判“拒绝”而黄金集标为不可自动拒绝（<code>can_auto_reject = false</code>），'
-            '即使评估器没有标出，也算红线。评估器说明见 evaluators/README.md 和手册第 6 章。</p></div>')
+            '即使评估器没有标出，也算红线。评估器说明见 evaluators/README.md 和手册第 4 章。</p></div>')
 
 
 # ------------------------------------------------------------------------------------ 2. problems found
@@ -170,7 +170,7 @@ def problems_card(b, pb: dict, analysis: dict, golden_src, golden: dict) -> str:
     drows = []
     for d in dict.fromkeys([*fl.DIMS, *dims]):
         symptom, where = fl.DIM_HINTS.get(d, ("", ""))
-        if not v0:  # the 7.5 table speaks about V0's tools; later versions have the V1 tools
+        if not v0:  # the 4.7 table speaks about V0's tools; later versions have other tools
             where = where.replace("（V0 的工具缺陷）", "")
         drows.append(f'<tr><td>{cmp.pill(d, "b")}</td>{_n(dims.get(d, 0))}<td class="small">{cmp.esc(symptom)}</td>'
                      f'<td class="small">{cmp.esc(where)}</td></tr>')
@@ -213,8 +213,8 @@ def problems_card(b, pb: dict, analysis: dict, golden_src, golden: dict) -> str:
                 f'<tbody>{"".join(rrows)}</tbody></table>')
     return ('<div class="card story" id="story-problems">'
             f'<h2>② {cmp.esc(vb)} 评估发现的问题：错在哪一项、属于哪一维</h2>'
-            f'<p class="small muted lead2">和手册 7.5 的 <code>labkit.failures</code> 是同一个分析：每条判错的需求按黄金集标的五维'
-            '（认知 / 质量 / 责任 / 成本 / 性能）归类，右表的“多半是哪里的问题”就是第 8 章决定改哪里的依据。</p>'
+            f'<p class="small muted lead2">和手册 4.7 的 <code>./44-failures.sh</code> 是同一个分析：每条判错的需求按黄金集标的五维'
+            '（认知 / 质量 / 责任 / 成本 / 性能）归类，右表的“多半是哪里的问题”就是第 5 章决定改哪里的依据。</p>'
             f'<p>{cmp.esc(lead)}</p>{summary}{no_golden}{reds}{tables}{detail}</div>')
 
 
@@ -538,7 +538,7 @@ def changes_card(b, a) -> str:
         why = ("这两次运行不都是 mock agent（自带 Agent 或导入的日志）" if not mock else
                "版本名不是 v0 / v1 / v2 … 这种形式")
         rows.append(("提示词与工具", f'<span class="muted">{cmp.esc(why)}，这里不对比 mock agent 的提示词和工具文件。'
-                                     '改了什么请自己记录（自带 Agent 见《自带 Agent 接入指南》G.15）。</span>'))
+                                     '改了什么请自己记录（自带 Agent 见手册扩展《自带 Agent 接入指南》）。</span>'))
     rows.append(("能力目录", '<span class="muted">运行记录里没有记下能力目录（data/capability_catalog.json）的版本，'
                             '这里无法自动比较；改过它的话，写进改动说明。</span>'))
     eb, ea = b.evaluators, a.evaluators

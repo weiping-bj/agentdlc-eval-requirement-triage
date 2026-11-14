@@ -1,4 +1,4 @@
-"""Step 7.5: list the failed golden items of one evaluation with their five-dimension labels.
+"""Step 4.7: list the failed golden items of one evaluation with their five-dimension labels.
 
   python -m labkit.failures                              # latest results/eval-*.json
   python -m labkit.failures results/eval-A-v0-....json   # a specific evaluation
@@ -29,7 +29,7 @@ from .compare import parse_obj
 from .config import ROOT
 
 DIMS = ("认知", "质量", "责任", "成本", "性能")
-# The 7.5 reading table (docs/07-evaluate.html, "维度 / 典型失败现象 / 多半是哪里的问题"); the compare page shows it
+# The 4.7 reading table (handbook chapter 4; old docs/07-evaluate.html 7.5, "维度 / 典型失败现象 / 多半是哪里的问题"); the compare page shows it
 # next to the tally. tests/test_compare_story.py checks the chapter still prints the same text.
 DIM_HINTS = {
     "认知": ("平台已支持的能力被判“迭代”；超出定位的需求没被拒绝；单客户定制被当成通用需求",
@@ -83,7 +83,7 @@ def clip(s, cols: int) -> str:
 def latest_eval() -> Path:
     files = glob.glob(str(ROOT / "results" / "eval-*.json"))
     if not files:
-        raise SystemExit("❌ results/ 里还没有 eval-*.json：先完成 7.2（./43-run-eval.sh）")
+        raise SystemExit("❌ results/ 里还没有 eval-*.json：先完成 4.5（./43-run-eval.sh）")
     return Path(max(files, key=os.path.getmtime))
 
 
@@ -278,7 +278,7 @@ def load_golden(path: Path) -> dict:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="python -m labkit.failures", description="列出判错的黄金集用例并按五维统计（7.5）")
+    ap = argparse.ArgumentParser(prog="python -m labkit.failures", description="列出判错的黄金集用例并按五维统计（4.7）")
     ap.add_argument("eval", nargs="?", help="评估结果 JSON（默认：results/ 里最新的 eval-*.json）")
     ap.add_argument("--golden", help="黄金集 JSONL（默认：data/golden/golden_set.jsonl）")
     a = ap.parse_args(argv)
@@ -297,7 +297,7 @@ def main(argv=None) -> int:
         try:
             golden_path = items.golden_path()
         except FileNotFoundError:
-            raise SystemExit("❌ 找不到黄金集 data/golden/golden_set.jsonl（第 2 章生成），或用 --golden 指定") from None
+            raise SystemExit("❌ 找不到黄金集 data/golden/golden_set.jsonl（第 2 章冻结），或用 --golden 指定") from None
     print(render(ev, analyze(ev, load_golden(golden_path)), eval_path, golden_path))
     return 0
 

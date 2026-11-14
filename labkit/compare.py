@@ -1,7 +1,7 @@
-"""Chapter 9: static HTML page comparing two on-demand evaluations (V0 baseline vs V1 optimized).
+"""Chapter 5 (optimize): static HTML page comparing two on-demand evaluations (V0 baseline vs V1 / V1 参考版).
 
-  python -m labkit.compare                                  # after = latest non-v0 eval, before = latest v0 eval of the same path before it
-  python -m labkit.compare --before results/eval-B-v0-....json --after results/eval-B-v1-....json
+  python -m labkit.compare                                  # after = latest non-v0 eval, before = latest v0 eval of the same mode before it
+  python -m labkit.compare --before results/eval-runtime-v0-....json --after results/eval-runtime-v1-....json
   python -m labkit.compare --before <eval json|run_id> --after <eval json|run_id> --out page.html
 
 Inputs are the results/eval-<run_id>.json files written by labkit.evaluate (registered in
@@ -14,7 +14,7 @@ same rule batch_score.py and labkit.evaluate use; it is applied to the stored ev
 evaluations written by older evaluator versions are read under the current rule too.
 
 Above the score details the page tells the optimization story in four cards (labkit/compare_story.py):
-evaluators and their pillar, the problems the "before" evaluation found (the 7.5 analysis of labkit.failures),
+evaluators and their pillar, the problems the "before" evaluation found (the 4.7 analysis of labkit.failures),
 what changed (model, prompt and tool diff, change notes agent/adlc_agent/prompts/<version>.changes.md) and the
 per-item flips.
 

@@ -1,4 +1,4 @@
-"""A5: check whether the telemetry in CloudWatch is good enough for AgentCore Evaluations.
+"""Extensions "self-hosted agent" / "existing logs": check whether the telemetry in CloudWatch is good enough for AgentCore Evaluations.
 
   python -m labkit.check_telemetry                # latest run (A local / imported / B runtime)
   python -m labkit.check_telemetry --run <run_id> [--sessions 5] [--no-probe]
@@ -152,19 +152,19 @@ def main(argv=None) -> int:
     if crit_fail >= 2 or (results and not any(r["c_spans"] for r in results)):
         verdict = "差距大"
         print("🟥 结论：差距大 —— 数据缺少评估必需的内容。")
-        print("   建议：先按上面的 ❌ 项补埋点（自带 Agent 见手册《自带 Agent 接入指南》G.16）；现场来不及时切换到 B 版（mock agent 部署到 AgentCore Runtime）：打开手册 B3 章。")
+        print("   建议：先按上面的 ❌ 项补埋点（自带 Agent 见手册扩展《自带 Agent 接入指南》）；现场来不及就回到主线：mock agent 部署在 AgentCore Runtime 上（手册第 3 章），trace 由 Runtime 自动发送。")
         code = 2
     elif crit_fail == 1:
         verdict = "有缺口"
-        print("🟧 结论：有 1 项必需内容缺失。按上面的 ❌ 项补埋点后重试；10 分钟内补不上就切换到 B 版。")
+        print("🟧 结论：有 1 项必需内容缺失。按上面的 ❌ 项补埋点后重试；10 分钟内补不上就回到主线（AgentCore Runtime，手册第 3 章）。")
         code = 1
     elif opt_fail:
         verdict = "有缺口"
-        print("🟨 结论：可以评估（必需项都满足），部分可选项缺失会限制个别评估器。继续第 6 章。")
+        print("🟨 结论：可以评估（必需项都满足），部分可选项缺失会限制个别评估器。可以按手册第 4 章评估。")
         code = 0
     else:
         verdict = "通过"
-        print("🟩 结论：通过 —— 数据满足 AgentCore Evaluations 的要求。继续第 6 章。")
+        print("🟩 结论：通过 —— 数据满足 AgentCore Evaluations 的要求。可以按手册第 4 章评估。")
         code = 0
     aws.save_state(f"telemetry-check-{run['run_id']}", {"verdict": verdict, "probe": probe,
                    "items": {k: sum(1 for r in results if r[k]) for k, _, _ in ITEMS}, "sessions": len(results)})

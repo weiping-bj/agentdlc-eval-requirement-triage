@@ -114,7 +114,7 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
 4. 再 `build`：它按 `golden_tool.py apply-feedback` 的规则在内存里试运行，通过后写出**预览**（不动 `data/`）：
    `golden-proposals.csv`（`golden-set-feedback.csv` 格式，操作 = 新增）、新写条目的 `extra-feedback.proposed.jsonl`（`extra-feedback.jsonl` 格式），`criteria.md` 末尾有提议表和写入步骤。
 5. 把提议读给业务方（每条：需求标题、期望标签、为什么补），并**跳出角色、对小组里的技术同学明确说**（这句对业务方角色没有意义）：
-   “写进黄金集后要重新运行 `./40-create-evaluators.sh`：黄金集是打包在评估器 Lambda 里的，不重新部署，评估用的还是旧黄金集。”（新写了需求反馈时再加一句：B 版还要重新运行 `./30-deploy-runtime.sh`。）
+   “写进黄金集后要重新运行 `./40-create-evaluators.sh`：黄金集是打包在评估器 Lambda 里的，不重新部署，评估用的还是旧黄金集。”（新写了需求反馈时再加一句：还要重新运行 `./30-deploy-runtime.sh`，Agent 的相似需求工具读的是打包进 Runtime 的需求反馈。）
    然后只问一个问题：“要把这 N 条写进黄金集吗？”
 6. **同意后**才按 `criteria.md` 的“写入步骤”逐条执行，任何一步报错就停下来报告：
    - 有新写条目时：把 `extra-feedback.proposed.jsonl` 的每一行追加到 `data/templates/extra-feedback.jsonl`，按提示改 `data/templates/mock-data-params.yaml` 的 `count`，运行 `python3 data/tools/generate_mock_data.py`；

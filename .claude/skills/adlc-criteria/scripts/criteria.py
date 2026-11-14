@@ -574,7 +574,7 @@ def apply_steps(d: Path, n_extra: int) -> List[Dict[str, str]]:
               {"cmd": verify_cmd, "note": "确认已写入、已冻结、已同步"},
               {"cmd": "./40-create-evaluators.sh", "note": "黄金集打包在评估器 Lambda 里，不重新部署就还是旧黄金集"}]
     if n_extra:
-        steps.append({"cmd": "./30-deploy-runtime.sh", "note": "B 版：Agent 的相似需求工具读的是打包进 Runtime 的需求反馈"})
+        steps.append({"cmd": "./30-deploy-runtime.sh", "note": "Agent 的相似需求工具读的是打包进 Runtime 的需求反馈"})
     return steps
 
 
@@ -657,7 +657,7 @@ def verify(out_dir, before_apply: bool = False) -> Tuple[bool, List[str]]:
     ok = ok and (before_apply or synced)
     lines.append(f"{'✅' if synced else '⏳'} 已同步到 evaluators/*/golden_set.json" + ("" if synced else "（freeze 会自动同步）"))
     lines.append("👉 最后一步（本脚本查不到）：./40-create-evaluators.sh 重新部署评估器，新黄金集才在评估里生效"
-                 + ("；B 版新增了需求反馈时还要 ./30-deploy-runtime.sh" if any(x["source"] == "extra" for x in props) else ""))
+                 + ("；新增了需求反馈时还要 ./30-deploy-runtime.sh" if any(x["source"] == "extra" for x in props) else ""))
     return ok, lines
 
 

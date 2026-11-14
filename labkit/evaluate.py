@@ -1,4 +1,4 @@
-"""Chapter 7/9: on-demand evaluation of one agent run with AgentCore Evaluations.
+"""Chapters 4/5: on-demand evaluation of one agent run with AgentCore Evaluations.
 
   python -m labkit.evaluate                 # evaluate the latest run
   python -m labkit.evaluate --run <run_id>  # a specific run (see .lab-state/runs.json)
@@ -29,7 +29,7 @@ CN = {"important": "是否重要", "urgent": "是否紧急", "decision": "处理
 def pick_run(run_id: str | None) -> dict:
     runs = aws.load_state("runs", default=[])
     if not runs:
-        raise SystemExit("❌ 还没有任何运行记录：先跑黄金集（第 7.1 步）")
+        raise SystemExit("❌ 还没有任何运行记录：先跑黄金集（第 4.4 步 ./42-run-golden.sh）")
     if run_id:
         for r in runs:
             if r["run_id"] == run_id:

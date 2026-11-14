@@ -169,7 +169,7 @@ def test_compare_tolerates_missing_keys_and_error_entries(tmp_path):
     out = tmp_path / "c.html"
     assert compare.main(["--before", str(pb), "--after", str(pa), "--out", str(out)]) == 0
     page = out.read_text(encoding="utf-8")
-    assert "R-after" in page and "A 版" in page
+    assert "R-after" in page and "EC2 上自托管的 mock agent" in page
     assert "评估对比 ? vs V1" in page             # missing version -> "?", run_id falls back to the file name
     assert "格式错误" in page and "⛔ V1 误拒" in page
     well_formed(page)
@@ -316,7 +316,7 @@ def test_report_escapes_and_tolerates_bad_records(tmp_path):
     assert report.main(["--run", str(run), "--out", str(out), "--feedback", str(tmp_path / "missing.jsonl")]) == 0
     page = out.read_text(encoding="utf-8")
     assert INJ not in page and INJ_ESC in page
-    for s in ("FB-X5", "处理建议取值无效：以后再说", "Agent 没有返回结果", "不是合法 JSON", "不是 JSON 对象", "A 版"):
+    for s in ("FB-X5", "处理建议取值无效：以后再说", "Agent 没有返回结果", "不是合法 JSON", "不是 JSON 对象", "自托管"):
         assert s in page, s
     assert well_formed(page).scripts == 1
 

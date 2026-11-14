@@ -278,7 +278,7 @@ def report_md(res: dict, title: str) -> str:
             for f, d in rec.items():
                 L.append(f"- {ls.FIELD_CN.get(f, f)}：" + "，".join(f"{k} {_pct(v)}" for k, v in sorted(d.items())))
         if res.get("failures"):
-            L += ["", "## 判错的需求（用于 7.5 归因）", "", "| 黄金集 | 需求编号 | 类型 | 五维 | 判错项（期望 → 实际） |", "|---|---|---|---|---|"]
+            L += ["", "## 判错的需求（用于失败归因）", "", "| 黄金集 | 需求编号 | 类型 | 五维 | 判错项（期望 → 实际） |", "|---|---|---|---|---|"]
             for x in res["failures"]:
                 errs = "；".join(f"{ls.FIELD_CN.get(f, f)} {'/'.join(v.get('acceptable') or [str(v.get('expected'))])} → {v.get('predicted')}"
                                 for f, v in x["fields"].items()) or "-"

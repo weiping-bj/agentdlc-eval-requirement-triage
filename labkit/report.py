@@ -1,7 +1,7 @@
 """AgentDLC lab business output: static HTML triage report of one batch run over last month's feedback.
 
   python -m labkit.report                                    # latest run with source=feedback in .lab-state/runs.json
-  python -m labkit.report --run results/run-B-v1-....jsonl   # a run JSONL (or a run_id registered in runs.json)
+  python -m labkit.report --run results/run-runtime-v1-....jsonl   # a run JSONL (or a run_id registered in runs.json)
   python -m labkit.report --run <...> --feedback data/feedback_last_month.jsonl --out page.html
 
 No golden set needed: the page shows what the agent decided for each feedback item (counts of

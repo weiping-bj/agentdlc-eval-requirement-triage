@@ -85,7 +85,8 @@ def plan(scheme: str, tolerance: int, golden: Path = GOLDEN, state=None) -> list
     steps.append((f"黄金集：按 {scheme} 口径校验并冻结（同步进评估器目录）",
                   [py, "data/tools/golden_tool.py", "--scheme", scheme, "freeze"]))
     if state("evaluators"):
-        steps.append(("评估器：重新部署 Lambda 并注册（分级口径多一个 label_level）", ["./40-create-evaluators.sh"]))
+        extra = "分级口径多一个 label_level" if scheme == "level" else "是/否口径不再挂 label_level"
+        steps.append((f"评估器：重新部署 Lambda 并注册（{extra}）", ["./40-create-evaluators.sh"]))
     rt = state("runtime")
     if rt:
         want, live = configured_version(), (rt or {}).get("agentVersion") or "?"

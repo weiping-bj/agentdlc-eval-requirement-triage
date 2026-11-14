@@ -46,7 +46,25 @@ Workshop Studio 的活动账号在活动结束后会被整体回收。为了不�
 **预期输出**（节选）：
 
 ```
-TODO-LIVE-9.1
+▶ 清理范围：我的资源 adlc-ws-* · 区域 us-west-2
+  🗑  停用在线评估 adlc_ws_online_runtime
+  🗑  删除在线评估 adlc_ws_online_runtime
+  🗑  删除评估器 adlc_ws_label_accuracy
+  🗑  删除评估器 adlc_ws_label_decision
+  …
+  🗑  删除 Runtime adlc_ws_agent (adlc_ws_agent-VL2KJhC5Tp)
+  🗑  清空并删除 S3 桶 adlc-ws-<account>-us-west-2
+  🗑  删除 IAM 角色 adlc-ws-runtime-role-us-west-2
+
+▶ 残留检查（us-west-2，前缀 adlc_ws_* / adlc-ws-*）
+  ✅ 在线评估配置: 0
+  ✅ 自定义评估器: 0
+  ✅ AgentCore Runtime: 0
+  ✅ Lambda 函数: 0
+  ✅ S3 桶: 0
+  ✅ IAM 角色: 0
+  ✅ 日志组: 0
+✅ 没有残留的实验资源
 ```
 
 ## 9.2 确认没有残留 {#s-9-2}

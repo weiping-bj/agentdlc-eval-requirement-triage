@@ -461,8 +461,9 @@ Resources:
         HttpTokens: required
         HttpPutResponseHopLimit: 2
       PropagateTagsToVolumeOnCreation: true
-      # No secrets in here: UserData is readable by anyone with ec2:DescribeInstanceAttribute.
-      # Bash variables are written without braces because !Sub owns ${...}.
+      # No credentials in here (UserData is readable with ec2:DescribeInstanceAttribute). The one sensitive
+      # value is the pre-signed SetupWaitHandle URL: it can only complete or fail this stack's setup wait,
+      # and only while the stack is being created. Bash variables have no braces because !Sub owns ${...}.
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -485,7 +486,8 @@ Resources:
             [ "$SIGNALED" = 1 ] && return 0
             SIGNALED=1
             local body attempt
-            body="$(python3 -c 'import json, sys; r = sys.argv[2][:1000]; print(json.dumps({"Status": sys.argv[1], "Reason": r, "UniqueId": "adlc-setup", "Data": r}))' "$1" "$2")"
+            # <= 1000 chars: keep the head (step) and the end of the log tail, where the error is
+            body="$(python3 -c 'import json, sys; r = sys.argv[2]; r = r if len(r) <= 1000 else r[:300] + " ... " + r[-690:]; print(json.dumps({"Status": sys.argv[1], "Reason": r, "UniqueId": "adlc-setup", "Data": r}))' "$1" "$2")"
             for attempt in 1 2 3 4 5; do
               curl -fsS -m 30 -X PUT -H 'Content-Type:' --data-binary "$body" "$WAIT_URL" && return 0
               echo "signal attempt $attempt failed, retrying in 5s"
@@ -496,8 +498,10 @@ Resources:
           fail() {  # fail <message>: signal FAILURE; the log tail goes into the reason (a rollback terminates the instance)
             echo "!! adlc bootstrap FAILED at step $STEP: $1"
             sleep 1
-            local tail_txt
-            tail_txt="$(tail -n 6 "$LOG" | tr -cd '[:print:]\n' | tr '\n' ' ' | cut -c1-700)"
+            local src="$LOG" tail_txt
+            [ "$STEP" = setup ] && [ -f /home/ec2-user/adlc-setup.log ] && src=/home/ec2-user/adlc-setup.log
+            # drop control characters only: json.dumps escapes the (often Chinese) UTF-8 text
+            tail_txt="$(tail -n 8 "$src" | tr -d '\000-\010\013-\037' | tr '\n' ' ')"
             cfn_signal FAILURE "adlc bootstrap failed at step $STEP: $1 | full log $LOG | $tail_txt"
             exit 1
           }
@@ -542,15 +546,23 @@ Resources:
           runuser -u "$LAB_USER" -- unzip -q -o "$WORK/bundle.zip" -d "$LAB_DIR" || fail "unzip into $LAB_DIR failed"
           rm -rf "$WORK"
           [ -f "$LAB_DIR/ec2/setup-ec2.sh" ] || fail "bundle has no ec2/setup-ec2.sh"
+          BUNDLE_INFO="$(python3 -c 'import json, sys; m = json.load(open(sys.argv[1])); print(str(m.get("source_commit", "?"))[:12] + (" DIRTY-TEST-BUILD" if m.get("source_dirty") else ""))' "$LAB_DIR/WS_BUNDLE.json" 2>/dev/null || echo unknown)"
+          echo "bundle source commit $BUNDLE_INFO"
           # A local git repo, as after `git clone`: tools/pull-templates.sh compares against the committed
           # default templates (git show HEAD:...) and the handbook uses `git diff`.
           as_lab_user "cd ~/adlc-lab && git init -q -b main && git add -A && git -c user.name='adlc lab' -c user.email=adlc-lab@example.invalid commit -q -m 'adlc-lab bundle (see WS_BUNDLE.json)'" \
             || fail "git init of $LAB_DIR failed"
           as_lab_user "cd ~/adlc-lab && ./tools/set-suffix.sh ${LabSuffix}" || fail "tools/set-suffix.sh failed"
 
+          # setup-ec2.sh is idempotent; retry so one transient uv / npm / PyPI error does not roll back the stack
           STEP=setup
-          as_lab_user "cd ~/adlc-lab && bash ec2/setup-ec2.sh" \
-            || fail "ec2/setup-ec2.sh failed, see /home/ec2-user/adlc-setup.log"
+          ok=0
+          for attempt in 1 2 3; do
+            as_lab_user "cd ~/adlc-lab && bash ec2/setup-ec2.sh" && { ok=1; break; }
+            echo "ec2/setup-ec2.sh failed (attempt $attempt of 3)"
+            [ "$attempt" = 3 ] || sleep 30
+          done
+          [ "$ok" = 1 ] || fail "ec2/setup-ec2.sh failed 3 times, see /home/ec2-user/adlc-setup.log"
 
           # Same as the participant step ./02-enable-observability.sh (once per account and Region; a no-op
           # when it is already on). Not fatal: 01-check-env.sh shows the state and the handbook keeps the step.
@@ -577,7 +589,7 @@ Resources:
 
           STEP=done
           echo "===== adlc bootstrap done $(date -u +%FT%TZ) transaction-search $TS ====="
-          cfn_signal SUCCESS "adlc lab ready in $LAB_DIR (transaction search $TS)"
+          cfn_signal SUCCESS "adlc lab ready in $LAB_DIR (bundle $BUNDLE_INFO, transaction search $TS)"
       Tags:
         - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
         - { Key: "adlc:lab", Value: agentdlc }
@@ -595,7 +607,7 @@ Resources:
     Properties:
       Handle: !Ref SetupWaitHandle
       Count: 1
-      Timeout: "2400"
+      Timeout: "3600"
 
 Outputs:
   InstanceId:

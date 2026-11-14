@@ -90,9 +90,16 @@ def tracked() -> list[tuple[str, int]]:
     return out
 
 
+def tracked_but_ignored() -> set[str]:
+    """Files git tracks although .gitignore matches them (force-added): machine-local by the repo's own rules."""
+    return {rel for rel in _git("ls-files", "-ci", "--exclude-standard", "-z").split("\0") if rel}
+
+
 def select() -> list[tuple[str, int]]:
     files = sorted((rel, mode) for rel, mode in tracked() if not excluded(rel))
-    bad = [f"{rel} ({forbidden(rel)})" for rel, _ in files if forbidden(rel)]
+    ignored = tracked_but_ignored()
+    bad = [f"{rel} ({forbidden(rel) or 'matched by .gitignore'})" for rel, _ in files
+           if forbidden(rel) or rel in ignored]
     if bad:
         raise SystemExit("❌ refusing to bundle machine-local paths tracked by git:\n  " + "\n  ".join(bad))
     missing = [rel for rel, _ in files if not (ROOT / rel).is_file()]

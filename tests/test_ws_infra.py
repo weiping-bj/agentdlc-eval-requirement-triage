@@ -22,6 +22,11 @@ WS_TPL = WS / "static" / "adlc-lab.yaml"
 EC2_TPL = ROOT / "ec2" / "adlc-ec2.yaml"
 
 
+needs_linux_tools = pytest.mark.skipif(
+    sys.platform != "linux" or not all(shutil.which(x) for x in ("bash", "unzip", "git", "python3", "timeout", "stat")),
+    reason="UserData targets Amazon Linux (GNU coreutils, unzip, git)")
+
+
 def _load_bundle_module():
     spec = importlib.util.spec_from_file_location("ws_bundle", ROOT / "tools" / "ws_bundle.py")
     mod = importlib.util.module_from_spec(spec)
@@ -100,7 +105,8 @@ def test_bundle_has_nothing_machine_local_or_off_path(bundle):
     assert not [n for n in names if n.startswith(("workshop-studio/", "tests/", "docs/img/", ".git/"))]
     assert not names & {"ec2/adlc-ec2.yaml", "ec2/launch-from-cloudshell.sh", "ec2/README.md", ".repo-url",
                         "tools/set-repo-url.sh", "tools/build-ws-bundle.sh", "tools/ws_bundle.py"}
-    host = [str(ROOT).encode(), os.path.expanduser("~").encode() + b"/"]
+    home = os.path.expanduser("~")
+    host = [str(ROOT).encode()] + ([home.encode() + b"/"] if home not in ("/", "/root", "/home/ec2-user") else [])
     with zipfile.ZipFile(bundle) as z:
         leaked = [n for n in names if any(h in z.read(n) for h in host)]
     assert not leaked, f"build host path inside {leaked}"
@@ -142,6 +148,45 @@ def test_tracked_files_matched_by_gitignore_are_refused(monkeypatch):
     monkeypatch.setattr(wsb, "tracked_but_ignored", lambda: {"agent/.env.local", "labkit/config.py"})
     with pytest.raises(SystemExit, match="labkit/config.py"):
         wsb.select()
+
+
+def _git_repo(tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))
+    (tmp_path / "gitconfig").write_text("[user]\n\tname = t\n\temail = t@example.invalid\n", encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    g = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, text=True)
+    g("init", "-q", "-b", "main")
+    (repo / ".gitignore").write_text("*.log\n", encoding="utf-8")
+    for name in ("a.sh", "data.csv", "tests/t.py"):
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text("x\n", encoding="utf-8")
+    (repo / "keep.log").write_text("x\n", encoding="utf-8")
+    g("add", ".gitignore", "a.sh", "data.csv", "tests/t.py")
+    g("add", "-f", "keep.log")
+    g("commit", "-q", "-m", "init")
+    return repo, g
+
+
+@needs_linux_tools
+def test_ignore_check_uses_only_the_repos_gitignore(tmp_path, monkeypatch):
+    repo, _ = _git_repo(tmp_path, monkeypatch)
+    assert wsb.tracked_but_ignored(repo) == {"keep.log"}           # force-added despite .gitignore
+    (tmp_path / "global-ignore").write_text("*.csv\n", encoding="utf-8")
+    with open(tmp_path / "gitconfig", "a", encoding="utf-8") as fh:
+        fh.write(f"[core]\n\texcludesFile = {tmp_path / 'global-ignore'}\n")
+    assert wsb.tracked_but_ignored(repo) == {"keep.log"}           # a maintainer's global excludes do not count
+
+
+@needs_linux_tools
+def test_source_state_sees_staged_deletions_and_ignores_excluded_paths(tmp_path, monkeypatch):
+    repo, g = _git_repo(tmp_path, monkeypatch)
+    assert wsb.source_state([], repo)[1] is False
+    (repo / "tests" / "t.py").write_text("changed\n", encoding="utf-8")  # tests/ is not bundled
+    assert wsb.source_state([], repo)[1] is False
+    g("rm", "-q", "a.sh")                                              # staged deletion of a bundled file
+    assert wsb.source_state([], repo)[1] is True
 
 
 def test_dirty_tree_is_refused_unless_allowed(tmp_path, monkeypatch):
@@ -235,8 +280,10 @@ def _render(ud):
     return re.sub(r"\$\{([^}!]+)\}", lambda m: SAMPLE[m.group(1)], ud)
 
 
-# Stand-ins for what UserData calls as root on AL2023. Everything else (unzip, git, python3, sed, tail,
-# the bundled tools/set-suffix.sh) runs for real; setup-ec2.sh / 02-enable-observability.sh are stubbed.
+# Stand-ins for what UserData calls as root on AL2023. Everything else (unzip, git, python3, sed, tail, stat,
+# timeout, the bundled tools/set-suffix.sh) runs for real; setup-ec2.sh / 02-enable-observability.sh are stubbed.
+TS_READY = "✅ Transaction Search 已就绪：Destination=CloudWatchLogs Status=ACTIVE · 资源策略 TransactionSearchXRayAccess · 索引 Default 100% · 本实验开启"
+TS_PENDING = "❌ Transaction Search 未就绪（等待 60s）：Destination=XRay Status=PENDING"
 STUBS = {
     "dnf": '[ -n "${FAIL_DNF:-}" ] && { echo "dnf: cannot reach the repo"; exit 1; }; echo "dnf $*"',
     "aws": 'echo "$@" >> "$T/aws.args"; [ -n "${FAIL_DL:-}" ] && { echo "An error occurred (403)"; exit 1; }\n'
@@ -247,13 +294,19 @@ STUBS = {
     "curl": 'echo "$*" >> "$T/curl.args"\n'
             'while [ $# -gt 0 ]; do [ "$1" = "--data-binary" ] && { shift; printf "%s\\n" "$1" >> "$T/signals.jsonl"; }; '
             'last="$1"; shift; done; echo "$last" >> "$T/curl.urls"; [ -z "${FAIL_CURL:-}" ]',
+    # setup-ec2.sh writes its own log (~/adlc-setup.log); only a stub banner goes to stdout
     "runuser": 'if [ "$1" = "-l" ]; then cmd="$4"\n'
                '  case "$cmd" in\n'
                '    *"bash ec2/setup-ec2.sh"*) n=$(( $(cat "$T/setup.n" 2>/dev/null || echo 0) + 1 )); echo $n > "$T/setup.n"\n'
+               '      echo "setup stub start (try $n)"\n'
                '      if [ -n "${FAIL_SETUP:-}" ] && [ "$n" -le "$FAIL_SETUP" ]; then\n'
-               '        echo "npm ERR! network 安装中止 (try $n)" | tee -a "$T/home/adlc-setup.log"; exit 1; fi\n'
-               '      echo setup-ok | tee -a "$T/home/adlc-setup.log"; exit 0 ;;\n'
-               '    *"./02-enable-observability.sh"*) [ -n "${FAIL_TS:-}" ] && exit 1; echo ts-ok; exit 0 ;;\n'
+               '        [ -n "${LONG_TAIL:-}" ] && head -c 200000 /dev/zero | tr "\\0" x >> "$T/home/adlc-setup.log"\n'
+               '        echo "npm ERR! network 安装中止 (try $n) END-OF-TAIL" >> "$T/home/adlc-setup.log"; exit 1; fi\n'
+               '      echo setup-ok >> "$T/home/adlc-setup.log"; exit 0 ;;\n'
+               '    *"02-enable-observability.sh --verify"*) echo "$cmd" >> "$T/verify.cmds"\n'
+               '      [ -n "${FAIL_TS_VERIFY:-}" ] && { echo "  ⏳ polling"; echo "' + TS_PENDING + '"; exit 1; }\n'
+               '      echo "' + TS_READY + '"; exit 0 ;;\n'
+               '    *"./02-enable-observability.sh"*) [ -n "${FAIL_TS:-}" ] && { echo "enable error"; exit 1; }; echo ts-ok; exit 0 ;;\n'
                '  esac\n'
                '  cd "$T/home" && HOME="$T/home" exec bash -c "$cmd"\n'
                'elif [ "$1" = "-u" ]; then shift 3; exec "$@"; fi\nexit 3',
@@ -288,9 +341,8 @@ def _run_userdata(tmp_path, bundle, inject=None, **fail):
     return r, signals
 
 
-needs_linux_tools = pytest.mark.skipif(
-    sys.platform != "linux" or not all(shutil.which(x) for x in ("bash", "unzip", "git", "python3")),
-    reason="UserData targets Amazon Linux (GNU sed, unzip, git)")
+def _verify_waits(t):
+    return [int(re.search(r"--wait (-?\d+)", c).group(1)) for c in (t / "verify.cmds").read_text().splitlines()]
 
 
 @needs_linux_tools
@@ -300,11 +352,12 @@ def test_userdata_success_unpacks_a_git_lab_as_the_user_and_signals_once(tmp_pat
     assert [s["Status"] for s in signals] == ["SUCCESS"], signals
     with zipfile.ZipFile(bundle) as z:
         commit = json.loads(z.read(wsb.MANIFEST))["source_commit"][:12]
-    assert "transaction search enabled" in signals[0]["Reason"] and signals[0]["UniqueId"] == "adlc-setup"
-    assert f"bundle {commit}" in signals[0]["Reason"]
+    reason = signals[0]["Reason"]
+    assert reason.endswith(" | " + TS_READY) and f"bundle {commit}" in reason and signals[0]["UniqueId"] == "adlc-setup"
+    assert _verify_waits(tmp_path) == [600]  # Transaction Search is mandatory: enable, then --verify
     assert (tmp_path / "curl.urls").read_text().split() == [SAMPLE["SetupWaitHandle"]]
-    curl = (tmp_path / "curl.args").read_text()
-    assert "-X PUT" in curl and "-H Content-Type: " in curl  # pre-signed S3 PUT is signed without a content type
+    # pre-signed S3 PUT: signed without a content type, so the header must be sent empty
+    assert "-fsS -m 30 -X PUT -H Content-Type: --data-binary {" in (tmp_path / "curl.args").read_text()
     assert "s3://ws-event-x-us-west-2/b1/assets/adlc-lab.zip" in (tmp_path / "aws.args").read_text()
     lab = tmp_path / "home" / "adlc-lab"
     assert (lab / "ec2" / "setup-ec2.sh").is_file() and os.access(lab / "01-check-env.sh", os.X_OK)
@@ -325,8 +378,8 @@ def test_userdata_success_unpacks_a_git_lab_as_the_user_and_signals_once(tmp_pat
 @pytest.mark.parametrize("fail, step, text", [
     ({"FAIL_DNF": 1}, "packages", "dnf install failed"),
     ({"FAIL_DL": 1}, "download", "cannot download s3://ws-event-x-us-west-2/b1/assets/adlc-lab.zip"),
-    # three attempts, then the tail of adlc-setup.log (UTF-8 kept) travels in the reason
-    ({"FAIL_SETUP": 9}, "setup", "npm ERR! network 安装中止 (try 3)"),
+    # Transaction Search not ACTIVE in time: the observed status is the reason
+    ({"FAIL_TS_VERIFY": 1}, "observability", "Transaction Search not ready: " + TS_PENDING),
 ])
 def test_userdata_failure_signals_failure_once_with_the_step(tmp_path, bundle, fail, step, text):
     r, signals = _run_userdata(tmp_path, bundle, **fail)
@@ -337,10 +390,56 @@ def test_userdata_failure_signals_failure_once_with_the_step(tmp_path, bundle, f
 
 
 @needs_linux_tools
+def test_userdata_setup_failure_reports_the_last_attempts_own_log(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, FAIL_SETUP=9)
+    assert r.returncode != 0 and (tmp_path / "setup.n").read_text().strip() == "3"
+    assert [s["Status"] for s in signals] == ["FAILURE"]
+    reason = signals[0]["Reason"]
+    assert reason.startswith("adlc bootstrap failed at step setup: ec2/setup-ec2.sh did not succeed (attempt 3 of 3)")
+    assert "npm ERR! network 安装中止 (try 3) END-OF-TAIL" in reason   # only in adlc-setup.log, UTF-8 kept
+    assert "(try 1)" not in reason and "(try 2)" not in reason        # earlier attempts are not the cause
+
+
+@needs_linux_tools
+def test_userdata_long_log_tail_is_shortened_keeping_step_and_end(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, FAIL_SETUP=9, LONG_TAIL=1)
+    assert [s["Status"] for s in signals] == ["FAILURE"]
+    reason = signals[0]["Reason"]
+    assert len(reason) <= 1000 and reason.startswith("adlc bootstrap failed at step setup: ")
+    assert " ... " in reason and "END-OF-TAIL" in reason[-60:]
+
+
+@needs_linux_tools
+def test_userdata_out_of_time_budget_skips_setup_and_fails(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, inject=("BUDGET=3300\n", "BUDGET=1000\n"))
+    assert not (tmp_path / "setup.n").exists()
+    assert [s["Status"] for s in signals] == ["FAILURE"]
+    assert "step setup" in signals[0]["Reason"] and "no time left for setup attempt 1" in signals[0]["Reason"]
+
+
+@needs_linux_tools
 def test_userdata_retries_a_transient_setup_failure(tmp_path, bundle):
     r, signals = _run_userdata(tmp_path, bundle, FAIL_SETUP=1)
     assert r.returncode == 0 and (tmp_path / "setup.n").read_text().strip() == "2"
     assert [s["Status"] for s in signals] == ["SUCCESS"], signals
+
+
+@needs_linux_tools
+def test_userdata_enable_error_is_judged_by_the_verified_state(tmp_path, bundle):
+    r, signals = _run_userdata(tmp_path, bundle, FAIL_TS=1)
+    assert [s["Status"] for s in signals] == ["SUCCESS"] and signals[0]["Reason"].endswith(TS_READY)
+    assert _verify_waits(tmp_path) == [60]  # enable already waited; only re-check the state briefly
+
+
+@needs_linux_tools
+def test_userdata_marks_a_dirty_test_bundle(tmp_path):
+    dirty = tmp_path / "dirty.zip"
+    dirty.write_bytes(wsb.build_bytes(wsb.select(), "f" * 40, True))
+    run = tmp_path / "run"
+    run.mkdir()
+    r, signals = _run_userdata(run, dirty)
+    assert [s["Status"] for s in signals] == ["SUCCESS"]
+    assert "bundle ffffffffffff DIRTY-TEST-BUILD" in signals[0]["Reason"]
 
 
 @needs_linux_tools
@@ -356,13 +455,6 @@ def test_userdata_gives_up_signalling_after_five_attempts(tmp_path, bundle):
     r, signals = _run_userdata(tmp_path, bundle, FAIL_CURL=1)
     assert len(signals) == 5 and {s["Status"] for s in signals} == {"SUCCESS"}  # retries, no FAILURE echo
     assert "could not signal CloudFormation" in r.stdout
-
-
-@needs_linux_tools
-def test_userdata_transaction_search_failure_is_not_fatal(tmp_path, bundle):
-    r, signals = _run_userdata(tmp_path, bundle, FAIL_TS=1)
-    assert r.returncode == 0
-    assert [s["Status"] for s in signals] == ["SUCCESS"] and "not-confirmed" in signals[0]["Reason"]
 
 
 # --------------------------------------------------------------------------- contentspec
@@ -414,4 +506,5 @@ def test_participant_policy_is_scoped():
     assert own["Condition"] == {"StringEquals": {"ssm:resourceTag/aws:ssmmessages:session-id": "${aws:userid}"}}
     up = st["LabBucketConsoleUploads"]
     assert up["Resource"] == "arn:aws:s3:::adlc-*/*" and not any(a.endswith("*") for a in up["Action"])
+    assert up["Condition"] == {"StringEquals": {"s3:ResourceAccount": "${aws:PrincipalAccount}"}}
     assert not [s for s in st.values() if s.get("Resource") == "*" or "iam:" in json.dumps(s.get("Action"))]

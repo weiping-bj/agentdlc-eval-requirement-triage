@@ -3,9 +3,13 @@
 Idempotent. Creates/keeps the logs resource policy that lets X-Ray write spans to the
 `aws/spans` log group, switches the trace segment destination to CloudWatch Logs and
 sets 100% span indexing. `--disable` reverts it (instructor-only, see 99-cleanup.sh).
+`--verify [--wait N]` only checks: destination CloudWatchLogs/ACTIVE (polled up to N s), a logs
+resource policy that lets X-Ray write aws/spans, and the Default indexing rule; the last line
+is a one-line summary (the Workshop Studio template fails the stack with it).
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -70,5 +74,76 @@ def disable() -> int:
     return 0
 
 
+def _xray_policy(logs):
+    """Name of a logs resource policy that lets X-Ray write to aws/spans (any name: console and API differ)."""
+    kw: dict = {}
+    while True:
+        r = logs.describe_resource_policies(**kw)
+        for p in r.get("resourcePolicies", []):
+            try:
+                stmts = json.loads(p.get("policyDocument") or "{}").get("Statement", [])
+            except ValueError:
+                continue
+            for st in stmts if isinstance(stmts, list) else [stmts]:
+                svc = (st.get("Principal") or {}).get("Service", [])
+                svc = [svc] if isinstance(svc, str) else svc
+                res = st.get("Resource", [])
+                res = [res] if isinstance(res, str) else res
+                if st.get("Effect") == "Allow" and "xray.amazonaws.com" in svc and any(":log-group:aws/spans" in x for x in res):
+                    return p.get("policyName")
+        if not r.get("nextToken"):
+            return None
+        kw = {"nextToken": r["nextToken"]}
+
+
+def _indexing_percent(xray):
+    """DesiredSamplingPercentage of the Default indexing rule (None when there is no such rule)."""
+    for rule in xray.get_indexing_rules().get("IndexingRules", []):
+        if rule.get("Name") == "Default":
+            return ((rule.get("Rule") or {}).get("Probabilistic") or {}).get("DesiredSamplingPercentage")
+    return None
+
+
+def verify(wait: int = 600, interval: int = 15) -> int:
+    """Transaction Search usable? 0 = yes. Polls the destination up to `wait` seconds, then checks the
+    resource policy and indexing rule. Prints one summary line last (observed status on failure)."""
+    logs, xray = aws.client("logs"), aws.client("xray")
+    deadline = time.monotonic() + max(wait, 0)
+    while True:
+        d = xray.get_trace_segment_destination()
+        dest, status = d.get("Destination"), d.get("Status")
+        if dest == "CloudWatchLogs" and status == "ACTIVE":
+            break
+        if time.monotonic() >= deadline:
+            print(f"❌ Transaction Search 未就绪（等待 {wait}s）：Destination={dest} Status={status}")
+            return 1
+        print(f"  ⏳ Transaction Search Destination={dest} Status={status}，{interval}s 后重查")
+        time.sleep(interval)
+    pol, pct = _xray_policy(logs), _indexing_percent(xray)
+    st = aws.load_state("observability") or {}
+    who = "本实验开启" if st.get("enabled_by_lab") else "实验前已开启"
+    summary = (f"Destination=CloudWatchLogs Status=ACTIVE · 资源策略 {pol or '无'} · "
+               f"索引 Default {'无' if pct is None else format(pct, 'g') + '%'} · {who}")
+    if not pol or not pct:
+        print(f"❌ Transaction Search 配置不完整：{summary}")
+        return 1
+    print(f"✅ Transaction Search 已就绪：{summary}")
+    return 0
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="CloudWatch Transaction Search for the lab")
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--disable", action="store_true", help="讲师：还原（trace 目的地改回 X-Ray）")
+    g.add_argument("--verify", action="store_true", help="只检查是否已就绪（不做修改）")
+    ap.add_argument("--wait", type=int, default=600, help="--verify 时等待 ACTIVE 的最长秒数")
+    a = ap.parse_args(argv)
+    if a.disable:
+        return disable()
+    if a.verify:
+        return verify(a.wait)
+    return enable()
+
+
 if __name__ == "__main__":
-    sys.exit(disable() if "--disable" in sys.argv else enable())
+    sys.exit(main())

@@ -56,8 +56,8 @@ FORBIDDEN_SUFFIXES = (".pyc", ".log", ".zip", ".swp")
 FORBIDDEN_PREFIXES = ("data/customer/", "data/templates/.backup/")
 
 
-def _git(*args: str) -> str:
-    return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout
+def _git(*args: str, root: Path = ROOT) -> str:
+    return subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True).stdout
 
 
 def excluded(rel: str) -> bool:
@@ -90,9 +90,12 @@ def tracked() -> list[tuple[str, int]]:
     return out
 
 
-def tracked_but_ignored() -> set[str]:
-    """Files git tracks although .gitignore matches them (force-added): machine-local by the repo's own rules."""
-    return {rel for rel in _git("ls-files", "-ci", "--exclude-standard", "-z").split("\0") if rel}
+def tracked_but_ignored(root: Path = ROOT) -> set[str]:
+    """Files git tracks although the repo's .gitignore files match them (force-added): machine-local by the
+    repo's own rules. Only the committed .gitignore files count, not a maintainer's global excludes."""
+    out = _git("-c", "core.excludesFile=/dev/null", "ls-files", "-ci", "--exclude-per-directory=.gitignore", "-z",
+               root=root)
+    return {rel for rel in out.split("\0") if rel}
 
 
 def select() -> list[tuple[str, int]]:
@@ -109,10 +112,22 @@ def select() -> list[tuple[str, int]]:
     return files
 
 
-def source_state(files) -> tuple[str, bool]:
-    commit = _git("rev-parse", "HEAD").strip()
-    changed = _git("status", "--porcelain", "-z", "--", *[rel for rel, _ in files])
-    return commit, bool(changed.strip("\0"))
+def source_state(files, root: Path = ROOT) -> tuple[str, bool]:
+    """(HEAD commit, dirty): dirty = any staged or unstaged change, deletions and renames included, to a path
+    the bundle would contain. Untracked files never ship, so they do not count."""
+    commit = _git("rev-parse", "HEAD", root=root).strip()
+    fields = _git("status", "--porcelain", "-z", "--untracked-files=no", root=root).split("\0")
+    paths, i = [], 0
+    while i < len(fields):
+        rec = fields[i]
+        i += 1
+        if len(rec) < 4:
+            continue
+        paths.append(rec[3:])
+        if rec[0] in "RC":  # rename / copy: the next field is the original path
+            paths.append(fields[i])
+            i += 1
+    return commit, any(not excluded(p) for p in paths)
 
 
 def _info(name: str, mode: int) -> zipfile.ZipInfo:

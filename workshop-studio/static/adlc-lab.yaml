@@ -4,7 +4,7 @@ Description: >-
   SSM Session Manager only (no inbound ports, no key pair), instance role for
   Bedrock / AgentCore / CloudWatch lab work. UserData downloads the lab bundle from
   the Workshop Studio assets bucket into ~ec2-user/adlc-lab, runs ec2/setup-ec2.sh,
-  enables CloudWatch Transaction Search, then signals CloudFormation.
+  enables CloudWatch Transaction Search (mandatory, verified ACTIVE), then signals CloudFormation.
   Derived from ec2/adlc-ec2.yaml (tests/test_ws_infra.py keeps the shared parts in sync).
 
 Metadata:
@@ -479,6 +479,12 @@ Resources:
           BUNDLE_URI='s3://${AssetsBucketName}/${AssetsBucketPrefix}${BundleName}'
           STEP=start
           SIGNALED=0
+          # SetupWait times out after 3600 s: every step, retries included, has to signal within BUDGET.
+          START_TS=$(date +%s)
+          BUDGET=3300
+          left() { echo $(( START_TS + BUDGET - $(date +%s) )); }
+          SETUP_LOG=/home/ec2-user/adlc-setup.log
+          SETUP_OFF=0
           # Pre-signed URL of this stack's SetupWait handle: it can only complete or fail that wait while the
           # stack is being created. curl + python3 ship with AL2023, so a failed dnf can still be reported.
           WAIT_URL='${SetupWaitHandle}'
@@ -486,8 +492,10 @@ Resources:
             [ "$SIGNALED" = 1 ] && return 0
             SIGNALED=1
             local body attempt
-            # <= 1000 chars: keep the head (step) and the end of the log tail, where the error is
-            body="$(python3 -c 'import json, sys; r = sys.argv[2]; r = r if len(r) <= 1000 else r[:300] + " ... " + r[-690:]; print(json.dumps({"Status": sys.argv[1], "Reason": r, "UniqueId": "adlc-setup", "Data": r}))' "$1" "$2")"
+            # reason on stdin (no argv size limit), invalid UTF-8 replaced, <= 1000 chars keeping the head
+            # (step) and the end of the log tail, where the error is
+            body="$(printf '%s' "$2" | python3 -c 'import json, sys; r = sys.stdin.buffer.read().decode("utf-8", "replace"); r = r if len(r) <= 1000 else r[:300] + " ... " + r[-690:]; print(json.dumps({"Status": sys.argv[1], "Reason": r, "UniqueId": "adlc-setup", "Data": r}))' "$1")"
+            [ -n "$body" ] || body='{"Status": "'"$1"'", "Reason": "adlc bootstrap: reason not encodable, see /var/log/adlc-bootstrap.log", "UniqueId": "adlc-setup", "Data": ""}'
             for attempt in 1 2 3 4 5; do
               curl -fsS -m 30 -X PUT -H 'Content-Type:' --data-binary "$body" "$WAIT_URL" && return 0
               echo "signal attempt $attempt failed, retrying in 5s"
@@ -498,10 +506,15 @@ Resources:
           fail() {  # fail <message>: signal FAILURE; the log tail goes into the reason (a rollback terminates the instance)
             echo "!! adlc bootstrap FAILED at step $STEP: $1"
             sleep 1
-            local src="$LOG" tail_txt
-            [ "$STEP" = setup ] && [ -f /home/ec2-user/adlc-setup.log ] && src=/home/ec2-user/adlc-setup.log
-            # drop control characters only: json.dumps escapes the (often Chinese) UTF-8 text
-            tail_txt="$(tail -n 8 "$src" | tr -d '\000-\010\013-\037' | tr '\n' ' ')"
+            local tail_txt
+            # setup: what the LAST attempt wrote to adlc-setup.log; otherwise the end of the bootstrap log
+            if [ "$STEP" = setup ] && [ "$(stat -c %s "$SETUP_LOG" 2>/dev/null || echo 0)" -gt "$SETUP_OFF" ]; then
+              tail_txt="$(tail -c +$(( SETUP_OFF + 1 )) "$SETUP_LOG" | tail -n 8 | tail -c 3000)"
+            else
+              tail_txt="$(tail -n 8 "$LOG" | tail -c 3000)"
+            fi
+            # control characters dropped; json.dumps escapes the (often Chinese) UTF-8 text
+            tail_txt="$(printf '%s' "$tail_txt" | tr -d '\000-\010\013-\037' | tr '\n' ' ')"
             cfn_signal FAILURE "adlc bootstrap failed at step $STEP: $1 | full log $LOG | $tail_txt"
             exit 1
           }
@@ -554,24 +567,39 @@ Resources:
             || fail "git init of $LAB_DIR failed"
           as_lab_user "cd ~/adlc-lab && ./tools/set-suffix.sh ${LabSuffix}" || fail "tools/set-suffix.sh failed"
 
-          # setup-ec2.sh is idempotent; retry so one transient uv / npm / PyPI error does not roll back the stack
+          # setup-ec2.sh is idempotent: retry so one transient uv / npm / PyPI error does not roll back the
+          # stack. Each attempt is time-boxed so Transaction Search and the signal still fit in BUDGET.
           STEP=setup
           ok=0
           for attempt in 1 2 3; do
-            as_lab_user "cd ~/adlc-lab && bash ec2/setup-ec2.sh" && { ok=1; break; }
-            echo "ec2/setup-ec2.sh failed (attempt $attempt of 3)"
+            limit=$(( $(left) - 900 ))
+            if [ "$limit" -lt 300 ]; then echo "no time left for setup attempt $attempt"; break; fi
+            [ "$limit" -gt 1500 ] && limit=1500
+            SETUP_OFF=$(stat -c %s "$SETUP_LOG" 2>/dev/null || echo 0)
+            timeout --kill-after=30 "$limit" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && bash ec2/setup-ec2.sh" && { ok=1; break; }
+            echo "ec2/setup-ec2.sh failed or ran over $limit s (attempt $attempt of 3)"
             [ "$attempt" = 3 ] || sleep 30
           done
-          [ "$ok" = 1 ] || fail "ec2/setup-ec2.sh failed 3 times, see /home/ec2-user/adlc-setup.log"
+          [ "$ok" = 1 ] || fail "ec2/setup-ec2.sh did not succeed (attempt $attempt of 3), see $SETUP_LOG"
 
-          # Same as the participant step ./02-enable-observability.sh (once per account and Region; a no-op
-          # when it is already on). Not fatal: 01-check-env.sh shows the state and the handbook keeps the step.
+          # Mandatory: Transaction Search is OFF by default in Workshop Studio event accounts, and the lab's
+          # evaluations read spans from aws/spans. Same as ./02-enable-observability.sh (a no-op when already
+          # on, records whether this lab enabled it); then --verify polls until Destination=CloudWatchLogs /
+          # Status=ACTIVE and checks the logs resource policy + indexing rule. Not ready = FAILURE with the
+          # observed status as the reason.
           STEP=observability
-          TS=enabled
-          if ! as_lab_user "cd ~/adlc-lab && ./02-enable-observability.sh"; then
-            echo "WARNING: Transaction Search not confirmed; run ./02-enable-observability.sh in the lab"
-            TS=not-confirmed
+          WAIT=600
+          t=$(( $(left) - 180 )); [ "$t" -gt 660 ] && t=660; [ "$t" -lt 60 ] && t=60
+          if ! timeout --kill-after=30 "$t" runuser -l "$LAB_USER" -c "cd ~/adlc-lab && ./02-enable-observability.sh"; then
+            echo "02-enable-observability.sh did not confirm Transaction Search (limit $t s); checking its state"
+            WAIT=60
           fi
+          w=$(( $(left) - 120 )); [ "$w" -lt "$WAIT" ] && WAIT=$w; [ "$WAIT" -lt 0 ] && WAIT=0
+          TS="$(as_lab_user "cd ~/adlc-lab && ./02-enable-observability.sh --verify --wait $WAIT" 2>&1)"
+          rc=$?
+          printf '%s\n' "$TS"
+          TS="$(printf '%s\n' "$TS" | tail -n 1)"
+          [ "$rc" = 0 ] || fail "Transaction Search not ready: $TS"
 
           STEP=shell
           BASHRC=/home/ec2-user/.bashrc
@@ -588,8 +616,8 @@ Resources:
           chown "$LAB_USER:$LAB_USER" "$BASHRC"
 
           STEP=done
-          echo "===== adlc bootstrap done $(date -u +%FT%TZ) transaction-search $TS ====="
-          cfn_signal SUCCESS "adlc lab ready in $LAB_DIR (bundle $BUNDLE_INFO, transaction search $TS)"
+          echo "===== adlc bootstrap done $(date -u +%FT%TZ) ====="
+          cfn_signal SUCCESS "adlc lab ready in $LAB_DIR (bundle $BUNDLE_INFO) | $TS"
       Tags:
         - { Key: Name, Value: !Sub "adlc-${LabSuffix}" }
         - { Key: "adlc:lab", Value: agentdlc }

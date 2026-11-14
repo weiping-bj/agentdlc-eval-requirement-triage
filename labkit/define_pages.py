@@ -302,7 +302,7 @@ def build(out_dir, now: Optional[datetime] = None) -> List[Tuple[str, Path, str]
     page = render_fishbone(data, {"path": _shown(data_path), "sha": sha12(data_path)}, now)
     (d / "fishbone.html").write_text(page, encoding="utf-8")
     out += [("鱼骨图预览", d / "fishbone.html", "text/html; charset=utf-8"),
-            ("鱼骨图 drawio（下载后用 app.diagrams.net 打开）", d / "fishbone.drawio", DRAWIO_TYPE)]
+            ("鱼骨图 drawio", d / "fishbone.drawio", DRAWIO_TYPE)]
     crit_path = d / "criteria.json"
     if crit_path.is_file():
         doc = _read_json(crit_path, "判据表")
@@ -342,8 +342,8 @@ def main(argv=None) -> int:
             print(f"  ❌ {label}：上传失败（本地文件保留在 {_shown(path)}）：{type(e).__name__}: {e}")
     if links:
         w = max(len(label) for label, _ in links)
-        print("\n在笔记本浏览器打开（需已登录这个实验账号的控制台）：网页点右上角「打开」，drawio 点「下载」"
-              "（桶是私有的，链接不能给组外的人用）：")
+        print("\n在笔记本浏览器打开（需已登录这个实验账号的控制台）：网页点右上角「打开」；drawio 点「下载」，"
+              "再用 app.diagrams.net 打开（桶是私有的，链接不能给组外的人用）：")
         for label, url in links:
             print(f"  {label.ljust(w)}  {url}")
     return rc

@@ -5,21 +5,21 @@ weight: 30
 
 > **你在这里**：**① 定义** → ② 构建 → ③ 评估 → ④ 发布 → ⑤ 观测 → ⑥ 回流 · 圆心：黄金标准
 
-**用时**：约 7 分钟
+**用时**：约 4 分钟
 
 鱼骨图回答“什么会挡住上线”；判据把每条障碍翻译成**一条可以打分的要求**：主语是 Agent，谓语能在 Agent 的输出或 trace 上观察到。例如障碍“数据丢失类缺陷被当体验问题自动拒掉”对应判据“Agent 不把数据丢失、安全、合规、合同承诺、线上缺陷类反馈判为拒绝”。
 
 ## 让 Claude Code 写判据表 {#s-2-3-run}
 
-在同一个 Claude Code 会话里继续输入：
+在 Claude Code 里输入（把路径换成 2.2 里 Claude Code 打印的那个）：
 
 ```
-用 adlc-criteria 把刚才的鱼骨图翻译成判据表
+用 adlc-criteria 把 /home/ec2-user/adlc-lab/outputs/fishbone/第3组-2026-11-14 的鱼骨图翻译成判据表
 ```
 
 它会依次做（大部分不需要你回答）：
 
-1. 找到刚才的 `outputs/fishbone/<目录>`，用 `.claude/skills/adlc-criteria/scripts/criteria.py skeleton` 建草稿；
+1. 读这个目录里的 `fishbone-data.json`，用 `.claude/skills/adlc-criteria/scripts/criteria.py skeleton` 建草稿；
 2. 给每条已确认的障碍写一条判据，定**维度**、**档位**、**执行方式**，挑出实验里**确实检查这个谓语**的现有检查；
 3. 运行 `criteria.py build` 校验并算出覆盖情况，写出 `criteria.json`（以它为准）和 `criteria.md`；
 4. 把判据表压缩成一张表读给你们，请业务方签字。
@@ -41,7 +41,7 @@ weight: 30
 
 ## 签字与预览 {#s-2-3-sign}
 
-听完读回，要改哪条的档位或阈值就直接说；没有异议就签字（说“签字”或“可以”）。之后它会再运行一次 `./tools/publish-define-pages.sh`，同一个预览链接里多出判据表网页。
+听完读回，要改哪条的档位或阈值就直接说；没有异议就签字（说“签字”或“可以”）。然后重跑 2.2 的发布命令（同一条命令、同一个路径；Claude Code 也可能替你运行它），预览链接里会多出“判据表预览”。
 
 :image[S3 控制台里打开的判据表预览：每条判据的维度、档位、阈值、执行方式和覆盖情况]{src="/static/images/02-criteria-preview.png" width=900}
 *图 2-3 判据表预览：“部分覆盖”里能靠补样本补上的，就是 2.4 要做的事*

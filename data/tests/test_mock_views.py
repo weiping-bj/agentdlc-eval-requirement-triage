@@ -140,4 +140,4 @@ def test_guide_2_4_leads_with_the_prompt_and_ends_with_the_next_step():
         assert f"  - {GM.CATEGORY_CN[k]}：{n}" in main.replace("</pre>", "\n").splitlines(), k
     with open(os.path.join(C.DATA, "prompts", "02-regenerate-mock-data.md"), encoding="utf-8") as f:
         prompt = f.read()
-    assert "generate_mock_data.py" in prompt and "原样贴出来" in prompt and "可以跳过 2.4" in prompt
+    assert "generate_mock_data.py" in prompt and "原样贴出来" in prompt and "可以跳过重新生成模拟数据这一步" in prompt

@@ -555,10 +555,10 @@ def test_contentspec_matches_the_ws_schema_and_the_template():
     assert set(cft["participantVisibleStackOutputs"]) <= set(tpl["Outputs"])
 
 
-def test_content_placeholder_page_and_assets_gitignore():
+def test_content_home_page_login_step_and_assets_gitignore():
     page = (WS / "content" / "index.zh.md").read_text(encoding="utf-8")
-    assert re.match(r'---\ntitle: "[^"]+"\nweight: 0\n---\n', page)
-    assert "sudo su - ec2-user" in page
+    assert re.match(r'---\ntitle: "[^"]+"\nweight: \d+\n---\n', page)
+    assert "sudo su - ec2-user" in (WS / "content" / "01-environment" / "index.zh.md").read_text(encoding="utf-8")
     ignore = (WS / ".gitignore").read_text(encoding="utf-8").split()
     assert "/assets/*" in ignore
     root_ignore = (ROOT / ".gitignore").read_text(encoding="utf-8").split()

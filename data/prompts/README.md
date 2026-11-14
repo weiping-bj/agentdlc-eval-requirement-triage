@@ -11,6 +11,7 @@
 | [02-regenerate-mock-data.md](02-regenerate-mock-data.md) | 讨论后要调整 mock 数据 | `mock-data-params.yaml`、`discussion-feedback.md` 第 5 节 |
 | [03-update-golden-set.md](03-update-golden-set.md) | 讨论后要调整黄金集（最常用） | `discussion-feedback.md` 第 1、2、4 节、`golden-set-feedback.csv` |
 | [04-update-capability-catalog.md](04-update-capability-catalog.md) | 补充或纠正平台能力目录 | `discussion-feedback.md` 第 3 节 |
-| [05-switch-label-scheme.md](05-switch-label-scheme.md) | 从“是/否”切换到“P0/P1/P2”分级 | `discussion-feedback.md` 第 1.1 节 |
+| [05-switch-label-scheme.md](05-switch-label-scheme.md) | 从“是/否”切换到“P0/P1/P2”分级（`./ext-switch-label-scheme.sh`） | `discussion-feedback.md` 第 1.1 节 |
+| [06-write-v1-from-eval.md](06-write-v1-from-eval.md) | 手册 5.2：根据 V0 的评估结果写出自己的 V1 | `results/eval-*.json`、黄金集、`prompts/v0.md`、`tools.py` |
 
 所有脚本只依赖 python3 标准库，模板默认在 `data/templates/`。

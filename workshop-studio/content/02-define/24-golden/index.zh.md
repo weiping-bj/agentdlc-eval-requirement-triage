@@ -5,7 +5,7 @@ weight: 40
 
 > **你在这里**：**① 定义** → ② 构建 → ③ 评估 → ④ 发布 → ⑤ 观测 → ⑥ 回流 · 圆心：黄金标准
 
-**用时**：约 5 分钟
+**用时**：约 3 分钟
 
 判据表里有一类“部分覆盖”是**评估器能判，但黄金集里还没有能检验它的样本**。比如业务方说“哪怕看起来很小的缺陷也不能自动拒绝”，而现有黄金集里的缺陷样本都是严重故障。这类缺口不用写新评估器，补 1–3 条黄金样本就能补上。这一步是在**修评估体系**：改的是尺子，不是 Agent。
 
@@ -28,7 +28,7 @@ weight: 40
 1. 新写了需求时：追加到 `data/templates/extra-feedback.jsonl`，运行 `python3 data/tools/generate_mock_data.py` 重新生成上个月的需求；
 2. `criteria.py verify <目录> --before-apply` → `python3 data/tools/golden_tool.py apply-feedback --feedback <目录>/golden-proposals.csv --dry-run` 预览 → 去掉 `--dry-run` 正式写入；
 3. **冻结**：`python3 data/tools/golden_tool.py freeze`（校验、导出、写 `data/golden/MANIFEST.json`，并把黄金集同步进评估器目录 `evaluators/*/golden_set.json`）；
-4. `criteria.py verify <目录>` 再检查一次（全部 ✅），把判据表里补上的判据更新为新黄金编号，重新发布预览。
+4. `criteria.py verify <目录>` 再检查一次（全部 ✅），把判据表里补上的判据更新为新黄金编号。之后重跑 2.2 的发布命令，预览里的判据表就是最新的。
 
 **预期输出**（冻结这一步，条数是你们补完之后的）：
 

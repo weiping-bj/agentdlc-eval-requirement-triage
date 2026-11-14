@@ -17,7 +17,8 @@ GENERATED = {"docs/mock-data.html": "data/tools/mock_views.py", "docs/catalog.ht
 GLOBS = ("docs/*.html", "docs/assets/*.js", "*.md", "*.sh", "tools/*.sh", "ec2/*.md", "ec2/*.sh", "ec2/*.yaml",
          "evaluators/README.md", "telemetry/*.md", "telemetry/*.sh", "data/*.md", "data/golden/*.md",
          "data/prompts/*.md", "data/templates/*.md", "data/templates/*.yaml", "labkit/*.py", "data/tools/*.py",
-         "agent/adlc_agent/prompts/*.changes.md")
+         "agent/adlc_agent/prompts/*.changes.md", "workshop-studio/*.md", "workshop-studio/content/**/*.md",
+         "workshop-studio/static/*.yaml")
 
 
 def _scanned():
@@ -107,6 +108,7 @@ def test_scan_covers_the_nav_the_session_pages_and_their_sources():
     assert {"docs/assets/site.js", "docs/index.html", "docs/discussion.html", "docs/02-data.html",
             "docs/09-compare.html", "data/tools/mock_views.py", "data/tools/catalog_views.py",
             "data/templates/discussion-feedback.md", "labkit/pull_templates.py", "tools/pull-templates.sh",
-            "ec2/README.md", "evaluators/README.md", "telemetry/LOG_FORMAT.md", "00-config.sh"} <= rels
+            "ec2/README.md", "evaluators/README.md", "telemetry/LOG_FORMAT.md", "00-config.sh",
+            "workshop-studio/content/index.zh.md", "workshop-studio/README.md"} <= rels
     assert not rels & set(GENERATED)          # data rows are not schedule wording; generators carry their prose
     assert not any(r.startswith("docs/compare/") for r in rels)

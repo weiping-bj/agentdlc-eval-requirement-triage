@@ -314,6 +314,9 @@ Resources:
                   - logs:DescribeLogGroups
                   - logs:DescribeResourcePolicies
                   - logs:PutResourcePolicy
+                  # 99-cleanup.sh --all --account-level run on the EC2 (where .lab-state records whether the
+                  # lab enabled Transaction Search) deletes the policy it added
+                  - logs:DeleteResourcePolicy
                   - logs:StopQuery
                   - logs:GetQueryResults
                   - logs:DescribeQueries

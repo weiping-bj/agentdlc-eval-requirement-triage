@@ -28,6 +28,8 @@
 4. GitHub → Settings → Pages：Branch `main`，folder `/docs`。
 5. 只在专用实验账号中部署 `ec2/adlc-ec2.yaml`。
 
+AWS Workshop Studio 交付（不依赖 GitHub）：见 [`workshop-studio/README.md`](workshop-studio/README.md)，实验包由 `./tools/build-ws-bundle.sh` 构建。
+
 ## License
 
 MIT-0，见 [LICENSE](LICENSE)。

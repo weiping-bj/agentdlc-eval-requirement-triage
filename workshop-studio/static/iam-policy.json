@@ -1,0 +1,52 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SessionManagerOnLabInstance",
+      "Effect": "Allow",
+      "Action": "ssm:StartSession",
+      "Resource": "arn:aws:ec2:*:*:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/adlc:lab": "agentdlc"
+        }
+      }
+    },
+    {
+      "Sid": "SessionManagerShellDocument",
+      "Effect": "Allow",
+      "Action": "ssm:StartSession",
+      "Resource": "arn:aws:ssm:*:*:document/SSM-SessionManagerRunShell"
+    },
+    {
+      "Sid": "SessionManagerOwnSessions",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:ResumeSession",
+        "ssm:TerminateSession",
+        "ssmmessages:OpenDataChannel"
+      ],
+      "Resource": "arn:aws:ssm:*:*:session/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/aws:ssmmessages:session-id": "${aws:userid}"
+        }
+      }
+    },
+    {
+      "Sid": "LabBucketConsoleUploads",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::adlc-*/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "${aws:PrincipalAccount}"
+        }
+      }
+    }
+  ]
+}

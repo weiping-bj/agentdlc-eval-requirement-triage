@@ -178,6 +178,10 @@ def coverage(c: dict, catalog: Dict[str, dict], golden: Dict[str, dict]) -> Tupl
     for g in gids:
         if g not in golden:
             raise CriteriaError(f"{c.get('id')}：黄金集里没有 {g}（运行 criteria.py golden 查看）")
+    gap = str(c.get("golden_gap") or "").strip()
+    if gap and any(ch.get("needs_golden") for ch in checks):
+        level, fixable = "部分覆盖", True
+        notes.append(f"现有黄金样本没覆盖障碍里的这个情形：{gap}（可以补黄金样本）")
     for ch in [ch for ch in checks if ch.get("needs_golden")]:
         ok = [g for g in gids if _golden_ok(golden[g], ch.get("golden_requires"))]
         bad = [g for g in gids if g not in ok]
@@ -327,6 +331,28 @@ def proposals(draft: dict, crit_ids: set, golden: List[dict], feedback: List[dic
     return summary, csv_rows, extra, warns
 
 
+def applied_rows(draft: dict, crit_ids: set, golden: List[dict]) -> List[dict]:
+    """draft['golden_applied']: proposals already written by golden_tool.py (moved there after verify passed)."""
+    items = draft.get("golden_applied") or []
+    if not isinstance(items, list):
+        raise CriteriaError("golden_applied 要写成列表")
+    by_fid = {str(r.get("feedback_id")): r for r in golden}
+    out, errors = [], []
+    for i, p in enumerate(items, 1):
+        fid = str((p or {}).get("feedback_id") or "") if isinstance(p, dict) else ""
+        g = by_fid.get(fid)
+        if not g:
+            errors.append(f"golden_applied 第 {i} 条：黄金集里没有 {fid!r}（还没写入就放回 golden_proposals）")
+            continue
+        if p.get("criterion") not in crit_ids:
+            errors.append(f"golden_applied 第 {i} 条：criterion {p.get('criterion')!r} 不在判据表里")
+        out.append({"criterion": p.get("criterion"), "feedback_id": fid, "golden_id": g.get("golden_id"),
+                    "title": (g.get("input") or {}).get("title"), "labels": _labels(g), "version": g.get("version")})
+    if errors:
+        raise CriteriaError("已写入的黄金样本对不上：\n  " + "\n  ".join(errors))
+    return out
+
+
 def _catalog_ids() -> Optional[set]:
     if not os.path.exists(C.CATALOG_PATH):
         return None
@@ -380,7 +406,8 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
                      "checks": [{k: catalog[x].get(k) for k in ("id", "name", "evaluator", "field", "executor", "tier", "where")}
                                 for x in c.get("checks") or []],
                      "coverage": level, "coverage_notes": notes, "golden_ids": [str(g) for g in c.get("golden_ids") or []],
-                     "golden_fixable": fixable, "note": str(c.get("note") or "")})
+                     "golden_fixable": fixable, "golden_gap": str(c.get("golden_gap") or "").strip(),
+                     "note": str(c.get("note") or "")})
     for oid in obs:
         if used[oid] == 0:
             errors.append(f"障碍 {oid}（{obs[oid]['sticky_text']}）还没有判据：每条已确认的障碍写一条判据")
@@ -388,6 +415,7 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
             errors.append(f"障碍 {oid} 写了 {used[oid]} 条判据：每条障碍只写一条（拆不开就合成一条更具体的）")
     if errors:
         raise CriteriaError("判据草稿有问题，没有写入：\n  " + "\n  ".join(errors))
+    applied = applied_rows(draft, {r["id"] for r in rows}, golden)
     summary, csv_rows, extra, pwarns = proposals(draft, {r["id"] for r in rows}, golden, feedback)
     warns += pwarns
     planned = Counter(p["criterion"] for p in summary)
@@ -404,7 +432,7 @@ def build(out_dir, catalog: Optional[Dict[str, dict]] = None, golden: Optional[L
            "summary": {"tier": dict(Counter(r["tier"] for r in rows)), "coverage": dict(Counter(r["coverage"] for r in rows)),
                        "executor": dict(Counter(r["executor"] for r in rows)),
                        "golden_fixable": [r["id"] for r in rows if r["golden_fixable"]]},
-           "golden_proposals": summary,
+           "golden_proposals": summary, "golden_applied": applied,
            "apply_steps": apply_steps(d, len(extra)) if summary else []}
     if write:
         (d / OUT_JSON).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -475,9 +503,15 @@ def render_md(doc: dict) -> str:
             src = "新写（extra-feedback）" if p["source"] == "extra" else "上个月已有"
             lines.append(f"| {_md(p['criterion'])} | {_md(p['feedback_id'])} | {src} | {_md(p['title'])} | "
                          f"{_md(p['labels'])} | {_md(p['why'])} |")
-        lines += ["", "写入步骤（业务方同意后）：", ""] + [
+        lines += ["", "写入步骤（业务方同意后；写完把这些提议从 golden_proposals 挪到 golden_applied）：", ""] + [
             f"{i}. " + (f"`{st['cmd']}` —— {st['note']}" if st.get("cmd") else st.get("note", ""))
             for i, st in enumerate(doc.get("apply_steps") or [], 1)]
+    if doc.get("golden_applied"):
+        lines += ["", "## 已写入黄金集的样本（记得重新运行 `./30-create-evaluators.sh`）", "",
+                  "| 判据 | 黄金编号 | 需求编号 | 标题 | 期望标签 | 版本 |", "|----|----|----|----|----|----|"]
+        for p in doc["golden_applied"]:
+            lines.append(f"| {_md(p['criterion'])} | {_md(p['golden_id'])} | {_md(p['feedback_id'])} | {_md(p['title'])} | "
+                         f"{_md(p['labels'])} | {_md(p['version'])} |")
     return "\n".join(lines) + "\n"
 
 
@@ -534,7 +568,7 @@ def skeleton(out_dir, force: bool = False) -> Path:
         raise CriteriaError(f"{_rel(path)} 已存在，未覆盖（确实要重来就加 --force）")
     draft = {"criteria": [{"id": f"C-{i:02d}", "obstacle_id": o["obstacle_id"], "sticky_text": o["sticky_text"],
                            "evidence": o["evidence"], "text": "", "dimension": o["fishbone_dimension"], "tier": "",
-                           "threshold": "", "executor": "", "checks": [], "golden_ids": [], "note": ""}
+                           "threshold": "", "executor": "", "checks": [], "golden_ids": [], "golden_gap": "", "note": ""}
                           for i, o in enumerate(obs, 1)],
              "golden_proposals": []}
     path.write_text(json.dumps(draft, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

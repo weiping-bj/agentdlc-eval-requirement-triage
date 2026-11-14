@@ -180,6 +180,14 @@ def test_invalid_json_fails_the_named_check_and_writes_no_drawio(tmp_path, mutat
     assert "Overall: FAIL" in rep and "[FAIL]" in rep and "[SKIP]" in rep  # never a blanket PASS
 
 
+def test_long_sticky_warns_by_display_width(tmp_path):
+    data = sample()
+    data["barriers"]["cost"][0]["sticky_text"] = "长" * 51
+    data["barriers"]["cognition"][0]["sticky_text"] = "整批（上个月 60 条、大促后 200 条）要 30 分钟内跑完，单条最好 1 分钟内出结果"
+    _, warns = GF.validate_json(data)
+    assert len(warns) == 1 and warns[0].startswith("cost:")
+
+
 @pytest.mark.parametrize("kind", ["missing", "duplicate"])
 def test_changed_template_cell_ids_hard_stop(tmp_path, kind):
     text = TEMPLATE.read_text(encoding="utf-8")
@@ -414,6 +422,14 @@ def test_coverage_levels(over, level, fixable):
     assert (got == "已覆盖") == (notes == [])
 
 
+def test_a_stated_golden_gap_makes_it_partial_and_fixable():
+    level, notes, fixable, _ = CR.coverage(crit(golden_gap="没有看起来很小的缺陷"), CR.load_catalog(), GOLDEN)
+    assert (level, fixable) == ("部分覆盖", True) and any("看起来很小" in n for n in notes)
+    level, _, fixable, _ = CR.coverage(crit(dimension="成本", tier="门禁", threshold="x", executor="指标读数",
+                                            checks=["metric.tokens"], golden_gap="x"), CR.load_catalog(), GOLDEN)
+    assert not fixable  # a metric reading is not fixed by golden samples
+
+
 def test_golden_ids_must_exist_and_satisfy_the_check():
     with pytest.raises(CR.CriteriaError, match="G99"):
         CR.coverage(crit(golden_ids=["G99"]), CR.load_catalog(), GOLDEN)
@@ -470,6 +486,21 @@ def test_build_writes_the_table_and_previews_without_touching_data(tmp_path):
     assert len(extra) == 1 and extra[0]["id"] == "FB-2610-061" and extra[0]["_meta"]["category"] == "incident"
     assert extra[0]["_meta"]["golden_id"] is None and extra[0]["_meta"]["can_auto_reject"] is False
     assert DP.render_criteria(doc, {"path": "x", "sha": "y"})  # the page renders the real document
+
+
+def test_applied_samples_are_recorded_and_must_exist(tmp_path):
+    d = session(tmp_path)
+    _draft(d, ALL)
+    draft = json.loads((d / CR.DRAFT).read_text(encoding="utf-8"))
+    draft["golden_applied"] = [{"criterion": "C-01", "feedback_id": "FB-2610-003"}]
+    (d / CR.DRAFT).write_text(json.dumps(draft, ensure_ascii=False), encoding="utf-8")
+    doc = CR.build(d)
+    assert doc["golden_applied"][0]["golden_id"] == "G03" and "已写入黄金集的样本" in (d / CR.OUT_MD).read_text(encoding="utf-8")
+    assert "已写入黄金集的样本" in DP.render_criteria(doc, {"path": "x", "sha": "y"})
+    draft["golden_applied"] = [{"criterion": "C-01", "feedback_id": "FB-2610-048"}]  # not written yet
+    (d / CR.DRAFT).write_text(json.dumps(draft, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(CR.CriteriaError, match="黄金集里没有"):
+        CR.build(d)
 
 
 @pytest.mark.parametrize("criteria, msg", [

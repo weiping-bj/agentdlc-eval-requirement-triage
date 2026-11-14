@@ -232,6 +232,14 @@ def render_criteria(doc: dict, src: dict, now: Optional[datetime] = None) -> str
                      "新增了需求反馈时，B 版还要重新运行 <code>./20-B-deploy-runtime.sh</code>。</div>"
                      "<table class=\"t\"><tr><th>判据</th><th>需求编号</th><th>标题</th><th>期望标签</th><th>为什么补这条</th></tr>"
                      f"{prow}</table></section>\n")
+    done = [p for p in _list(doc.get("golden_applied")) if isinstance(p, dict)]
+    if done:
+        drow = "".join(f"<tr><td>{E(p.get('criterion'))}</td><td><code>{E(p.get('golden_id'))}</code></td>"
+                       f"<td><code>{E(p.get('feedback_id'))}</code></td><td class=\"pre\">{E(p.get('title'))}</td>"
+                       f"<td class=\"small\">{E(p.get('labels'))}</td></tr>" for p in done)
+        prop_html += ("<section class=\"card\"><h2>已写入黄金集的样本</h2><div class=\"note\">记得重新运行 "
+                      "<code>./30-create-evaluators.sh</code>，评估器才会用上新黄金集。</div><table class=\"t\"><tr><th>判据</th>"
+                      f"<th>黄金编号</th><th>需求编号</th><th>标题</th><th>期望标签</th></tr>{drow}</table></section>\n")
     warns = "".join(f"<li>{E(w)}</li>" for w in _list(doc.get("warnings")))
     body = (f'<section class="card"><div class="warn"><b>判据表预览</b>（{len(crit)} 条，生成于 {E(stamp)} 北京时间）。'
             f"每条判据的主语是 Agent、谓语可观测；“现有评估器覆盖”由 adlc-criteria skill 的对照表算出。{_NOTE}"

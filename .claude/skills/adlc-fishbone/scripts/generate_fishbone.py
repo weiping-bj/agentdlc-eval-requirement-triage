@@ -49,7 +49,7 @@ DIM_CN = {"cognition": "认知", "quality": "质量", "responsibility": "责任"
 ALL_REQUIRED_IDS = list(META_CELLS.values()) + [cid for slots in DIMENSION_SLOTS.values() for cid in slots]
 PLACEHOLDER_TEXTS = ("请填写", "请填写具体 Use Case", "YYYY-MM-DD", "双击填写障碍", "示例（可删除）", "对内 / To B / To C")
 COVERAGE_STATES = ("confirmed", "explored_empty", "unresolved")
-STICKY_SOFT_LIMIT = 50  # characters; longer notes overflow the 340x82 sticky
+STICKY_SOFT_LIMIT = 50  # display width (CJK = 1, ASCII = 0.5); wider notes may overflow the 340x82 sticky
 
 CHECKS = [  # (key, text) in report order
     ("json", "JSON parses and has schema_version 1.0"),
@@ -65,6 +65,12 @@ CHECKS = [  # (key, text) in report order
     ("xml", "Generated drawio reparses as valid XML"),
     ("nonempty", "Output file is non-empty"),
 ]
+
+
+def display_width(text: str) -> float:
+    """Width in CJK characters: full-width / wide characters count 1, everything else (digits, spaces) 0.5."""
+    import unicodedata
+    return sum(1.0 if unicodedata.east_asian_width(c) in "WF" else 0.5 for c in text)
 
 
 def cell_text(text) -> str:
@@ -136,8 +142,9 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
                 err["confirmed"].append(f"{dim}: selected barrier not confirmed: {text or '?'}")
             if not text:
                 err["confirmed"].append(f"{dim}: selected barrier has empty sticky_text")
-            elif len(text) > STICKY_SOFT_LIMIT:
-                warns.append(f"{dim}: sticky text has {len(text)} characters (>{STICKY_SOFT_LIMIT}), may overflow: {text}")
+            elif display_width(text) > STICKY_SOFT_LIMIT:
+                warns.append(f"{dim}: sticky text is {display_width(text):g} CJK characters wide (>{STICKY_SOFT_LIMIT}), "
+                             f"may overflow; split it into two notes: {text}")
     return err, warns
 
 

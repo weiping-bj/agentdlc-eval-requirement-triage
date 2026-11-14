@@ -54,11 +54,12 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py skeleton outputs/fishbo
 | 字段 | 怎么填 |
 |------|--------|
 | `text` | “Agent …”开头，谓语落在 Agent 的输出或 trace 上；用便签和 `evidence` 里的数字（例如“整批 60 条 30 分钟内完成”“每条模型费用 ≤ 0.5 元”） |
-| `dimension` | 认知 / 质量 / 责任 / 成本 / 性能（确实不属于五维才写“其他”） |
+| `dimension` | 认知 / 质量 / 责任 / 成本 / 性能（确实不属于五维才写“其他”）。按**判据本身**定，可以和鱼骨图上的方面不同：例如“一条反馈四个诉求漏掉后面几个”在鱼骨图上放在性能，判据检查的是输出完整、判对，属于质量；成本 / 性能维只留给耗时、吞吐、费用这类读数 |
 | `tier` / `threshold` | 按上面的档位规则；红线写 `null` |
 | `executor` | 代码断言 / 裁判 / 内置评估器 / 指标读数；成本、性能只能是指标读数 |
 | `checks` | 从 `criteria.py catalog` 里选**确实检查这个谓语**的检查编号；一个都不对就写 `[]`（未覆盖），不要硬凑 |
 | `golden_ids` | 能检验这条判据的现有黄金样本（`criteria.py golden`），要满足检查的条件（例如 `misreject` 只对“不可自动拒绝”的样本起作用）；没有就写 `[]` |
+| `golden_gap` | 可选：现有样本有，但没覆盖障碍里的具体情形时写一句（例如“黄金集里的缺陷样本都是严重故障，没有‘看起来很小’的缺陷”）；覆盖会记为部分覆盖，可以补黄金样本 |
 | `note` | 可选：一句话说明，例如“菜单路径可改成对照能力目录的代码断言” |
 
 然后：
@@ -110,13 +111,13 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
    判“拒绝”的样本必须写 `reject_points` 和 `reply_points`（话术要点至少覆盖：理解诉求、说明立场和原因、给出替代方案）。
 4. 再 `build`：它按 `golden_tool.py apply-feedback` 的规则在内存里试运行，通过后写出**预览**（不动 `data/`）：
    `golden-proposals.csv`（`golden-set-feedback.csv` 格式，操作 = 新增）、新写条目的 `extra-feedback.proposed.jsonl`（`extra-feedback.jsonl` 格式），`criteria.md` 末尾有提议表和写入步骤。
-5. 把提议读给业务方（每条：需求标题、期望标签、为什么补），并**明确告诉他们**：
+5. 把提议读给业务方（每条：需求标题、期望标签、为什么补），并**跳出角色、对小组里的技术同学明确说**（这句对业务方角色没有意义）：
    “写进黄金集后要重新运行 `./30-create-evaluators.sh`：黄金集是打包在评估器 Lambda 里的，不重新部署，评估用的还是旧黄金集。”（新写了需求反馈时再加一句：B 版还要重新运行 `./20-B-deploy-runtime.sh`。）
    然后只问一个问题：“要把这 N 条写进黄金集吗？”
 6. **同意后**才按 `criteria.md` 的“写入步骤”逐条执行，任何一步报错就停下来报告：
    - 有新写条目时：把 `extra-feedback.proposed.jsonl` 的每一行追加到 `data/templates/extra-feedback.jsonl`，按提示改 `data/templates/mock-data-params.yaml` 的 `count`，运行 `python3 data/tools/generate_mock_data.py`；
    - `criteria.py verify` → `golden_tool.py apply-feedback --feedback <目录>/golden-proposals.csv --dry-run` → 去掉 `--dry-run` 再运行 → `golden_tool.py freeze` → `criteria.py verify`；
-   - 把新黄金编号（verify 会打印）填进对应判据的 `golden_ids`，再 `build`，再 `./tools/publish-define-pages.sh` 更新预览；
+   - 在 `criteria-draft.json` 里把这几条提议从 `golden_proposals` 挪到 `golden_applied`（留作记录），把新黄金编号（verify 会打印）填进对应判据的 `golden_ids`，删掉已补上的 `golden_gap`，再 `build`，再 `./tools/publish-define-pages.sh` 更新预览；
    - 提醒（或经他们同意后运行）`./30-create-evaluators.sh`。
    不同意：什么都不写，预览文件留在输出目录里即可。
 

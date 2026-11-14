@@ -6,7 +6,7 @@
 | 路径 | 作用 |
 |------|------|
 | `contentspec.yaml` | WS 配置：每位学员一个账号（`workshop_studio`），区域 us-west-2（推荐）/ us-east-1，部署 `static/adlc-lab.yaml` 并传入 `{{.AssetsBucketName}}` / `{{.AssetsBucketPrefix}}` |
-| `static/adlc-lab.yaml` | CloudFormation（WS 按文件名把堆栈命名为 `adlc-lab`）。由 `ec2/adlc-ec2.yaml` 派生：同样无入站端口、仅 SSM、IMDSv2、同一实例角色和权限边界，另加只读实验包对象的 `s3:GetObject`。实验的 3 个服务角色（Runtime、评估器 Lambda、在线评估）由堆栈预先创建（固定的服务信任），实例角色没有任何 IAM 写权限 |
+| `static/adlc-lab.yaml` | CloudFormation（WS 按文件名把堆栈命名为 `adlc-lab`）。由 `ec2/adlc-ec2.yaml` 派生：同样无入站端口、仅 SSM、IMDSv2、同一实例角色和权限边界，另加只读实验包对象的 `s3:GetObject`。实验的 3 个服务角色（Runtime、评估器 Lambda、在线评估）由堆栈预先创建（固定的服务信任），实例角色只能把它们传给各自的服务（PassRole），除服务关联角色外没有其他 IAM 写权限 |
 | `static/iam-policy.json` | 学员角色附加策略（另附 AWS 托管策略 `ReadOnlyAccess`）：只对带 `adlc:lab=agentdlc` 标签的实例开 Session Manager、只能恢复/结束自己的会话；可在 S3 控制台向本账号的 `adlc-*` 桶上传/删除文件（手册扩展 6 用它把讨论模板拷到 EC2） |
 | `content/` | 中文操作手册（WS markdown，每页 `index.zh.md`；章号与脚本编号一致：第 N 章用 `N0`–`N9` 号脚本，扩展用 `ext-*.sh`）。图片在 `static/images/`：飞轮 SVG 由 `tools/ws_flywheel.py` 生成，截图清单见 `SHOTLIST.md` |
 | `assets/` | `tools/build-ws-bundle.sh` 的输出位置，zip 不提交 |

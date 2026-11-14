@@ -96,7 +96,7 @@ def enable(mode: str) -> int:
     evaluators = [{"evaluatorId": ev[k]["evaluatorId"]} for k in ONLINE_EVALUATORS if k in ev]
     evaluators += [{"evaluatorId": b} for b in ONLINE_BUILTINS]
     name = config_name(mode)
-    role = role_arn()  # on the lab EC2: the stack's pre-created role, as is; elsewhere: created/refreshed
+    role = role_arn()  # the stack's pre-created role on the lab EC2; created/refreshed on a laptop
     existing = find(name)
     if existing:
         cid = existing["onlineEvaluationConfigId"]

@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from botocore.exceptions import ClientError
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -62,8 +63,9 @@ def _res(st):
     return [_sub(x) for x in (r if isinstance(r, list) else [r])]
 
 
-def _check_statements(name, stmts, allow_iam_create_role=False):
-    """Every Allow that grants a SCOPED action is exactly the allowlist; no Allow grants a NEVER action."""
+def _check_statements(name, stmts, allow=()):
+    """Every Allow that grants a SCOPED action is exactly the allowlist; no Allow grants a NEVER action
+    (except those in `allow`)."""
     want = sorted(models.invoke_resources(R, A))
     for s in stmts:
         assert "NotAction" not in s or s["Effect"] == "Deny", (name, s.get("Sid"), "Allow with NotAction")
@@ -71,7 +73,7 @@ def _check_statements(name, stmts, allow_iam_create_role=False):
         if any(_grants(s, a) for a in SCOPED):
             assert sorted(_res(s)) == want, (name, s.get("Sid"), _res(s))
             assert not [a for a in _acts(s) if "*" in a and a.lower().startswith("bedrock")], (name, s.get("Sid"))
-        never = [a for a in NEVER if _grants(s, a) and not (allow_iam_create_role and a.startswith("iam:"))]
+        never = [a for a in NEVER if _grants(s, a) and a not in allow]
         assert not never, (name, s.get("Sid"), never)
 
 
@@ -123,8 +125,8 @@ def test_instance_role_and_boundary_invoke_only_the_allowlist(template):
     other_iam = [r for r, v in t["Resources"].items() if v["Type"] in ("AWS::IAM::Policy", "AWS::IAM::RolePolicy",
                                                                       "AWS::IAM::User", "AWS::IAM::AccessKey")]
     assert not other_iam, other_iam
-    # the instance role creates the lab roles (with the boundary), the boundary itself never grants IAM
-    _check_statements("instance role", policies[0], allow_iam_create_role=True)
+    # the instance role only passes the pre-created lab roles (scoped in the PassRole test below); never CreateRole
+    _check_statements("instance role", policies[0], allow=("iam:PassRole",))
     _check_statements("boundary", t["Resources"]["LabRoleBoundary"]["Properties"]["PolicyDocument"]["Statement"])
     assert [s for s in policies[0] if any(_grants(s, a) for a in SCOPED)]
 
@@ -170,6 +172,10 @@ def test_pre_created_roles_are_exactly_what_labkit_builds(template, captured_rol
     t = cfn(ROOT / template)
     for lid, kind in LAB_ROLES.items():
         props = t["Resources"][lid]["Properties"]
+        # nothing beyond these (e.g. no ManagedPolicyArns, no Path tricks)
+        assert set(props) == {"RoleName", "Description", "PermissionsBoundary", "AssumeRolePolicyDocument",
+                              "Policies", "Tags"}, (lid, sorted(props))
+        assert set(t["Resources"][lid]) == {"Type", "Properties"}, lid
         name = _render(props["RoleName"], "zhang3")
         assert name == f"adlc-zhang3-{kind}-{R}" and name in captured_roles, (lid, name)
         assert props["PermissionsBoundary"] == {"Ref": "LabRoleBoundary"}
@@ -400,6 +406,46 @@ def test_suffix_rule_reserves_ec2_everywhere(bad, tmp_path):
         assert out.stdout == kept, (value, out.stdout)
 
 
+FAKE_AWS = r"""#!/bin/bash
+# stand-in for the aws CLI as launch-from-cloudshell.sh calls it (aws --region R <service> <operation> ...)
+echo "$*" >> "$FAKE_DIR/calls"
+case "$3 $4" in
+  "sts get-caller-identity") echo arn:aws:sts::1:assumed-role/Admin/me ;;
+  "cloudformation describe-stacks")
+    if [ -f "$FAKE_DIR/deployed" ] && [[ "$*" == *Outputs* ]]; then echo i-1; else exit 255; fi ;;
+  "ec2 describe-instance-type-offerings") echo us-west-2a ;;
+  "ec2 describe-vpcs") echo vpc-1 ;;
+  "ec2 describe-subnets") echo subnet-1 ;;
+  "iam get-role") if [ "$FAKE_ROLE" = absent ]; then echo "NoSuchEntity" >&2; exit 254; fi; echo "$FAKE_ROLE" ;;
+  "cloudformation deploy") touch "$FAKE_DIR/deployed" ;;
+  "ssm describe-instance-information") echo Online ;;
+esac
+"""
+
+
+@pytest.mark.parametrize("role, deployed", [("absent", True), ("cloudformation", True), ("None", False)])
+def test_launcher_stops_before_deploy_when_a_lab_role_name_is_taken(tmp_path, role, deployed):
+    """The stack pre-creates adlc-<suffix>-*-role-<region>; a same-name role from an older lab or a laptop run
+    (no adlc:managed-by tag) would fail the deploy, so the launcher stops first and says what to do."""
+    import subprocess
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "aws").write_text(FAKE_AWS)
+    (tmp_path / "bin" / "aws").chmod(0o755)
+    env = {"PATH": f"{tmp_path / 'bin'}:/usr/bin:/bin", "AWS_REGION": R, "FAKE_DIR": str(tmp_path), "FAKE_ROLE": role,
+           "HOME": str(tmp_path)}
+    r = subprocess.run(["bash", str(ROOT / "ec2" / "launch-from-cloudshell.sh"), "zhang3"], cwd=tmp_path, env=env,
+                       capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
+    calls = (tmp_path / "calls").read_text()
+    assert f"iam get-role --role-name adlc-zhang3-runtime-role-{R}" in calls
+    assert (tmp_path / "deployed").exists() == deployed, (r.stdout, r.stderr)
+    if deployed:
+        assert r.returncode == 0, r.stderr
+        for kind in ("eval-lambda", "online-eval"):
+            assert f"iam get-role --role-name adlc-zhang3-{kind}-role-{R}" in calls
+    else:
+        assert r.returncode == 1 and "99-cleanup.sh" in r.stderr and f"adlc-zhang3-runtime-role-{R}" in r.stderr
+
+
 def test_online_enable_repoints_an_existing_config_at_the_refreshed_role(monkeypatch, tmp_path):
     monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "none.env")
     monkeypatch.setenv("LAB_SUFFIX", "zhang3")
@@ -436,6 +482,8 @@ class _FakeIam:
     def get_role(self, RoleName):
         if self.role is None:
             raise self.exceptions.NoSuchEntityException(RoleName)
+        if self.role == "denied":  # GetRole is granted only on the stack's own suffix
+            raise ClientError({"Error": {"Code": "AccessDenied", "Message": "no"}}, "GetRole")
         return {"Role": self.role}
 
     def __getattr__(self, name):  # create_role, put_role_policy, update_assume_role_policy, ...
@@ -452,6 +500,9 @@ MANAGED = {"Arn": "arn:aws:iam::123456789012:role/adlc-zhang3-runtime-role-us-we
     ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3-us-west-2/i-1", None, "exit"),         # lab EC2 never creates
     ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3-us-west-2/i-1", {"Arn": "x", "Tags": []}, "exit"),  # nor re-trusts
     ("arn:aws:sts::1:assumed-role/Admin/me", None, "created"),                           # laptop path unchanged
+    ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3/i-1", None, "created"),                # manual EC2 role (no stack)
+    ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3-us-gov-west-1/i-1", None, "exit"),     # any Region name
+    ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3-us-west-2/i-1", "denied", "exit"),     # other suffix: explained
 ])
 def test_ensure_role_uses_pre_created_roles_and_never_writes_iam_on_the_lab_ec2(monkeypatch, caller, role, outcome):
     fake = _FakeIam(role)
@@ -472,28 +523,36 @@ def test_ensure_role_uses_pre_created_roles_and_never_writes_iam_on_the_lab_ec2(
         assert fake.writes == ["create_role", "put_role_policy"]
 
 
-def test_cleanup_leaves_stack_managed_roles_to_the_stack(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize("dash", ["adlc-zhang3-", "adlc-"])  # own suffix / --all
+def test_cleanup_leaves_stack_managed_roles_to_the_stack(monkeypatch, tmp_path, capsys, dash):
     monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "none.env")
     monkeypatch.setenv("LAB_SUFFIX", "zhang3")
     monkeypatch.setenv("AWS_REGION", R)
     aws.cfg.cache_clear()
     from labkit import cleanup
     names = ["adlc-zhang3-runtime-role-us-west-2", "adlc-zhang3-old-runtime-role", "adlc-ec2-zhang3-us-west-2",
-             "adlc-zhang3x-runtime-role-us-west-2"]
+             "adlc-zhang3x-runtime-role-us-west-2", "adlc-li4-runtime-role-us-west-2", "adlc-zhang3-gone-runtime-role"]
 
     class Iam:
         def get_paginator(self, op):
             return type("P", (), {"paginate": lambda self_: [{"Roles": [{"RoleName": n} for n in names]}]})()
 
         def get_role(self, RoleName):
+            if "-li4-" in RoleName:  # another participant's role, unreadable from this caller
+                raise ClientError({"Error": {"Code": "AccessDenied", "Message": "no"}}, "GetRole")
+            if "-gone-" in RoleName:  # deleted between list and get
+                raise ClientError({"Error": {"Code": "NoSuchEntity", "Message": "gone"}}, "GetRole")
             tags = [{"Key": "adlc:managed-by", "Value": "cloudformation"}] if RoleName.endswith("-us-west-2") else []
             return {"Role": {"RoleName": RoleName, "Tags": tags}}
 
     monkeypatch.setattr(aws, "client", lambda name: Iam())
     try:
         c = cleanup.Cleaner.__new__(cleanup.Cleaner)
-        c.c, c.dash = labcfg.load(), "adlc-zhang3-"
-        assert c.roles() == ["adlc-zhang3-old-runtime-role"]           # deleted by cleanup
-        assert c.managed_roles() == ["adlc-zhang3-runtime-role-us-west-2"]  # deleted with the stack
+        c.c, c.dash, c.list_errors = labcfg.load(), dash, []
+        assert c.roles() == ["adlc-zhang3-old-runtime-role"]  # deleted by cleanup; never adlc-ec2-*
+        managed = ["adlc-zhang3-runtime-role-us-west-2"] + (["adlc-zhang3x-runtime-role-us-west-2"] if dash == "adlc-" else [])
+        assert c.managed_roles() == managed  # deleted with the stack
+        # fail closed: an unreadable role is neither deleted nor called clean
+        assert c.list_errors == (["IAM 角色（无法读取）"] if dash == "adlc-" else [])
     finally:
         aws.cfg.cache_clear()

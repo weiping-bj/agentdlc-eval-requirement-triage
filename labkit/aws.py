@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import functools
 import json
+import re
 import threading
 import time
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from . import config as labcfg
 
@@ -77,23 +79,41 @@ def stack_managed(role: dict) -> bool:
     return any(t.get("Key") == MANAGED_TAG[0] and t.get("Value") == MANAGED_TAG[1] for t in role.get("Tags") or [])
 
 
+# The instance role of a lab stack is adlc-ec2-<suffix>-<region>; a role created by hand for ec2/README
+# 方式二 is adlc-ec2-<suffix> (no stack, no pre-created roles: it creates the lab roles itself).
+STACK_EC2_ROLE = re.compile(r":assumed-role/adlc-ec2-[a-z][a-z0-9]{1,11}-[a-z]{2}(?:-[a-z]+)+-\d+/")
+
+
+def on_stack_ec2() -> bool:
+    return bool(STACK_EC2_ROLE.search(caller_arn()))
+
+
+def _no_stack_role(name: str) -> SystemExit:
+    return SystemExit(f"❌ 找不到由 EC2 堆栈预先创建的角色 {name}（实验 EC2 不能自己创建或修改 IAM 角色）。"
+                      f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致"
+                      f"（当前 {cfg()['AWS_REGION']}）；EC2 堆栈若是旧版本模板创建的，请用新模板重新创建。")
+
+
 def ensure_role(name: str, trust: dict, inline: dict, description: str = "") -> str:
     """The ARN of lab role `name`.
 
-    On the lab EC2 the stack pre-creates the three lab roles and the EC2 has no IAM write permissions, so the role
-    is used as is (nothing can re-trust it). Off the lab EC2 (a laptop with admin credentials, no stack) the role
-    is created or updated here with `trust` and one inline policy, with the lab boundary when one exists."""
+    On a lab stack's EC2 the stack pre-creates the three lab roles and the EC2 has no IAM write permissions, so
+    the role is used as is (nothing can re-trust it). Elsewhere (a laptop with admin credentials, or the manual
+    EC2 role of ec2/README 方式二) the role is created or updated here with `trust` and one inline policy, with
+    the lab boundary when one exists. A role tagged as stack-managed is never changed from anywhere."""
     iam = client("iam")
     try:
         role = iam.get_role(RoleName=name)["Role"]
     except iam.exceptions.NoSuchEntityException:
         role = None
+    except ClientError as e:  # GetRole is only granted on the stack's own suffix: a different suffix lands here
+        if e.response.get("Error", {}).get("Code") in ("AccessDenied", "AccessDeniedException"):
+            raise _no_stack_role(name) from e
+        raise
     if role is not None and stack_managed(role):
         return role["Arn"]
-    if "assumed-role/adlc-ec2-" in caller_arn():
-        raise SystemExit(f"❌ 找不到由 EC2 堆栈预先创建的角色 {name}（实验 EC2 不能自己创建或修改 IAM 角色）。"
-                         f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致"
-                         f"（当前 {cfg()['AWS_REGION']}）。")
+    if on_stack_ec2():
+        raise _no_stack_role(name)
     if role is not None:
         arn = role["Arn"]
         iam.update_assume_role_policy(RoleName=name, PolicyDocument=json.dumps(trust))

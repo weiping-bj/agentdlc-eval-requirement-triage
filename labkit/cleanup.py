@@ -136,19 +136,34 @@ class Cleaner:
                     and (r["RoleName"].endswith(f"-{self.c['AWS_REGION']}") or r["RoleName"].endswith(legacy))]
         return out
 
-    def _managed(self, name: str) -> bool:
-        """Pre-created by an EC2 stack (tag adlc:managed-by=cloudformation): deleted with the stack, never here."""
-        try:
-            return aws.stack_managed(aws.client("iam").get_role(RoleName=name)["Role"])
-        except Exception:  # noqa: BLE001 - unreadable: treat as a lab-created role (deleting it then reports)
-            return False
+    def _roles_by_state(self):
+        """Lab roles by state: 'lab' (this cleanup deletes them), 'managed' (pre-created by an EC2 stack, tag
+        adlc:managed-by=cloudformation: deleted with the stack, never here) and 'unreadable' (fail closed: never
+        deleted, reported as a listing problem)."""
+        iam = aws.client("iam")
+        out = {"lab": [], "managed": [], "unreadable": []}
+        for name in self._all_lab_roles():
+            try:
+                role = iam.get_role(RoleName=name)["Role"]
+            except Exception as e:  # noqa: BLE001
+                if getattr(e, "response", {}).get("Error", {}).get("Code") == "NoSuchEntity":
+                    continue  # deleted meanwhile
+                out["unreadable"].append(name)
+                continue
+            out["managed" if aws.stack_managed(role) else "lab"].append(name)
+        return out
 
     def roles(self):
-        """Lab roles this cleanup deletes (stack-managed roles excluded)."""
-        return [r for r in self._all_lab_roles() if not self._managed(r)]
+        """Lab roles this cleanup deletes (stack-managed and unreadable roles excluded)."""
+        by = self._roles_by_state()
+        if by["unreadable"]:
+            print(f"  ⚠️  无法读取这些 IAM 角色，不删除：{by['unreadable']}")
+            if "IAM 角色（无法读取）" not in self.list_errors:
+                self.list_errors.append("IAM 角色（无法读取）")
+        return by["lab"]
 
     def managed_roles(self):
-        return [r for r in self._all_lab_roles() if self._managed(r)]
+        return self._roles_by_state()["managed"]
 
     def log_groups(self, runtime_ids=()):
         logs = aws.client("logs")

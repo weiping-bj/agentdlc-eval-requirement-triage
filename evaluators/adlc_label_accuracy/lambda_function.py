@@ -1,4 +1,4 @@
-"""AgentCore Evaluations code-based evaluator (TRACE level): scenario-12 three-label accuracy.
+"""AgentCore Evaluations code-based evaluator (TRACE level): AgentDLC lab three-label accuracy.
 
 Plain Lambda handler, standard library only (no bedrock-agentcore SDK needed).
 Handler: lambda_function.handler. Package = this whole directory (span_adapter.py,

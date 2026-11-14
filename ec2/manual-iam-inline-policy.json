@@ -17,7 +17,7 @@
         "iam:TagRole",
         "iam:UpdateAssumeRolePolicy"
       ],
-      "Resource": "arn:aws:iam::*:role/adlc*"
+      "Resource": "arn:aws:iam::*:role/adlc-*"
     },
     {
       "Sid": "ServiceLinkedRoles",
@@ -45,7 +45,7 @@
       "Sid": "LabIamPassRole",
       "Effect": "Allow",
       "Action": "iam:PassRole",
-      "Resource": "arn:aws:iam::*:role/adlc*",
+      "Resource": "arn:aws:iam::*:role/adlc-*",
       "Condition": {
         "StringEquals": {
           "iam:PassedToService": [

@@ -1,4 +1,4 @@
-"""Three pillars (红线 / 门禁 / 观测): one verdict rule for every scenario-12 report.
+"""Three pillars (红线 / 门禁 / 观测): one verdict rule for every AgentDLC lab report.
 
 红线 (red line, one-vote veto). An item that violates a red line fails as a whole item, and one
 red line makes the whole run fail whatever the accuracies are:

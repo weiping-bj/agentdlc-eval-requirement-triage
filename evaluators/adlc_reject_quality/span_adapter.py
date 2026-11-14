@@ -1,5 +1,5 @@
 """Span adapter: AgentCore Evaluations `sessionSpans` (ADOT span docs + event log records)
--> scenario-12 triage records.
+-> AgentDLC lab triage records.
 
 Canonical copy lives in evaluators/shared/; `python3 evaluators/sync_shared.py` copies it next to
 each Lambda handler (each Lambda package must be self-contained). Standard library only.

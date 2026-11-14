@@ -1,7 +1,7 @@
 """Chapter 10: delete every lab resource and prove nothing is left.
 
   python -m labkit.cleanup                 # my resources (prefix adlc, my suffix)
-  python -m labkit.cleanup --all           # instructor: every adlc* resource in this account+region (+ EC2 stacks)
+  python -m labkit.cleanup --all           # instructor: every adlc-* / adlc_* resource in this account+region (+ EC2 stacks)
   python -m labkit.cleanup --all --account-level   # + revert Transaction Search, delete aws/spans
   python -m labkit.cleanup --verify-only   # only list what is left
 Deletion order respects dependencies: online eval configs -> evaluators -> Lambdas ->

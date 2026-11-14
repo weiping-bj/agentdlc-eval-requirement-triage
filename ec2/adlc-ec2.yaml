@@ -162,7 +162,7 @@ Resources:
   # NOTE: the inline policy is INTENTIONALLY BROAD. It is meant for a 1-day
   # workshop in a dedicated, disposable lab account, so that participants (and
   # the coding agent running on this EC2) can create AgentCore resources,
-  # adlc* IAM roles, Lambda functions, S3 buckets and observability config
+  # adlc-* IAM roles, Lambda functions, S3 buckets and observability config
   # without permission friction. Do not reuse it for real workloads.
   # ---------------------------------------------------------------------------
   InstanceRole:
@@ -218,7 +218,7 @@ Resources:
                 Action:
                   - iam:CreateRole
                   - iam:PutRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
                 Condition:
                   StringEquals:
                     iam:PermissionsBoundary: !Ref LabRoleBoundary
@@ -235,11 +235,11 @@ Resources:
                   - iam:ListInstanceProfilesForRole
                   - iam:TagRole
                   - iam:UpdateAssumeRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
               - Sid: LabIamPassRole
                 Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc*"
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
                 Condition:
                   StringEquals:
                     iam:PassedToService:
@@ -287,7 +287,7 @@ Resources:
               - Sid: LabLambda
                 Effect: Allow
                 Action: lambda:*
-                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc*"
+                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
               - Sid: LabS3Buckets
                 Effect: Allow
                 Action: s3:*
@@ -303,7 +303,7 @@ Resources:
                 Action: logs:*
                 Resource:
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"
-                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/adlc*"
+                  - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/adlc-*"
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans"
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws/spans:*"
                   - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/application-signals/data"
@@ -390,7 +390,7 @@ Resources:
             Action:
               - lambda:InvokeFunction
               - lambda:GetFunction
-            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc*"
+            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
           - Sid: ReadLabBuckets
             Effect: Allow
             Action: s3:GetObject

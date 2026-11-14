@@ -24,7 +24,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from . import aws
+from . import aws, models
 
 ROOT = Path(aws.cfg()["LAB_ROOT"])
 EV = ROOT / "evaluators"
@@ -84,8 +84,9 @@ def lambda_role() -> str:
     inline = {"Version": "2012-10-17", "Statement": [
         {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
          "Resource": f"arn:aws:logs:*:{a}:log-group:/aws/lambda/{c['LAB_NAME']}-*"},
-        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:Converse"],
-         "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]}]}
+        # judge + fallback model, allowlist only (labkit/models.py)
+        {"Effect": "Allow", "Action": list(models.INVOKE_ACTIONS),
+         "Resource": models.invoke_resources(c["AWS_REGION"], a)}]}
     return aws.ensure_role(c["EVAL_LAMBDA_ROLE_NAME"], trust, inline, "adlc evaluator Lambda role")
 
 

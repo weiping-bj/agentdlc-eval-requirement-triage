@@ -148,7 +148,7 @@ python3 evaluators/adlc_label_accuracy/batch_score.py --results results/all-60.j
   - 把 [`adlc_reject_quality/`](adlc_reject_quality/) 整个目录 zip 到 Lambda 根目录，handler 为 `lambda_function.handler`；
   - 依赖标准库 + boto3（Lambda 运行时自带）；
   - 超时建议 120 秒。
-  - **执行角色需要的权限**：`bedrock:InvokeModel`、`bedrock:Converse`，作用于 `foundation-model/*` 和 `inference-profile/*`（参考 [`execution-role-policy.json`](adlc_reject_quality/execution-role-policy.json)）。
+  - **执行角色需要的权限**：`bedrock:InvokeModel`、`bedrock:Converse`，只作用于实验允许的模型（Claude Sonnet 5.5、Claude Haiku 5.5、Amazon Nova 2 Lite 的 `us.` 推理配置文件及其路由到的基础模型，见 `labkit/models.py`；参考 [`execution-role-policy.json`](adlc_reject_quality/execution-role-policy.json)）。
 - **评审模型**（读取顺序）：
   1. 环境变量 `JUDGE_MODEL_ID`；
   2. `config/local.env`；

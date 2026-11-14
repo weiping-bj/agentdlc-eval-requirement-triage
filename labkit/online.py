@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import aws
+from . import aws, models
 
 ONLINE_EVALUATORS = ["label_accuracy", "label_important", "label_urgent", "label_decision", "label_level", "reject_quality"]  # label_level: only registered in the P0/P1/P2 scheme
 ONLINE_BUILTINS = ["Builtin.Helpfulness"]
@@ -36,9 +36,8 @@ def role_arn() -> str:
         {"Effect": "Allow", "Action": ["logs:PutIndexPolicy"],
          "Resource": [f"arn:aws:logs:{r}:{a}:log-group:aws/spans", f"arn:aws:logs:{r}:{a}:log-group:aws/spans:*",
                       f"arn:aws:logs:{r}:{a}:log-group:/aws/bedrock-agentcore/*"]},
-        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream",
-                                       "bedrock:Converse", "bedrock:ConverseStream"],
-         "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]},
+        # the custom LLM-judge evaluator runs as this role: allowlisted models only (labkit/models.py)
+        {"Effect": "Allow", "Action": list(models.INVOKE_ACTIONS), "Resource": models.invoke_resources(r, a)},
         {"Effect": "Allow", "Action": ["lambda:InvokeFunction", "lambda:GetFunction"],
          "Resource": [f"arn:aws:lambda:{r}:{a}:function:{c['LAB_NAME']}-eval-*"]},
         {"Effect": "Allow", "Action": ["cloudwatch:PutMetricData"], "Resource": "*"},

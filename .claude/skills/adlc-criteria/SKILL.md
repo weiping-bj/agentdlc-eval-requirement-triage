@@ -36,8 +36,14 @@ description: AgentDLC 定义环第二步“障碍 → 判据 → 黄金集”：
 ls -td outputs/fishbone/*/ | head -5
 ```
 
-用刚做完的那个目录（有多个、拿不准时问一句“用哪一个？”）。目录里要有 `fishbone-data.json` 且 `status` 是 `approved_for_render`（脚本会检查）；没有就先用 `adlc-fishbone` skill。鱼骨图改过之后，判据表要重新 build 才能发布（发布命令会比对两者）。
-实验场景（`metadata.scenario` 是 `lab`）读一下 `data/scenario/role-card.md` 末尾的“数据对照”，它告诉你每类障碍对应能力目录、需求反馈和黄金集里的哪些条目。
+用刚做完的那个目录（有多个、拿不准时问一句“用哪一个？”）。目录里要有 `fishbone-data.json` 且 `status` 是 `approved_for_render`（脚本会检查）；没有就先用 `adlc-fishbone` skill。鱼骨图改过之后，判据表要重新 build（实验的发布工具会比对两者）。
+判断是不是**实验场景**（需求反馈分诊 Agent，业务方用的是角色卡 `data/scenario/role-card.md`）：看鱼骨图的 `use_case` 和 qa-record 里的背景材料；拿不准就问一句。是实验场景就运行：
+
+```bash
+python3 .claude/skills/adlc-criteria/scripts/criteria.py hints
+```
+
+它打印角色卡每类坑对应的能力目录、需求反馈和黄金集条目（只给你用，不要念给业务方）。
 
 ### 第 1 步：草稿骨架（不提问）
 
@@ -46,6 +52,7 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py skeleton outputs/fishbo
 ```
 
 它写 `criteria-draft.json`（每条已确认障碍一条空判据，已存在就不覆盖），并打印可选的检查（`catalog`）和当前黄金集（`golden`）。
+草稿里的 `scenario` 填 `lab`（实验场景）或 `own`（小组自己的场景）；只有 `lab` 才能做第 4 步。没问到的方面（鱼骨图 `not_asked`）没有障碍，也就没有判据。
 
 ### 第 2 步：写判据（不提问，约 3–5 分钟）
 
@@ -76,13 +83,7 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
 
 > 这是从你们的鱼骨图翻译出来的判据表。档位和阈值是按你们说的数字定的。你们签字吗？要改哪条的档位或阈值就说。
 
-有修改：改草稿 → build → 再读一次改动的那几条确认。签字后发布预览（鱼骨图和判据表一起）：
-
-```bash
-./tools/publish-define-pages.sh outputs/fishbone/<目录>
-```
-
-打印的控制台链接在笔记本浏览器打开，点「打开」看判据表网页（桶是私有的，确认不了私有就什么都不上传）。
+有修改：改草稿 → build → 再读一次改动的那几条确认。
 
 ### 第 4 步：补黄金样本（约 5–10 分钟，只用于实验场景）
 
@@ -119,16 +120,17 @@ python3 .claude/skills/adlc-criteria/scripts/criteria.py build outputs/fishbone/
 6. **同意后**才按 `criteria.md` 的“写入步骤”逐条执行，任何一步报错就停下来报告：
    - 有新写条目时：把 `extra-feedback.proposed.jsonl` 的每一行追加到 `data/templates/extra-feedback.jsonl`，按提示改 `data/templates/mock-data-params.yaml` 的 `count`，运行 `python3 data/tools/generate_mock_data.py`；
    - `criteria.py verify <目录> --before-apply`（只查需求编号都在需求反馈里）→ `golden_tool.py apply-feedback --feedback <目录>/golden-proposals.csv --dry-run` → 去掉 `--dry-run` 再运行 → `golden_tool.py freeze` → `criteria.py verify <目录>`（这次要全部 ✅）；
-   - 在 `criteria-draft.json` 里把这几条提议从 `golden_proposals` 挪到 `golden_applied`（留作记录），把新黄金编号（verify 会打印）填进对应判据的 `golden_ids`，删掉已补上的 `golden_gap`，再 `build`，再 `./tools/publish-define-pages.sh` 更新预览；
+   - 在 `criteria-draft.json` 里把这几条提议从 `golden_proposals` 挪到 `golden_applied`（留作记录），把新黄金编号（verify 会打印）填进对应判据的 `golden_ids`，删掉已补上的 `golden_gap`，再 `build`；
    - 提醒（或经他们同意后运行）`./30-create-evaluators.sh`。
    不同意：什么都不写，预览文件留在输出目录里即可。
 
-自己的场景（`scenario` 是 `own`）：判据表照做（多半是“未覆盖”，这正是要新写评估器的清单），**跳过第 4 步**——实验的黄金集和评估器是需求分诊 Agent 的数据契约。
+自己的场景（草稿 `scenario` 是 `own`）：判据表照做（多半是“未覆盖”，这正是要新写评估器的清单），**跳过第 4 步**——实验的黄金集和评估器是需求分诊 Agent 的数据契约。
 设置了 `ADLC_DATA_DIR`（用客户数据跑）时也跳过第 4 步，告诉讲师。
 
 ### 第 5 步：交付
 
-告诉他们：`criteria.json` / `criteria.md`、预览链接、三档分布、已覆盖 / 部分覆盖 / 未覆盖各几条；未覆盖的就是后面要新写的评估器或断言；补了黄金样本的话，提醒重新部署评估器。
+用 `build` 最后打印的“输出目录”和文件列表，告诉他们：输出目录的**绝对路径**，每个文件一行（绝对路径 + 它是什么）；三档分布、已覆盖 / 部分覆盖 / 未覆盖各几条；未覆盖的就是后面要新写的评估器或断言；补了黄金样本的话，提醒重新部署评估器（`./30-create-evaluators.sh`）。
+不要自己发布网页预览：实验手册会告诉大家用哪个工具、怎么把这个目录的路径填进去。
 
 ## 常见问题
 

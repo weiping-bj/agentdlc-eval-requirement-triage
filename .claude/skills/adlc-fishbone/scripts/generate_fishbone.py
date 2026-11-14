@@ -59,6 +59,13 @@ OMISSION_WORDS = ("漏", "不完整", "不全", "没覆盖", "没考虑", "丢",
 PERFORMANCE_WORDS = ("秒", "分钟", "小时", "ms", "QPS", "超时", "卡住", "卡死", "慢", "延迟", "并发", "吞吐", "排队", "高峰",
                      "不可用", "可用性", "宕", "挂了", "崩", "稳定", "失败", "报错", "积压", "处理不完", "处理不过来",
                      "来不及", "跑完", "跑不完", "时间窗", "响应时间", "响应慢")
+# evidence holds only the facts / numbers the business owner gave; facilitator notes belong in qa-record.md
+FACILITATOR_NOTE_MARKS = ("在问", "时提出", "读回", "主持人", "归到", "归为", "挪到", "放在“", "放在‘", "彩排", "背景材料提示")
+EVIDENCE_WARNING = ("evidence: keep only facts or numbers the business owner gave; move this facilitator note to "
+                    "qa-record.md:")
+SOURCES = ("answer", "background")
+FILE_ROLES = {"fishbone-data.json": "结构化数据（以它为准）", "fishbone.drawio": "可编辑的鱼骨图（用 draw.io 打开）",
+              "qa-record.md": "脱敏后的问答记录", "validation-report.txt": "校验报告（每项检查的 PASS / FAIL）"}
 CLASSIFY_WARNING = ("performance: check the dimension of this note - an omission / completeness problem belongs to "
                     "quality, only not finishing in time / unstable / unavailable is performance (SKILL.md 怎么归类):")
 STICKY_SOFT_LIMIT = 50  # display width (CJK = 1, ASCII = 0.5); wider notes may overflow the 340x82 sticky
@@ -132,6 +139,9 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
     for field in META_CELLS:
         if not str(meta.get(field) or "").strip():
             err["metadata"].append(f"metadata.{field} is empty")
+    for field in ("team", "participants", "mode"):
+        if field in meta and not isinstance(meta[field], str):
+            err["metadata"].append(f"metadata.{field} must be a string (empty when unknown)")
     coverage, barriers = data.get("coverage"), data.get("barriers")
     for name, obj in (("coverage", coverage), ("barriers", barriers)):
         if not isinstance(obj, dict):
@@ -154,6 +164,8 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
             for flag in ("confirmed", "selected"):
                 if flag in b and not isinstance(b[flag], bool):
                     err["json"].append(f"barriers.{dim}[{i}].{flag} must be true or false, got {b[flag]!r}")
+            if "source" in b and b["source"] not in SOURCES:
+                err["json"].append(f"barriers.{dim}[{i}].source must be one of {', '.join(SOURCES)}, got {b['source']!r}")
         items = [b for b in items if isinstance(b, dict)]
         confirmed = [b for b in items if b.get("confirmed") is True]
         state = coverage.get(dim)
@@ -170,6 +182,10 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
             err["max3"].append(f"{dim}: {len(sel)} selected barriers (max 3)")
         if confirmed and not sel:
             warns.append(f"{dim}: {len(confirmed)} confirmed barrier(s) but none selected for the diagram")
+        for b in confirmed:
+            ev = str(b.get("evidence") or "")
+            if any(m in ev for m in FACILITATOR_NOTE_MARKS):
+                warns.append(f"{EVIDENCE_WARNING} {ev}")
         if dim == "performance":  # every confirmed note, backups too: the criteria step uses all of them
             for b in confirmed:
                 text = str(b.get("sticky_text") or "").strip()
@@ -185,6 +201,17 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
                 warns.append(f"{dim}: sticky text is {display_width(text):g} CJK characters wide (>{STICKY_SOFT_LIMIT}), "
                              f"may overflow; split it into two notes: {text}")
 
+    not_asked = data.get("not_asked", [])
+    if not isinstance(not_asked, list) or not all(isinstance(x, str) for x in not_asked):
+        err["json"].append("not_asked must be a list of dimension keys")
+        not_asked = []
+    for dim in not_asked:
+        if dim not in DIMENSION_SLOTS:
+            err["json"].append(f"not_asked has unknown dimension {dim!r}")
+        elif coverage.get(dim) != "unresolved":
+            err["coverage"].append(f"{dim} is in not_asked, so coverage.{dim} must be 'unresolved', not {coverage.get(dim)!r}")
+        elif any(b.get("confirmed") is True for b in _items(data, dim)):
+            err["coverage"].append(f"{dim} is in not_asked but has confirmed barriers")
     return err, warns
 
 
@@ -213,8 +240,14 @@ def write_validation_report(result: dict, report_path) -> str:
 def _finish(err: Dict[str, List[str]], warns: List[str], output_path: Optional[str], ran: set) -> dict:
     errors = [f"{k.upper()}: {e}" for k, _ in CHECKS for e in err.get(k, [])]
     checks = {k: ("FAIL" if err.get(k) else "PASS") if k in ran else "SKIP" for k, _ in CHECKS}
-    return {"success": not errors and all(v == "PASS" for v in checks.values()), "output_path": output_path,
-            "validation_errors": errors, "warnings": warns, "checks": checks}
+    out = {"success": not errors and all(v == "PASS" for v in checks.values()), "output_path": output_path,
+           "validation_errors": errors, "warnings": warns, "checks": checks}
+    if output_path:
+        d = Path(output_path).resolve().parent
+        out["output_dir"] = str(d)
+        out["files"] = {str(d / name): role for name, role in FILE_ROLES.items() if (d / name).exists()
+                        or name == "validation-report.txt"}
+    return out
 
 
 def generate_fishbone(json_path, template_path=TEMPLATE_PATH, output_path=None) -> dict:

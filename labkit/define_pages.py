@@ -44,6 +44,7 @@ DIMS = [("cognition", "认知", "业务知识与上下文", "它真的理解你�
         ("other", "其他 / 待归类", "系统集成、流程、组织", "还有什么会让它跑不下去？")]
 COVERAGE_CN = {"confirmed": ("有确认的障碍", "g"), "explored_empty": ("问过，确认为空", "b"),
                "unresolved": ("没问清楚，不入图", "o")}
+NOT_ASKED_CN = ("没问到（提前收尾）", "n")
 TIER_PILL = {"红线": "r", "门禁": "o", "观测": "b"}
 COVER_PILL = {"已覆盖": "g", "部分覆盖": "o", "未覆盖": "r"}
 PAGE_CSS = """
@@ -141,8 +142,23 @@ def _page(title: str, bar: str, body: str) -> str:
             f"</main></div>\n<footer>AgentDLC 动手实验 · 定义环 · {E(title)}</footer>\n</body>\n</html>\n")
 
 
+MODE_CN = {"express": "快速版", "standard": "标准版", "快速版": "快速版", "标准版": "标准版"}
+OPTIONAL_META = {"team", "participants", "mode"}  # rows left out when empty
+
+
 def _meta_rows(meta: dict, keys) -> str:
-    return "".join(f"<div class=\"muted\">{E(cn)}</div><div>{E(meta.get(k)) or '—'}</div>" for k, cn in keys)
+    out = []
+    for k, cn in keys:
+        v = meta.get(k)
+        v = MODE_CN.get(str(v), v) if k == "mode" else v  # never show express / standard to the user
+        if k in OPTIONAL_META and not str(v or "").strip():
+            continue
+        out.append(f"<div class=\"muted\">{E(cn)}</div><div>{E(v) or '—'}</div>")
+    return "".join(out)
+
+
+def _not_asked(data: dict) -> set:
+    return {x for x in _list(data.get("not_asked")) if isinstance(x, str)}
 
 
 # ---------------------------------------------------------------- fishbone page
@@ -156,7 +172,7 @@ def _bone(data: dict, dim: Tuple[str, str, str, str], row: str) -> str:
     sel = _selected(data, key)
     notes = "".join(f'<div class="sticky">{E(b.get("sticky_text"))}</div>' for b in sel[:3])
     if not sel:
-        label = COVERAGE_CN.get(state, ("没有入图的障碍", "n"))[0]
+        label = NOT_ASKED_CN[0] if key in _not_asked(data) else COVERAGE_CN.get(state, ("没有入图的障碍", "n"))[0]
         notes = f'<div class="none">{E(label)}</div>'
     return (f'<div class="bone {row}"><div class="dimhead"><b>{E(cn)}</b> <span class="small muted">{E(sub)}</span>'
             f'<div class="small muted">{E(question)}</div></div>{notes}</div>')
@@ -171,20 +187,22 @@ def render_fishbone(data: dict, src: dict, now: Optional[datetime] = None) -> st
     rows = []
     for key, cn, _, _ in DIMS:
         state = _dict(data.get("coverage")).get(key)
-        label, cls = COVERAGE_CN.get(state, (state or "—", "n"))
+        label, cls = NOT_ASKED_CN if key in _not_asked(data) else COVERAGE_CN.get(state, (state or "—", "n"))
         items = [b for b in _list(_dict(data.get("barriers")).get(key)) if isinstance(b, dict)]
         if not items:
             rows.append(f"<tr><td><b>{E(cn)}</b><br>{_pill(label, cls)}</td><td colspan=\"4\" class=\"muted\">—</td></tr>")
             continue
         for i, b in enumerate(items):
-            flag = (_pill("入图", "g") if b.get("selected") else _pill("备选（未入图）", "n")) if b.get("confirmed") \
-                else _pill("未确认", "o")
+            flag = (_pill("入图", "g") if b.get("selected") is True else _pill("备选（未入图）", "n")) \
+                if b.get("confirmed") is True else _pill("未确认", "o")
+            if b.get("source") == "background":
+                flag += '<div class="small muted">由背景材料提示，业务方确认</div>'
             head = f"<td rowspan=\"{len(items)}\"><b>{E(cn)}</b><br>{_pill(label, cls)}</td>" if i == 0 else ""
             rows.append(f"<tr>{head}<td class=\"pre\"><b>{E(b.get('sticky_text'))}</b></td>"
                         f"<td class=\"pre small\">{E(b.get('customer_quote')) or '—'}</td>"
                         f"<td class=\"pre small\">{E(b.get('evidence')) or '—'}</td><td>{flag}</td></tr>")
     park = [p for p in _list(data.get("parking_lot")) if isinstance(p, dict)]
-    park_html = ("<table class=\"t\"><tr><th>业务方提出的方案（先不讨论）</th><th>转成了哪条障碍</th></tr>"
+    park_html = ("<table class=\"t\"><tr><th>业务方提出的办法（先放一边）</th><th>转成了哪条障碍</th></tr>"
                  + "".join(f"<tr><td class=\"pre\">{E(p.get('original'))}</td><td>{E(p.get('converted_to')) or '—'}</td></tr>"
                            for p in park) + "</table>") if park else '<p class="muted">没有。</p>'
     n_sel = sum(len(_selected(data, k)) for k, *_ in DIMS)
@@ -192,13 +210,14 @@ def render_fishbone(data: dict, src: dict, now: Optional[datetime] = None) -> st
             f"生成于 {E(stamp)} 北京时间）。可编辑的原图是同目录的 <code>fishbone.drawio</code>：在 S3 控制台下载后，"
             f"用 app.diagrams.net 打开。{_NOTE}<br>来源：<code>{E(src['path'])}</code> · sha256 <code>{E(src['sha'])}</code>"
             f"</div><div class=\"kv\">"
-            + _meta_rows(meta, [("customer", "业务方"), ("use_case", "Agent 场景"), ("service_target", "服务对象"),
-                                ("date", "日期"), ("participants", "参与人"), ("mode", "模式")])
+            + _meta_rows(meta, [("customer", "业务方"), ("team", "小组 / 团队"), ("use_case", "Agent 场景"),
+                                ("service_target", "服务对象"), ("date", "日期"), ("participants", "参与人"),
+                                ("mode", "模式")])
             + f"</div></section>\n<section class=\"card\"><h2>鱼骨图</h2>{diagram}"
             "<p class=\"small muted\">每张便签只写一个具体障碍，写事实不写方案；都由业务方逐条确认过。</p></section>\n"
-            "<section class=\"card\"><h2>全部障碍（含备选与原话）</h2><table class=\"t\"><tr><th>维度</th><th>便签</th>"
-            f"<th>原话（已脱敏）</th><th>证据 / 数字</th><th>状态</th></tr>{''.join(rows)}</table></section>\n"
-            f"<section class=\"card\"><h2>Parking lot</h2>{park_html}</section>")
+            "<section class=\"card\"><h2>全部障碍（含备选）</h2><table class=\"t\"><tr><th>方面</th><th>鱼骨图上的便签</th>"
+            f"<th>你们的原话（已脱敏）</th><th>例子或数字</th><th>状态</th></tr>{''.join(rows)}</table></section>\n"
+            f"<section class=\"card\"><h2>先放一边的办法（parking lot）</h2>{park_html}</section>")
     bar = topbar("五维鱼骨图 · AgentDLC 定义环", "adlc-fishbone skill 生成 · 只在你的私有 S3 桶里",
                  [("生成于", f"{stamp} 北京时间"), ("sha256", src["sha"])])
     return finish(_page(f"五维鱼骨图 · {meta.get('use_case') or ''}", bar, body), "鱼骨图")

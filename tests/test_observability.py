@@ -75,8 +75,15 @@ def env(monkeypatch):
     return {"clock": clock, "state": state, "use": use}
 
 
+def lines(capsys):
+    return capsys.readouterr().out.strip().splitlines()
+
+
 def last_line(capsys):
-    return capsys.readouterr().out.strip().splitlines()[-1]
+    """The ASCII summary the Workshop Studio template puts into the stack's reason."""
+    out = lines(capsys)
+    assert out[-1].isascii()
+    return out[-1]
 
 
 def test_verify_passes_at_once_when_active_and_complete(env, capsys):
@@ -84,8 +91,10 @@ def test_verify_passes_at_once_when_active_and_complete(env, capsys):
     env["use"](x, FakeLogs([[OTHER_POLICY], [SPANS_POLICY]]))  # second page: pagination is followed
     env["state"]["observability"] = {"enabled_by_lab": True}
     assert observability.verify(600) == 0 and x.calls == ["get"]
-    line = last_line(capsys)
-    assert "Status=ACTIVE" in line and "TransactionSearchXRayAccess" in line and "100%" in line and "本实验开启" in line
+    out = lines(capsys)
+    assert out[-2].startswith("✅ Transaction Search 已就绪") and "本实验开启" in out[-2]
+    assert out[-1] == ("transaction-search ready: Destination=CloudWatchLogs Status=ACTIVE "
+                       "policy=TransactionSearchXRayAccess indexing-default=100% enabled-by-lab=yes")
 
 
 def test_verify_polls_until_active_within_the_wait(env, capsys):
@@ -93,7 +102,7 @@ def test_verify_polls_until_active_within_the_wait(env, capsys):
     env["use"](x, FakeLogs([[SPANS_POLICY]]))
     assert observability.verify(600, interval=15) == 0
     assert x.calls.count("get") == 4 and env["clock"]["t"] == 45
-    assert "实验前已开启" in last_line(capsys)  # no lab record: it was on before
+    assert last_line(capsys).endswith("enabled-by-lab=no")  # no lab record: it was on before
 
 
 def test_verify_fails_with_the_observed_status_after_the_wait(env, capsys):
@@ -101,19 +110,21 @@ def test_verify_fails_with_the_observed_status_after_the_wait(env, capsys):
     env["use"](x, FakeLogs([[SPANS_POLICY]]))
     assert observability.verify(60, interval=15) == 1
     assert env["clock"]["t"] == 60
-    assert last_line(capsys) == "❌ Transaction Search 未就绪（等待 60s）：Destination=CloudWatchLogs Status=PENDING"
+    out = lines(capsys)
+    assert out[-2] == "❌ Transaction Search 未就绪（等待 60s）：Destination=CloudWatchLogs Status=PENDING"
+    assert out[-1] == "transaction-search NOT ready after 60s: Destination=CloudWatchLogs Status=PENDING"
 
 
 @pytest.mark.parametrize("pages, rules, missing", [
-    ([[OTHER_POLICY]], DEFAULT_RULE, "资源策略 无"),
-    ([[SPANS_POLICY]], [], "索引 Default 无"),
-    ([[SPANS_POLICY]], [{"Name": "Default", "Rule": {"Probabilistic": {"DesiredSamplingPercentage": 0}}}], "索引 Default 0%"),
+    ([[OTHER_POLICY]], DEFAULT_RULE, "policy=none"),
+    ([[SPANS_POLICY]], [], "indexing-default=none"),
+    ([[SPANS_POLICY]], [{"Name": "Default", "Rule": {"Probabilistic": {"DesiredSamplingPercentage": 0}}}], "indexing-default=0%"),
 ])
 def test_verify_fails_when_policy_or_indexing_is_missing(env, capsys, pages, rules, missing):
     env["use"](FakeXray([ACTIVE], rules), FakeLogs(pages))
     assert observability.verify(600) == 1
     line = last_line(capsys)
-    assert line.startswith("❌ Transaction Search 配置不完整") and missing in line
+    assert line.startswith("transaction-search incomplete: ") and missing in line
 
 
 def test_enable_records_that_the_lab_turned_it_on(env, capsys):

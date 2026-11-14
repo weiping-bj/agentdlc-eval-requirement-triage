@@ -282,8 +282,10 @@ def _render(ud):
 
 # Stand-ins for what UserData calls as root on AL2023. Everything else (unzip, git, python3, sed, tail, stat,
 # timeout, the bundled tools/set-suffix.sh) runs for real; setup-ec2.sh / 02-enable-observability.sh are stubbed.
-TS_READY = "✅ Transaction Search 已就绪：Destination=CloudWatchLogs Status=ACTIVE · 资源策略 TransactionSearchXRayAccess · 索引 Default 100% · 本实验开启"
-TS_PENDING = "❌ Transaction Search 未就绪（等待 60s）：Destination=XRay Status=PENDING"
+# what labkit.observability --verify prints last (ASCII: CloudFormation shows non-ASCII as "?")
+TS_READY = ("transaction-search ready: Destination=CloudWatchLogs Status=ACTIVE policy=TransactionSearchXRayAccess "
+            "indexing-default=100% enabled-by-lab=yes")
+TS_PENDING = "transaction-search NOT ready after 60s: Destination=XRay Status=PENDING"
 STUBS = {
     "dnf": '[ -n "${FAIL_DNF:-}" ] && { echo "dnf: cannot reach the repo"; exit 1; }; echo "dnf $*"',
     "aws": 'echo "$@" >> "$T/aws.args"; [ -n "${FAIL_DL:-}" ] && { echo "An error occurred (403)"; exit 1; }\n'
@@ -304,8 +306,8 @@ STUBS = {
                '        echo "npm ERR! network 安装中止 (try $n) END-OF-TAIL" >> "$T/home/adlc-setup.log"; exit 1; fi\n'
                '      echo setup-ok >> "$T/home/adlc-setup.log"; exit 0 ;;\n'
                '    *"02-enable-observability.sh --verify"*) echo "$cmd" >> "$T/verify.cmds"\n'
-               '      [ -n "${FAIL_TS_VERIFY:-}" ] && { echo "  ⏳ polling"; echo "' + TS_PENDING + '"; exit 1; }\n'
-               '      echo "' + TS_READY + '"; exit 0 ;;\n'
+               '      [ -n "${FAIL_TS_VERIFY:-}" ] && { echo "  ⏳ 等待"; echo "❌ 未就绪"; echo "' + TS_PENDING + '"; exit 1; }\n'
+               '      echo "✅ 已就绪"; echo "' + TS_READY + '"; exit 0 ;;\n'
                '    *"./02-enable-observability.sh"*) [ -n "${FAIL_TS:-}" ] && { echo "enable error"; exit 1; }; echo ts-ok; exit 0 ;;\n'
                '  esac\n'
                '  cd "$T/home" && HOME="$T/home" exec bash -c "$cmd"\n'
@@ -396,7 +398,8 @@ def test_userdata_setup_failure_reports_the_last_attempts_own_log(tmp_path, bund
     assert [s["Status"] for s in signals] == ["FAILURE"]
     reason = signals[0]["Reason"]
     assert reason.startswith("adlc bootstrap failed at step setup: ec2/setup-ec2.sh did not succeed (attempt 3 of 3)")
-    assert "npm ERR! network 安装中止 (try 3) END-OF-TAIL" in reason   # only in adlc-setup.log, UTF-8 kept
+    assert "npm ERR! network ? (try 3) END-OF-TAIL" in reason   # only in adlc-setup.log; non-ASCII run -> "?"
+    assert reason.isascii()
     assert "(try 1)" not in reason and "(try 2)" not in reason        # earlier attempts are not the cause
 
 

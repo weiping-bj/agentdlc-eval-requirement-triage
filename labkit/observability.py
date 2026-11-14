@@ -4,8 +4,9 @@ Idempotent. Creates/keeps the logs resource policy that lets X-Ray write spans t
 `aws/spans` log group, switches the trace segment destination to CloudWatch Logs and
 sets 100% span indexing. `--disable` reverts it (instructor-only, see 99-cleanup.sh).
 `--verify [--wait N]` only checks: destination CloudWatchLogs/ACTIVE (polled up to N s), a logs
-resource policy that lets X-Ray write aws/spans, and the Default indexing rule; the last line
-is a one-line summary (the Workshop Studio template fails the stack with it).
+resource policy that lets X-Ray write aws/spans, and the Default indexing rule. The last line is an
+ASCII summary (the Workshop Studio template fails the stack with it, and CloudFormation shows
+non-ASCII text as "?").
 """
 from __future__ import annotations
 
@@ -106,7 +107,8 @@ def _indexing_percent(xray):
 
 def verify(wait: int = 600, interval: int = 15) -> int:
     """Transaction Search usable? 0 = yes. Polls the destination up to `wait` seconds, then checks the
-    resource policy and indexing rule. Prints one summary line last (observed status on failure)."""
+    resource policy and indexing rule. Prints the Chinese result, then one ASCII summary line last
+    (observed status on failure)."""
     logs, xray = aws.client("logs"), aws.client("xray")
     deadline = time.monotonic() + max(wait, 0)
     while True:
@@ -116,18 +118,24 @@ def verify(wait: int = 600, interval: int = 15) -> int:
             break
         if time.monotonic() >= deadline:
             print(f"❌ Transaction Search 未就绪（等待 {wait}s）：Destination={dest} Status={status}")
+            print(f"transaction-search NOT ready after {wait}s: Destination={dest} Status={status}")
             return 1
         print(f"  ⏳ Transaction Search Destination={dest} Status={status}，{interval}s 后重查")
         time.sleep(interval)
     pol, pct = _xray_policy(logs), _indexing_percent(xray)
     st = aws.load_state("observability") or {}
     who = "本实验开启" if st.get("enabled_by_lab") else "实验前已开启"
+    idx = "none" if pct is None else format(pct, "g") + "%"
     summary = (f"Destination=CloudWatchLogs Status=ACTIVE · 资源策略 {pol or '无'} · "
-               f"索引 Default {'无' if pct is None else format(pct, 'g') + '%'} · {who}")
+               f"索引 Default {'无' if pct is None else idx} · {who}")
+    ascii_ = (f"Destination=CloudWatchLogs Status=ACTIVE policy={pol or 'none'} indexing-default={idx} "
+              f"enabled-by-lab={'yes' if st.get('enabled_by_lab') else 'no'}")
     if not pol or not pct:
         print(f"❌ Transaction Search 配置不完整：{summary}")
+        print(f"transaction-search incomplete: {ascii_}")
         return 1
     print(f"✅ Transaction Search 已就绪：{summary}")
+    print(f"transaction-search ready: {ascii_}")
     return 0
 
 

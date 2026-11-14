@@ -26,7 +26,7 @@
 2. 从 `s3://<AssetsBucketName>/<AssetsBucketPrefix>adlc-lab.zip` 下载（记录 sha256、`unzip -t` 检查完整性）并以 ec2-user 身份解压到 `/home/ec2-user/adlc-lab`，`git init` 并提交一次（和 git clone 一样，`tools/pull-templates.sh` 与手册里的 `git diff` 需要），写入后缀（`tools/set-suffix.sh`）。
 3. 以 ec2-user 运行 `ec2/setup-ec2.sh`（最多 3 次、每次限时，日志 `/home/ec2-user/adlc-setup.log`）。
 4. **Transaction Search（必需）**：WS 活动账号默认关闭。运行 `./02-enable-observability.sh`（已开启则不改，`.lab-state/observability.json` 记录是否由本实验开启，供 `99-cleanup.sh --all --account-level` 还原），再用 `--verify` 轮询到 `Destination=CloudWatchLogs`、`Status=ACTIVE`（最多约 10 分钟），并确认 X-Ray 写 `aws/spans` 的日志资源策略和 Default 索引规则；未就绪则堆栈失败，原因里是观察到的状态。
-5. 用 `curl` 给 `SetupWait`（WaitCondition，超时 60 分钟）发信号：成功后堆栈才 `CREATE_COMPLETE`，输出 `SetupResult` 记录结果和包的来源 commit（`--allow-dirty` 构建的包会标 `DIRTY-TEST-BUILD`）；失败时失败步骤和日志末尾出现在堆栈事件里（回滚会删掉实例）。引导日志 `/var/log/adlc-bootstrap.log`。
+5. 用 `curl` 给 `SetupWait`（WaitCondition，超时 60 分钟）发信号：成功后堆栈才 `CREATE_COMPLETE`，输出 `SetupResult` 记录结果和包的来源 commit（`--allow-dirty` 构建的包会标 `DIRTY-TEST-BUILD`）；失败时失败步骤和日志末尾出现在堆栈事件里（回滚会删掉实例；CloudFormation 只显示 ASCII，中文会变成 `?`）。引导日志 `/var/log/adlc-bootstrap.log`。
 
 学员在 Session Manager 中登录后是 `ssm-user`，先执行 `sudo su - ec2-user`（自动进入 `~/adlc-lab` 并激活 `.venv`）。
 

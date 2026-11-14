@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+"""Fill the five-dimension fishbone drawio template from fishbone-data.json (adlc-fishbone skill).
+
+Adapted from the AgentDLC v-Team's agent-dlc-fishbone skill (generate_fishbone.py, same cell-ID map and the
+same JSON schema 1.0). Changes for the workshop lab: a CLI, the template is found inside this skill
+(../assets/fishbone-template.drawio, never by scanning the disk), every report check is computed rather than
+printed as PASS, and text written into the template's html=1 cells is HTML-escaped (a note that says "<b>" or
+"A&B" shows literally instead of being parsed as markup).
+
+  python3 .claude/skills/adlc-fishbone/scripts/generate_fishbone.py outputs/fishbone/<group>-<date>
+  python3 .claude/skills/adlc-fishbone/scripts/generate_fishbone.py --check-template
+  python3 .claude/skills/adlc-fishbone/scripts/generate_fishbone.py --check-json outputs/fishbone/<dir>
+
+Reads <dir>/fishbone-data.json, writes <dir>/fishbone.drawio and <dir>/validation-report.txt, prints the result
+as JSON. Exit code 0 = every check passed, 1 = a check failed (nothing is guessed), 2 = usage error.
+Standard library only; runs with the system python3 (3.9+).
+"""
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import os
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+SKILL_DIR = Path(__file__).resolve().parent.parent
+TEMPLATE_PATH = SKILL_DIR / "assets" / "fishbone-template.drawio"
+
+# Cell IDs of the template's 2400x1350 editable layer (unchanged from the v-Team skill).
+META_CELLS = {
+    "customer": "3QwRYIxs2djGdYka4jAl-34",
+    "date": "3QwRYIxs2djGdYka4jAl-35",
+    "use_case": "3QwRYIxs2djGdYka4jAl-36",
+    "service_target": "3QwRYIxs2djGdYka4jAl-37",
+}
+DIMENSION_SLOTS = {
+    "cognition": ["3QwRYIxs2djGdYka4jAl-38", "3QwRYIxs2djGdYka4jAl-39", "3QwRYIxs2djGdYka4jAl-40"],
+    "quality": ["3QwRYIxs2djGdYka4jAl-41", "3QwRYIxs2djGdYka4jAl-42", "3QwRYIxs2djGdYka4jAl-43"],
+    "responsibility": ["3QwRYIxs2djGdYka4jAl-44", "3QwRYIxs2djGdYka4jAl-45", "3QwRYIxs2djGdYka4jAl-46"],
+    "cost": ["3QwRYIxs2djGdYka4jAl-47", "3QwRYIxs2djGdYka4jAl-48", "3QwRYIxs2djGdYka4jAl-49"],
+    "performance": ["3QwRYIxs2djGdYka4jAl-50", "3QwRYIxs2djGdYka4jAl-51", "3QwRYIxs2djGdYka4jAl-52"],
+    "other": ["3QwRYIxs2djGdYka4jAl-53", "3QwRYIxs2djGdYka4jAl-54", "3QwRYIxs2djGdYka4jAl-55"],
+}
+DIM_CN = {"cognition": "认知", "quality": "质量", "responsibility": "责任", "cost": "成本",
+          "performance": "性能", "other": "其他"}
+ALL_REQUIRED_IDS = list(META_CELLS.values()) + [cid for slots in DIMENSION_SLOTS.values() for cid in slots]
+PLACEHOLDER_TEXTS = ("请填写", "请填写具体 Use Case", "YYYY-MM-DD", "双击填写障碍", "示例（可删除）", "对内 / To B / To C")
+COVERAGE_STATES = ("confirmed", "explored_empty", "unresolved")
+STICKY_SOFT_LIMIT = 50  # characters; longer notes overflow the 340x82 sticky
+
+CHECKS = [  # (key, text) in report order
+    ("json", "JSON parses and has schema_version 1.0"),
+    ("status", "Status is approved_for_render"),
+    ("metadata", "All four metadata fields are non-empty"),
+    ("coverage", "All six coverage fields exist, use a known state and agree with the barriers"),
+    ("confirmed", "Every selected barrier is confirmed and has sticky text"),
+    ("max3", "No dimension has more than 3 selected barriers"),
+    ("template", "Every required Cell ID exists exactly once in the template"),
+    ("filled", "All selected sticky texts appear in their target cells"),
+    ("empty", "All unused target cells are empty"),
+    ("placeholder", "No placeholder text remains in any target cell"),
+    ("xml", "Generated drawio reparses as valid XML"),
+    ("nonempty", "Output file is non-empty"),
+]
+
+
+def cell_text(text) -> str:
+    """Plain text -> value of an html=1 drawio cell: escaped, line breaks as <br>."""
+    s = html.escape(str(text if text is not None else "").strip(), quote=True)
+    return s.replace("\r\n", "\n").replace("\n", "<br>")
+
+
+def _cells(root, cell_id: str) -> list:
+    return [c for c in root.iter() if c.tag in ("mxCell", "UserObject", "object") and c.get("id") == cell_id]
+
+
+def validate_template(root) -> Tuple[bool, List[str]]:
+    errors = []
+    for cid in ALL_REQUIRED_IDS:
+        n = len(_cells(root, cid))
+        if n == 0:
+            errors.append(f"MISSING: {cid}")
+        elif n > 1:
+            errors.append(f"DUPLICATE: {cid} (found {n})")
+    return not errors, errors
+
+
+def selected_of(data: dict, dim: str) -> list:
+    barriers = (data.get("barriers") or {}).get(dim) or []
+    return [b for b in barriers if isinstance(b, dict) and b.get("selected")]
+
+
+def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
+    """Errors per check key (empty list = pass) and warnings. Never raises on a malformed document."""
+    err: Dict[str, List[str]] = {k: [] for k, _ in CHECKS}
+    warns: List[str] = []
+    if not isinstance(data, dict):
+        err["json"].append("top level must be a JSON object")
+        return err, warns
+    if data.get("schema_version") != "1.0":
+        err["json"].append("schema_version must be '1.0'")
+    if data.get("status") != "approved_for_render":
+        err["status"].append(f"status is {data.get('status')!r}, expected 'approved_for_render'")
+    meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    for field in META_CELLS:
+        if not str(meta.get(field) or "").strip():
+            err["metadata"].append(f"metadata.{field} is empty")
+    coverage = data.get("coverage") if isinstance(data.get("coverage"), dict) else {}
+    barriers = data.get("barriers") if isinstance(data.get("barriers"), dict) else {}
+    for dim in DIMENSION_SLOTS:
+        items = barriers.get(dim) or []
+        if not isinstance(items, list):
+            err["json"].append(f"barriers.{dim} must be a list")
+            items = []
+        confirmed = [b for b in items if isinstance(b, dict) and b.get("confirmed")]
+        state = coverage.get(dim)
+        if state is None:
+            err["coverage"].append(f"coverage.{dim} missing")
+        elif state not in COVERAGE_STATES:
+            err["coverage"].append(f"coverage.{dim} is {state!r}, expected one of {', '.join(COVERAGE_STATES)}")
+        elif state == "confirmed" and not confirmed:
+            err["coverage"].append(f"coverage.{dim} is 'confirmed' but no barrier is confirmed")
+        elif state != "confirmed" and confirmed:
+            err["coverage"].append(f"coverage.{dim} is {state!r} but {len(confirmed)} barrier(s) are confirmed")
+        sel = [b for b in items if isinstance(b, dict) and b.get("selected")]
+        if len(sel) > 3:
+            err["max3"].append(f"{dim}: {len(sel)} selected barriers (max 3)")
+        if confirmed and not sel:
+            warns.append(f"{dim}: {len(confirmed)} confirmed barrier(s) but none selected for the diagram")
+        for b in sel:
+            text = str(b.get("sticky_text") or "").strip()
+            if not b.get("confirmed"):
+                err["confirmed"].append(f"{dim}: selected barrier not confirmed: {text or '?'}")
+            if not text:
+                err["confirmed"].append(f"{dim}: selected barrier has empty sticky_text")
+            elif len(text) > STICKY_SOFT_LIMIT:
+                warns.append(f"{dim}: sticky text has {len(text)} characters (>{STICKY_SOFT_LIMIT}), may overflow: {text}")
+    return err, warns
+
+
+def _report_lines(result: dict) -> List[str]:
+    lines = ["=" * 60, "FISHBONE DIAGRAM VALIDATION REPORT", "=" * 60, "",
+             f"Overall: {'PASS' if result['success'] else 'FAIL'}",
+             f"Output:  {result.get('output_path') or 'N/A'}", ""]
+    if result["validation_errors"]:
+        lines.append("ERRORS:")
+        lines += [f"  ✗ {e}" for e in result["validation_errors"]]
+    else:
+        lines.append("All checks passed.")
+    if result.get("warnings"):
+        lines += ["", "WARNINGS:"] + [f"  ! {w}" for w in result["warnings"]]
+    lines += ["", "Checks performed:"]
+    for key, text in CHECKS:
+        lines.append(f"  [{result['checks'].get(key, 'SKIP')}] {text}")
+    return lines
+
+
+def write_validation_report(result: dict, report_path) -> str:
+    Path(report_path).write_text("\n".join(_report_lines(result)) + "\n", encoding="utf-8")
+    return str(report_path)
+
+
+def _finish(err: Dict[str, List[str]], warns: List[str], output_path: Optional[str], ran: set) -> dict:
+    errors = [f"{k.upper()}: {e}" for k, _ in CHECKS for e in err.get(k, [])]
+    checks = {k: ("FAIL" if err.get(k) else "PASS") if k in ran else "SKIP" for k, _ in CHECKS}
+    return {"success": not errors and all(v == "PASS" for v in checks.values()), "output_path": output_path,
+            "validation_errors": errors, "warnings": warns, "checks": checks}
+
+
+def generate_fishbone(json_path, template_path=TEMPLATE_PATH, output_path=None) -> dict:
+    """Fill the template; returns {success, output_path, validation_errors, warnings, checks}."""
+    output_path = str(output_path or Path(json_path).with_name("fishbone.drawio"))
+    err: Dict[str, List[str]] = {k: [] for k, _ in CHECKS}
+    json_keys = {"json", "status", "metadata", "coverage", "confirmed", "max3"}
+    try:
+        data = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        err["json"].append(f"cannot read {json_path}: {e}")
+        return _finish(err, [], None, {"json"})
+    jerr, warns = validate_json(data)
+    for k, v in jerr.items():
+        err[k] += v
+    try:
+        tree = ET.parse(str(template_path))
+    except (OSError, ET.ParseError) as e:
+        err["template"].append(f"cannot read template {template_path}: {e}")
+        return _finish(err, warns, None, json_keys | {"template"})
+    root = tree.getroot()
+    _, terr = validate_template(root)
+    err["template"] += terr
+    if any(err[k] for k in json_keys | {"template"}):
+        return _finish(err, warns, None, json_keys | {"template"})
+
+    meta = data["metadata"]
+    for field, cid in META_CELLS.items():
+        _cells(root, cid)[0].set("value", cell_text(meta.get(field)))
+    expected: Dict[str, str] = {}
+    for dim, slots in DIMENSION_SLOTS.items():
+        sel = selected_of(data, dim)
+        for i, cid in enumerate(slots):
+            value = cell_text(sel[i]["sticky_text"]) if i < len(sel) else ""
+            _cells(root, cid)[0].set("value", value)
+            expected[cid] = value
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    tree.write(output_path, encoding="unicode", xml_declaration=True)
+
+    ran = set(k for k, _ in CHECKS)
+    if os.path.getsize(output_path) == 0:
+        err["nonempty"].append(f"{output_path} is empty")
+    try:
+        out_root = ET.parse(output_path).getroot()
+    except ET.ParseError as e:
+        err["xml"].append(f"output XML invalid: {e}")
+        return _finish(err, warns, output_path, ran)
+    for cid in ALL_REQUIRED_IDS:
+        val = _cells(out_root, cid)[0].get("value", "")
+        for ph in PLACEHOLDER_TEXTS:
+            if ph in val:
+                err["placeholder"].append(f"placeholder remains in {cid}: {val!r}")
+    for field, cid in META_CELLS.items():
+        if _cells(out_root, cid)[0].get("value", "") != cell_text(meta.get(field)):
+            err["filled"].append(f"metadata.{field} not written to {cid}")
+    for dim, slots in DIMENSION_SLOTS.items():
+        for i, cid in enumerate(slots):
+            got, want = _cells(out_root, cid)[0].get("value", ""), expected[cid]
+            if want and got != want:
+                err["filled"].append(f"{dim}[{i}]: expected {want!r}, got {got!r}")
+            if not want and got:
+                err["empty"].append(f"{dim} slot {i + 1} ({cid}) should be empty, has {got!r}")
+    return _finish(err, warns, output_path, ran)
+
+
+def _out_dir(arg: str) -> Path:
+    p = Path(arg)
+    return p.parent if p.name == "fishbone-data.json" else p
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="Fill the AgentDLC fishbone drawio template from fishbone-data.json")
+    ap.add_argument("out_dir", nargs="?", help="session directory holding fishbone-data.json (outputs/fishbone/<group>-<date>)")
+    ap.add_argument("--template", default=str(TEMPLATE_PATH), help=argparse.SUPPRESS)
+    ap.add_argument("--check-template", action="store_true", help="only verify the template's cell IDs")
+    ap.add_argument("--check-json", action="store_true", help="only validate fishbone-data.json (writes nothing)")
+    a = ap.parse_args(argv)
+    if a.check_template:
+        try:
+            ok, errors = validate_template(ET.parse(a.template).getroot())
+        except (OSError, ET.ParseError) as e:
+            ok, errors = False, [f"cannot read template {a.template}: {e}"]
+        print(json.dumps({"success": ok, "template": a.template, "validation_errors": errors}, ensure_ascii=False, indent=2))
+        return 0 if ok else 1
+    if not a.out_dir:
+        ap.print_usage(sys.stderr)
+        return 2
+    d = _out_dir(a.out_dir)
+    if a.check_json:
+        try:
+            data = json.loads((d / "fishbone-data.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print(json.dumps({"success": False, "validation_errors": [f"JSON: {e}"]}, ensure_ascii=False, indent=2))
+            return 1
+        err, warns = validate_json(data)
+        errors = [f"{k.upper()}: {e}" for k, v in err.items() for e in v]
+        print(json.dumps({"success": not errors, "validation_errors": errors, "warnings": warns}, ensure_ascii=False, indent=2))
+        return 0 if not errors else 1
+    result = generate_fishbone(d / "fishbone-data.json", a.template, d / "fishbone.drawio")
+    write_validation_report(result, d / "validation-report.txt")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["success"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

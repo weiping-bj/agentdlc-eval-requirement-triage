@@ -6,12 +6,16 @@ only goes to a bucket this account owns (ExpectedBucketOwner), and only after al
 Block Public Access settings are confirmed on (re-applied if missing, the same rule as
 tools/pull-templates.sh). If that cannot be confirmed, nothing is uploaded (fail closed).
 
-Callers: 32-compare.sh, 34-triage-report.sh, labkit/data_pages.py (tools/publish-data-pages.sh).
+Callers: 32-compare.sh, 34-triage-report.sh, labkit/data_pages.py (tools/publish-data-pages.sh),
+labkit/define_pages.py (tools/publish-define-pages.sh: fishbone / criteria pages + the .drawio file, under
+reports/define/<session>/ with its own content type).
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Optional
+from urllib.parse import quote
 
 from . import aws
 
@@ -32,17 +36,31 @@ def check_private(s3, bucket: str, owner: str) -> None:
                               "\n   网络或限流问题重试即可；否则请联系讲师") from e
 
 
-def publish(path: str) -> str:
+HTML = "text/html; charset=utf-8"
+
+
+def report_key(key: str) -> str:
+    """A caller-chosen object key, kept under reports/ (no empty, '.' or '..' segment, no control character)."""
+    parts = key.split("/")
+    if (parts[0] != "reports" or len(parts) < 2 or any(x in ("", ".", "..") for x in parts)
+            or any(ord(c) < 32 or c in "\\\x7f" for c in key)):
+        raise ValueError(f"对象键必须在 reports/ 下且不含空段、. 或 ..：{key!r}")
+    return key
+
+
+def publish(path: str, key: Optional[str] = None, content_type: str = HTML) -> str:
+    """Upload `path` to reports/<file name> (or to `key`, which must stay under reports/) after the bucket is
+    confirmed private; returns the S3 console link of the object."""
     from .runtime import ensure_bucket
     p = Path(path)
+    key = report_key(key) if key is not None else f"reports/{p.name}"
     b = ensure_bucket()
     s3 = aws.client("s3")
     owner = aws.account_id()
     check_private(s3, b, owner)
-    key = f"reports/{p.name}"
-    s3.upload_file(str(p), b, key, ExtraArgs={"ContentType": "text/html; charset=utf-8", "ExpectedBucketOwner": owner})
+    s3.upload_file(str(p), b, key, ExtraArgs={"ContentType": content_type, "ExpectedBucketOwner": owner})
     r = aws.cfg()["AWS_REGION"]
-    url = f"https://{r}.console.aws.amazon.com/s3/object/{b}?region={r}&prefix={key}"
+    url = f"https://{r}.console.aws.amazon.com/s3/object/{b}?region={r}&prefix={quote(key, safe='/')}"
     print(f"☁️  已上传到私有桶 s3://{b}/{key}")
     print(f"👉 在笔记本浏览器打开（需已登录控制台），点右上角「打开」查看：\n   {url}")
     return url

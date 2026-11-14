@@ -42,8 +42,8 @@ Parameters:
       Resource-name suffix, lowercase letters/digits, 2-12 chars, starts with a letter.
       One participant per Workshop Studio account, so the default is fine.
     Default: ws
-    AllowedPattern: "^[a-z][a-z0-9]{1,11}$"
-    ConstraintDescription: "2-12 chars, lowercase letters/digits, must start with a letter (e.g. zhang3)."
+    AllowedPattern: "^(?!ec2$)[a-z][a-z0-9]{1,11}$"
+    ConstraintDescription: "2-12 chars, lowercase letters/digits, must start with a letter (e.g. zhang3); ec2 is reserved."
   InstanceType:
     Type: String
     Default: t3.large
@@ -183,11 +183,8 @@ Resources:
 
   # ---------------------------------------------------------------------------
   # Instance role.
-  # NOTE: the inline policy is INTENTIONALLY BROAD. It is meant for a 1-day
-  # workshop in a dedicated, disposable lab account, so that participants (and
-  # the coding agent running on this EC2) can create AgentCore resources,
-  # adlc-* IAM roles, Lambda functions, S3 buckets and observability config
-  # without permission friction. Do not reuse it for real workloads.
+  # INTENTIONALLY BROAD for a 1-day lab in a disposable account (AgentCore, Lambda,
+  # S3, observability without friction); NO IAM writes. Not for real workloads.
   # ---------------------------------------------------------------------------
   InstanceRole:
     Type: AWS::IAM::Role
@@ -207,11 +204,8 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # Model allowlist (layer 1, labkit/models.py; tests/test_model_allowlist.py keeps every copy equal):
-              # Claude Sonnet 5.5 (agent, judge, Claude Code), Claude Haiku 5.5 (Claude Code fast model) and
-              # Amazon Nova 2 Lite (fallback) through the us. cross-Region profiles, which route to us-east-1,
-              # us-east-2 and us-west-2. Converse/ConverseStream are authorized by InvokeModel /
-              # InvokeModelWithResponseStream (there is no bedrock:Converse* IAM action).
+              # Model allowlist = labkit/models.py (us. profiles + their models in the 3 route Regions;
+              # Converse is authorized by InvokeModel*). tests/test_model_allowlist.py keeps copies equal.
               - Sid: BedrockAllowlistedModels
                 Effect: Allow
                 Action:
@@ -239,8 +233,7 @@ Resources:
                   - bedrock:ListInferenceProfiles
                   - bedrock:GetInferenceProfile
                 Resource: "*"
-              # Layer 1: nothing on the lab EC2 can mint long-lived credentials (IAM users, access keys,
-              # console passwords, Bedrock API keys = service-specific credentials).
+              # No long-lived credentials (users, keys, passwords, Bedrock API keys, federation).
               - Sid: DenyCredentialCreation
                 Effect: Deny
                 Action:
@@ -252,9 +245,28 @@ Resources:
                   - iam:ResetServiceSpecificCredential
                   - iam:AttachUserPolicy
                   - iam:PutUserPolicy
+                  - iam:UpdateAccessKey
+                  - iam:UpdateServiceSpecificCredential
+                  - iam:UploadSSHPublicKey
+                  - iam:UploadSigningCertificate
+                  - iam:AddUserToGroup
+                  - iam:PutGroupPolicy
+                  - iam:AttachGroupPolicy
+                  - iam:CreateOpenIDConnectProvider
+                  - iam:CreateSAMLProvider
+                  - sts:GetFederationToken
+                  - iam:UpdateSSHPublicKey
+                  - iam:UpdateSigningCertificate
+                  - iam:UpdateSAMLProvider
+                  - iam:AddClientIDToOpenIDConnectProvider
+                  - iam:UpdateOpenIDConnectProviderThumbprint
+                  - iam:PutUserPermissionsBoundary
+                  - iam:DeleteUserPermissionsBoundary
+                  - rolesanywhere:CreateTrustAnchor
+                  - rolesanywhere:CreateProfile
+                  - sts:GetSessionToken
                 Resource: "*"
-              # First invocation of a marketplace-backed model auto-subscribes;
-              # only allowed when Bedrock makes the call on our behalf.
+              # Marketplace auto-subscribe on first use, only via Bedrock.
               - Sid: BedrockMarketplaceAutoSubscribe
                 Effect: Allow
                 Action:
@@ -268,41 +280,27 @@ Resources:
                 Effect: Allow
                 Action: bedrock-agentcore:*
                 Resource: "*"
-              # Lab roles (Runtime / evaluator Lambda / online evaluation) may only be
-              # created WITH the lab permissions boundary below, so an inline policy on
-              # them can never exceed what the lab needs (no privilege escalation).
-              - Sid: LabIamCreateWithBoundary
+              # The 3 lab service roles are pre-created below: read them, pass each to its own service.
+              - Sid: LabIamReadRoles
                 Effect: Allow
-                Action:
-                  - iam:CreateRole
-                  - iam:PutRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
-                Condition:
-                  StringEquals:
-                    iam:PermissionsBoundary: !Ref LabRoleBoundary
-              - Sid: LabIamRoles
-                Effect: Allow
-                Action:
-                  - iam:DeleteRole
-                  - iam:GetRole
-                  - iam:DeleteRolePolicy
-                  - iam:GetRolePolicy
-                  - iam:ListRolePolicies
-                  - iam:DetachRolePolicy
-                  - iam:ListAttachedRolePolicies
-                  - iam:ListInstanceProfilesForRole
-                  - iam:TagRole
-                  - iam:UpdateAssumeRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
-              - Sid: LabIamPassRole
+                Action: iam:GetRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-${LabSuffix}-*"
+              - Sid: LabIamPassAgentCoreRoles
                 Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-*"
+                Resource:
+                  - !GetAtt LabRuntimeRole.Arn
+                  - !GetAtt LabOnlineEvalRole.Arn
                 Condition:
                   StringEquals:
-                    iam:PassedToService:
-                      - bedrock-agentcore.amazonaws.com
-                      - lambda.amazonaws.com
+                    iam:PassedToService: bedrock-agentcore.amazonaws.com
+              - Sid: LabIamPassLambdaRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt LabEvalLambdaRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: lambda.amazonaws.com
               - Sid: LabIamReadBoundary
                 Effect: Allow
                 Action: iam:GetPolicy
@@ -313,39 +311,67 @@ Resources:
                   - iam:ListRoles
                   - lambda:ListFunctions
                 Resource: "*"
-              - Sid: KeepBoundary
+              # No IAM role/policy writes (cross-account trust would be a credential outside the lab).
+              - Sid: DenyIamRoleWrites
                 Effect: Deny
                 Action:
-                  - iam:DeleteRolePermissionsBoundary
-                  - iam:PutRolePermissionsBoundary
+                  - iam:CreateRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
                   - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:DeleteRole
+                  - iam:UpdateRole
+                  - iam:UpdateRoleDescription
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:PutRolePermissionsBoundary
+                  - iam:DeleteRolePermissionsBoundary
+                  - iam:CreateInstanceProfile
+                  - iam:AddRoleToInstanceProfile
+                  - iam:RemoveRoleFromInstanceProfile
+                  - iam:DeleteInstanceProfile
+                  - iam:CreatePolicy
                   - iam:CreatePolicyVersion
                   - iam:SetDefaultPolicyVersion
+                  - iam:DeletePolicy
+                  - iam:DeletePolicyVersion
                 Resource: "*"
-              # Service-linked roles for bedrock-agentcore / application-signals /
-              # observability are created on first use.
+              # Nothing reachable from outside the account (the lab uses none of these). Residual: a
+              # Runtime custom JWT authorizer (no IAM condition key).
+              - Sid: DenyPublicExposure
+                Effect: Deny
+                Action:
+                  - lambda:CreateFunctionUrlConfig
+                  - lambda:UpdateFunctionUrlConfig
+                  - lambda:AddPermission
+                  - bedrock-agentcore:PutResourcePolicy
+                  - bedrock-agentcore:CreateGateway*
+                  - bedrock-agentcore:UpdateGateway*
+                  - bedrock-agentcore:CreateHarness*
+                  - bedrock-agentcore:UpdateHarness*
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketAcl
+                  - s3:PutObjectAcl
+                  - s3:PutBucketWebsite
+                  - s3:DeleteBucketPolicy
+                  - logs:PutSubscriptionFilter
+                  - logs:PutDestination
+                  - logs:PutDestinationPolicy
+                  - logs:CreateExportTask
+                Resource: "*"
+              # Service-linked roles are created on first use.
               - Sid: ServiceLinkedRoles
                 Effect: Allow
                 Action:
                   - iam:CreateServiceLinkedRole
                   - iam:GetRole
                 Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*"
-              # Guardrail: nobody's lab tooling (or a prefix-based cleanup) may
-              # change or delete the participants' own EC2 roles.
-              - Sid: ProtectParticipantEc2Roles
-                Effect: Deny
-                Action:
-                  - iam:DeleteRole
-                  - iam:PutRolePolicy
-                  - iam:DeleteRolePolicy
-                  - iam:AttachRolePolicy
-                  - iam:DetachRolePolicy
-                  - iam:UpdateAssumeRolePolicy
-                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/adlc-ec2-*"
               - Sid: LabLambda
                 Effect: Allow
                 Action: lambda:*
-                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
+                Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"
               - Sid: LabS3Buckets
                 Effect: Allow
                 Action: s3:*
@@ -372,15 +398,13 @@ Resources:
                   - logs:DescribeLogGroups
                   - logs:DescribeResourcePolicies
                   - logs:PutResourcePolicy
-                  # 99-cleanup.sh --all --account-level run on the EC2 (where .lab-state records whether the
-                  # lab enabled Transaction Search) deletes the policy it added
+                  # 99-cleanup.sh --all --account-level removes the policy the lab added
                   - logs:DeleteResourcePolicy
                   - logs:StopQuery
                   - logs:GetQueryResults
                   - logs:DescribeQueries
                 Resource: "*"
-              # logs:StartQuery is granted only on the lab log groups (LabLogGroups above), so the
-              # lab role cannot read other log groups in the account.
+              # logs:StartQuery only on the lab log groups (LabLogGroups).
               - Sid: Observability
                 Effect: Allow
                 Action:
@@ -410,7 +434,7 @@ Resources:
         - { Key: "adlc:lab", Value: agentdlc }
         - { Key: "adlc:owner", Value: !Ref LabSuffix }
 
-  # Permissions boundary for every IAM role the lab scripts create (see labkit/aws.py).
+  # Permissions boundary of every lab service role.
   LabRoleBoundary:
     Type: AWS::IAM::ManagedPolicy
     Properties:
@@ -419,7 +443,7 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          # Same model allowlist as the instance role: a lab-created role can never invoke anything else.
+          # Same model allowlist as the instance role.
           - Sid: AllowlistedModels
             Effect: Allow
             Action:
@@ -445,6 +469,14 @@ Resources:
               - bedrock-agentcore:GetWorkloadAccessTokenForJWT
               - bedrock-agentcore:GetWorkloadAccessTokenForUserId
             Resource: "*"
+          # Lab roles are for AWS services only, never a web-identity (OIDC, Cognito) session.
+          - Sid: DenyFederatedSessions
+            Effect: Deny
+            Action: "*"
+            Resource: "*"
+            Condition:
+              "Null":
+                aws:FederatedProvider: "false"
           - Sid: DenyCredentialCreation
             Effect: Deny
             Action:
@@ -456,6 +488,26 @@ Resources:
               - iam:ResetServiceSpecificCredential
               - iam:AttachUserPolicy
               - iam:PutUserPolicy
+              - iam:UpdateAccessKey
+              - iam:UpdateServiceSpecificCredential
+              - iam:UploadSSHPublicKey
+              - iam:UploadSigningCertificate
+              - iam:AddUserToGroup
+              - iam:PutGroupPolicy
+              - iam:AttachGroupPolicy
+              - iam:CreateOpenIDConnectProvider
+              - iam:CreateSAMLProvider
+              - sts:GetFederationToken
+              - iam:UpdateSSHPublicKey
+              - iam:UpdateSigningCertificate
+              - iam:UpdateSAMLProvider
+              - iam:AddClientIDToOpenIDConnectProvider
+              - iam:UpdateOpenIDConnectProviderThumbprint
+              - iam:PutUserPermissionsBoundary
+              - iam:DeleteUserPermissionsBoundary
+              - rolesanywhere:CreateTrustAnchor
+              - rolesanywhere:CreateProfile
+              - sts:GetSessionToken
             Resource: "*"
           - Sid: Telemetry
             Effect: Allow
@@ -485,7 +537,7 @@ Resources:
             Action:
               - lambda:InvokeFunction
               - lambda:GetFunction
-            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-*"
+            Resource: !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"
           - Sid: ReadLabBuckets
             Effect: Allow
             Action: s3:GetObject
@@ -497,6 +549,72 @@ Resources:
       InstanceProfileName: !Sub "adlc-ec2-${LabSuffix}-${AWS::Region}"
       Roles: [!Ref InstanceRole]
 
+  # The 3 lab service roles with fixed service-only trust; equal to what labkit builds (checked by
+  # tests/test_model_allowlist.py). labkit uses them as is; 99-cleanup.sh leaves them to the stack.
+  LabRuntimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "adlc-${LabSuffix}-runtime-role-${AWS::Region}"
+      Description: "adlc AgentCore Runtime execution role (pre-created by the lab stack)"
+      PermissionsBoundary: !Ref LabRoleBoundary
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - {Effect: Allow, Principal: {Service: bedrock-agentcore.amazonaws.com}, Action: "sts:AssumeRole", Condition: {StringEquals: {"aws:SourceAccount": !Sub "${AWS::AccountId}"}, ArnLike: {"aws:SourceArn": !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*"}}}
+      Policies:
+        - PolicyName: !Sub "adlc-${LabSuffix}-runtime-role-${AWS::Region}-inline"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["logs:DescribeLogStreams", "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:PutResourcePolicy"], Resource: [!Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*", !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*"]}
+              - {Effect: Allow, Action: ["logs:DescribeLogGroups"], Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*"}
+              - {Effect: Allow, Action: ["xray:PutTraceSegments", "xray:PutTelemetryRecords", "xray:GetSamplingRules", "xray:GetSamplingTargets"], Resource: "*"}
+              - {Effect: Allow, Action: "cloudwatch:PutMetricData", Resource: "*", Condition: {StringEquals: {"cloudwatch:namespace": bedrock-agentcore}}}
+              - {Effect: Allow, Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], Resource: [!Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"]}
+              - {Effect: Allow, Action: ["bedrock-agentcore:GetWorkloadAccessToken", "bedrock-agentcore:GetWorkloadAccessTokenForJWT", "bedrock-agentcore:GetWorkloadAccessTokenForUserId"], Resource: [!Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:workload-identity-directory/default", !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:workload-identity-directory/default/workload-identity/*"]}
+      Tags: [{Key: "adlc:lab", Value: agentdlc}, {Key: "adlc:owner", Value: !Ref LabSuffix}, {Key: "adlc:managed-by", Value: cloudformation}]
+
+  LabEvalLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "adlc-${LabSuffix}-eval-lambda-role-${AWS::Region}"
+      Description: "adlc evaluator Lambda execution role (pre-created by the lab stack)"
+      PermissionsBoundary: !Ref LabRoleBoundary
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - {Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: "sts:AssumeRole"}
+      Policies:
+        - PolicyName: !Sub "adlc-${LabSuffix}-eval-lambda-role-${AWS::Region}-inline"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], Resource: !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/adlc-${LabSuffix}-*"}
+              - {Effect: Allow, Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], Resource: [!Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"]}
+      Tags: [{Key: "adlc:lab", Value: agentdlc}, {Key: "adlc:owner", Value: !Ref LabSuffix}, {Key: "adlc:managed-by", Value: cloudformation}]
+
+  LabOnlineEvalRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "adlc-${LabSuffix}-online-eval-role-${AWS::Region}"
+      Description: "adlc AgentCore online-evaluation execution role (pre-created by the lab stack)"
+      PermissionsBoundary: !Ref LabRoleBoundary
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - {Effect: Allow, Principal: {Service: bedrock-agentcore.amazonaws.com}, Action: "sts:AssumeRole", Condition: {StringEquals: {"aws:SourceAccount": !Sub "${AWS::AccountId}", "aws:ResourceAccount": !Sub "${AWS::AccountId}"}, ArnLike: {"aws:SourceArn": [!Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:evaluator/*", !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:online-evaluation-config/*"]}}}
+      Policies:
+        - PolicyName: !Sub "adlc-${LabSuffix}-online-eval-role-${AWS::Region}-inline"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["logs:DescribeLogGroups", "logs:GetQueryResults", "logs:StartQuery", "logs:StopQuery", "logs:FilterLogEvents", "logs:GetLogEvents", "logs:DescribeLogStreams", "logs:DescribeIndexPolicies", "logs:DescribeFieldIndexes"], Resource: "*"}
+              - {Effect: Allow, Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/evaluations/*"}
+              - {Effect: Allow, Action: ["logs:PutIndexPolicy"], Resource: [!Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws/spans", !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws/spans:*", !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"]}
+              - {Effect: Allow, Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], Resource: [!Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-5-5", !Sub "arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"]}
+              - {Effect: Allow, Action: ["lambda:InvokeFunction", "lambda:GetFunction"], Resource: [!Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:adlc-${LabSuffix}-eval-*"]}
+              - {Effect: Allow, Action: ["cloudwatch:PutMetricData"], Resource: "*"}
+      Tags: [{Key: "adlc:lab", Value: agentdlc}, {Key: "adlc:owner", Value: !Ref LabSuffix}, {Key: "adlc:managed-by", Value: cloudformation}]
   # ---------------------------------------------------------------------------
   # The EC2 instance (no key pair; login via SSM only).
   # ---------------------------------------------------------------------------

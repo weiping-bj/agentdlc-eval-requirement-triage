@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASE_FILE = ROOT / "config" / "lab.env"
 LOCAL_FILE = ROOT / "config" / "local.env"  # ADLC_LOCAL_ENV overrides (tests / alternate profiles)
-SUFFIX_RE = re.compile(r"^[a-z][a-z0-9]{1,11}$")
+SUFFIX_RE = re.compile(r"^(?!ec2$)[a-z][a-z0-9]{1,11}$")  # "ec2": adlc-ec2-* is the participant EC2-role namespace
 KEYS = [
     "AWS_REGION", "LAB_PREFIX", "LAB_SUFFIX", "AGENT_MODEL_ID", "JUDGE_MODEL_ID",
     "FALLBACK_MODEL_ID", "CODING_AGENT_MODEL_ID", "CODING_AGENT_FAST_MODEL_ID",
@@ -70,7 +70,7 @@ def load(require_suffix: bool = True) -> dict:
     suffix = cfg.get("LAB_SUFFIX", "")
     if require_suffix and not SUFFIX_RE.match(suffix or ""):
         raise ConfigError(
-            "LAB_SUFFIX 未设置或格式不对（小写字母开头，2-12 位小写字母/数字）。"
+            "LAB_SUFFIX 未设置或格式不对（小写字母开头，2-12 位小写字母/数字；ec2 保留不能用）。"
             "请先运行: ./tools/set-suffix.sh <你的后缀>   例如 ./tools/set-suffix.sh zhang3"
         )
     cfg.update(derive(cfg))

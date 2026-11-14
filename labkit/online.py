@@ -36,7 +36,8 @@ def role_arn() -> str:
         {"Effect": "Allow", "Action": ["logs:PutIndexPolicy"],
          "Resource": [f"arn:aws:logs:{r}:{a}:log-group:aws/spans", f"arn:aws:logs:{r}:{a}:log-group:aws/spans:*",
                       f"arn:aws:logs:{r}:{a}:log-group:/aws/bedrock-agentcore/*"]},
-        # the custom LLM-judge evaluator runs as this role: allowlisted models only (labkit/models.py)
+        # Only a custom LLM-judge evaluator would invoke a model as this role (the online set uses Lambda
+        # evaluators and built-ins, which run on service capacity); allowlisted models only (labkit/models.py)
         {"Effect": "Allow", "Action": list(models.INVOKE_ACTIONS), "Resource": models.invoke_resources(r, a)},
         {"Effect": "Allow", "Action": ["lambda:InvokeFunction", "lambda:GetFunction"],
          "Resource": [f"arn:aws:lambda:{r}:{a}:function:{c['LAB_NAME']}-eval-*"]},
@@ -95,15 +96,16 @@ def enable(mode: str) -> int:
     evaluators = [{"evaluatorId": ev[k]["evaluatorId"]} for k in ONLINE_EVALUATORS if k in ev]
     evaluators += [{"evaluatorId": b} for b in ONLINE_BUILTINS]
     name = config_name(mode)
+    role = role_arn()  # also refreshes an existing role's inline policy (e.g. to the model allowlist)
     existing = find(name)
     if existing:
         cid = existing["onlineEvaluationConfigId"]
         ctl.update_online_evaluation_config(onlineEvaluationConfigId=cid, executionStatus="ENABLED",
-                                            evaluators=evaluators, dataSourceConfig=data_source(mode))
+                                            evaluators=evaluators, dataSourceConfig=data_source(mode),
+                                            evaluationExecutionRoleArn=role)
         print(f"✅ 在线评估配置 {name} 已启用（{cid}）")
     else:
         import time
-        role = role_arn()
         for attempt in range(8):
             try:
                 r = ctl.create_online_evaluation_config(

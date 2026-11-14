@@ -1,10 +1,11 @@
 """The Bedrock models the lab may invoke (layer-1 allowlist).
 
-Every role the lab uses to call Bedrock is scoped to these models: the EC2 instance role (Claude Code and the
-lab scripts) and the permissions boundary in ec2/adlc-ec2.yaml and workshop-studio/static/adlc-lab.yaml, and the
-roles labkit creates at runtime (AgentCore Runtime, evaluator Lambda, online evaluation). tests/test_model_allowlist.py
-keeps the templates, ec2/manual-iam-inline-policy.json and every model id the lab is configured with in sync
-with this list.
+Enforced on the CloudFormation paths (workshop-studio/static/adlc-lab.yaml, ec2/adlc-ec2.yaml): the EC2 instance
+role (Claude Code and the lab scripts), the permissions boundary every lab-created role carries, and the roles
+labkit creates at runtime (AgentCore Runtime, evaluator Lambda, online evaluation). The manual console path
+(ec2/manual-iam-inline-policy.json on top of PowerUserAccess, roles without a boundary) only gets best-effort
+Denies: it can escalate (see ec2/README.md) and is not an enforcement boundary. tests/test_model_allowlist.py
+keeps every copy and every model id the lab is configured with in sync with this list.
 
   anthropic.claude-sonnet-5-5   agent (AGENT_MODEL_ID), LLM judge (JUDGE_MODEL_ID), Claude Code (ANTHROPIC_MODEL)
   anthropic.claude-haiku-5-5    Claude Code small/fast model (ANTHROPIC_SMALL_FAST_MODEL / DEFAULT_HAIKU_MODEL)
@@ -12,6 +13,8 @@ with this list.
 
 The lab calls them through the `us.` cross-Region inference profiles, which route to the Regions below; a
 profile call needs the profile ARN (calling Region) and the foundation-model ARN in every destination Region.
+ROUTE_REGIONS was read from `aws bedrock get-inference-profile` (2026-11); re-check before an event, because a
+Region AWS adds to a profile would see intermittent AccessDenied until it is listed here.
 Stdlib only.
 """
 from __future__ import annotations

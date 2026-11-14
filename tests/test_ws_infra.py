@@ -245,6 +245,13 @@ def test_ws_template_shares_network_role_and_boundary_with_ec2_template():
     assert set(ec2["Outputs"]) <= set(ws["Outputs"])
 
 
+@pytest.mark.parametrize("tpl", [WS_TPL, EC2_TPL], ids=["ws", "ec2"])
+def test_template_fits_an_inline_template_body(tpl):
+    # create-stack --template-body / deploy without --s3-bucket accept at most 51,200 bytes;
+    # keep headroom so a small change does not break the documented commands.
+    assert tpl.stat().st_size <= 49_000, f"{tpl.name}: {tpl.stat().st_size} bytes (limit 51,200)"
+
+
 def test_ws_template_keeps_the_security_posture():
     ws = cfn(WS_TPL)
     sg = ws["Resources"]["InstanceSecurityGroup"]["Properties"]

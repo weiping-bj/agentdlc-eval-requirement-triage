@@ -4,6 +4,7 @@ The allowlist lives in labkit/models.py. These tests keep the CloudFormation tem
 boundary), the manual-path policy, the participant console policy, the roles labkit creates at runtime and every
 model id the lab is configured with in sync with it.
 """
+import fnmatch
 import json
 import re
 import sys
@@ -20,14 +21,34 @@ from test_ws_infra import cfn  # noqa: E402
 
 TEMPLATES = ["ec2/adlc-ec2.yaml", "workshop-studio/static/adlc-lab.yaml"]
 CRED_ACTIONS = {"iam:CreateUser", "iam:CreateAccessKey", "iam:CreateLoginProfile", "iam:UpdateLoginProfile",
-                "iam:CreateServiceSpecificCredential", "iam:AttachUserPolicy", "iam:PutUserPolicy"}
-INVOKE_LIKE = re.compile(r"^bedrock:(InvokeModel|InvokeModelWithResponseStream|Converse|ConverseStream|CountTokens|InvokeModel\*|\*)$")
+                "iam:CreateServiceSpecificCredential", "iam:ResetServiceSpecificCredential", "iam:AttachUserPolicy",
+                "iam:PutUserPolicy", "iam:UpdateAccessKey", "iam:UpdateServiceSpecificCredential",
+                "iam:UploadSSHPublicKey", "iam:UploadSigningCertificate", "iam:AddUserToGroup", "iam:PutGroupPolicy",
+                "iam:AttachGroupPolicy", "iam:CreateOpenIDConnectProvider", "iam:CreateSAMLProvider",
+                "sts:GetFederationToken"}
+# Allowed only on the allowlisted ARNs:
+SCOPED = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:CountTokens"]
+# Other ways to make a model run (or to get a credential for it) that no lab role may be granted at all:
+NEVER = ["bedrock:InvokeModelWithBidirectionalStream", "bedrock:CreateModelInvocationJob", "bedrock:InvokeAgent",
+         "bedrock:InvokeInlineAgent", "bedrock:RetrieveAndGenerate", "bedrock:InvokeFlow", "bedrock:CallWithBearerToken",
+         "bedrock:CreateInferenceProfile", "bedrock:CreateProvisionedModelThroughput", "bedrock:InvokeDataAutomationAsync",
+         "bedrock:OptimizePrompt", "bedrock-mantle:CreateInference", "bedrock-mantle:CallWithBearerToken",
+         "rolesanywhere:CreateTrustAnchor", "iam:CreateRole", "iam:PassRole"]
 R, A = "us-west-2", "123456789012"
 
 
 def _acts(st):
     a = st.get("Action", [])
     return [a] if isinstance(a, str) else a
+
+
+def _grants(st, action):
+    """Does this Allow statement grant `action` (wildcards expanded; NotAction counts as granting)?"""
+    if st.get("Effect") != "Allow":
+        return False
+    if "NotAction" in st:
+        return True
+    return any(fnmatch.fnmatchcase(action.lower(), a.lower()) for a in _acts(st))
 
 
 def _sub(v):
@@ -39,6 +60,19 @@ def _sub(v):
 def _res(st):
     r = st.get("Resource", [])
     return [_sub(x) for x in (r if isinstance(r, list) else [r])]
+
+
+def _check_statements(name, stmts, allow_iam_create_role=False):
+    """Every Allow that grants a SCOPED action is exactly the allowlist; no Allow grants a NEVER action."""
+    want = sorted(models.invoke_resources(R, A))
+    for s in stmts:
+        assert "NotAction" not in s or s["Effect"] == "Deny", (name, s.get("Sid"), "Allow with NotAction")
+        assert "NotResource" not in s or s["Effect"] == "Deny", (name, s.get("Sid"), "Allow with NotResource")
+        if any(_grants(s, a) for a in SCOPED):
+            assert sorted(_res(s)) == want, (name, s.get("Sid"), _res(s))
+            assert not [a for a in _acts(s) if "*" in a and a.lower().startswith("bedrock")], (name, s.get("Sid"))
+        never = [a for a in NEVER if _grants(s, a) and not (allow_iam_create_role and a.startswith("iam:"))]
+        assert not never, (name, s.get("Sid"), never)
 
 
 # ---------------------------------------------------------------------------------------------- the model list
@@ -81,16 +115,72 @@ def test_invoke_resources_cover_profile_and_every_route_region():
 @pytest.mark.parametrize("template", TEMPLATES)
 def test_instance_role_and_boundary_invoke_only_the_allowlist(template):
     t = cfn(ROOT / template)
-    role = t["Resources"]["InstanceRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]
-    boundary = t["Resources"]["LabRoleBoundary"]["Properties"]["PolicyDocument"]["Statement"]
-    want = sorted(models.invoke_resources(R, A))
-    for name, stmts in (("instance role", role), ("boundary", boundary)):
-        invoking = [s for s in stmts if s["Effect"] == "Allow" and any(INVOKE_LIKE.match(a) for a in _acts(s))]
-        assert invoking, name
-        for s in invoking:
-            assert not [a for a in _acts(s) if a.endswith("*")], (name, s.get("Sid"))
-            assert sorted(_res(s)) == want, (name, s.get("Sid"))
-        assert not [s for s in stmts if s["Effect"] == "Allow" and "bedrock:*" in _acts(s)]
+    role = t["Resources"]["InstanceRole"]["Properties"]
+    assert [m["Fn::Sub"] if isinstance(m, dict) else m for m in role["ManagedPolicyArns"]] == \
+        ["arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"]  # no bedrock / iam grants
+    policies = [p["PolicyDocument"]["Statement"] for p in role["Policies"]]
+    assert len(policies) == 1
+    other_iam = [r for r, v in t["Resources"].items() if v["Type"] in ("AWS::IAM::Policy", "AWS::IAM::RolePolicy",
+                                                                      "AWS::IAM::User", "AWS::IAM::AccessKey")]
+    assert not other_iam, other_iam
+    # the instance role creates the lab roles (with the boundary), the boundary itself never grants IAM
+    _check_statements("instance role", policies[0], allow_iam_create_role=True)
+    _check_statements("boundary", t["Resources"]["LabRoleBoundary"]["Properties"]["PolicyDocument"]["Statement"])
+    assert [s for s in policies[0] if any(_grants(s, a) for a in SCOPED)]
+
+
+LAB_ROLES = {"LabRuntimeRole": "runtime-role", "LabEvalLambdaRole": "eval-lambda-role", "LabOnlineEvalRole": "online-eval-role"}
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_instance_role_cannot_write_iam_and_passes_only_the_pre_created_roles(template):
+    """The lab roles are pre-created by the stack; the EC2 can read them and pass each to its own service, nothing else."""
+    st = {s.get("Sid"): s for s in cfn(ROOT / template)["Resources"]["InstanceRole"]["Properties"]["Policies"][0][
+        "PolicyDocument"]["Statement"]}
+    agentcore, lam = st["LabIamPassAgentCoreRoles"], st["LabIamPassLambdaRole"]
+    assert agentcore["Resource"] == [{"Fn::GetAtt": "LabRuntimeRole.Arn"}, {"Fn::GetAtt": "LabOnlineEvalRole.Arn"}]
+    assert agentcore["Condition"] == {"StringEquals": {"iam:PassedToService": "bedrock-agentcore.amazonaws.com"}}
+    assert lam["Resource"] == {"Fn::GetAtt": "LabEvalLambdaRole.Arn"}
+    assert lam["Condition"] == {"StringEquals": {"iam:PassedToService": "lambda.amazonaws.com"}}
+    assert _acts(st["LabIamReadRoles"]) == ["iam:GetRole"]
+    deny = st["DenyIamRoleWrites"]
+    assert deny["Effect"] == "Deny" and deny["Resource"] == "*" and "Condition" not in deny and set(deny["Action"]) >= {
+        "iam:CreateRole", "iam:UpdateAssumeRolePolicy", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:DeleteRole",
+        "iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary", "iam:CreatePolicyVersion",
+        "iam:SetDefaultPolicyVersion", "iam:TagRole", "iam:UntagRole", "iam:UpdateRole"}
+    expo = st["DenyPublicExposure"]
+    assert expo["Effect"] == "Deny" and set(expo["Action"]) >= {
+        "lambda:CreateFunctionUrlConfig", "lambda:UpdateFunctionUrlConfig", "lambda:AddPermission",
+        "bedrock-agentcore:PutResourcePolicy"}
+
+
+def _render(v, suffix):
+    if isinstance(v, dict) and set(v) == {"Fn::Sub"}:
+        return _sub(v).replace("${LabSuffix}", suffix)
+    if isinstance(v, dict):
+        return {k: _render(x, suffix) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_render(x, suffix) for x in v]
+    return v
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_pre_created_roles_are_exactly_what_labkit_builds(template, captured_roles):
+    """Same name, trust, inline policy and boundary as labkit's own definitions, tagged as stack-managed."""
+    t = cfn(ROOT / template)
+    for lid, kind in LAB_ROLES.items():
+        props = t["Resources"][lid]["Properties"]
+        name = _render(props["RoleName"], "zhang3")
+        assert name == f"adlc-zhang3-{kind}-{R}" and name in captured_roles, (lid, name)
+        assert props["PermissionsBoundary"] == {"Ref": "LabRoleBoundary"}
+        assert {"Key": "adlc:managed-by", "Value": "cloudformation"} in props["Tags"]
+        assert _render(props["AssumeRolePolicyDocument"], "zhang3") == captured_roles[name]["trust"], lid
+        (pol,) = props["Policies"]
+        assert _render(pol["PolicyName"], "zhang3") == f"{name}-inline"
+        assert _render(pol["PolicyDocument"], "zhang3") == captured_roles[name]["inline"], lid
+        _check_statements(lid, pol["PolicyDocument"]["Statement"])
+        principals = [st["Principal"] for st in props["AssumeRolePolicyDocument"]["Statement"]]
+        assert principals and all(set(p) == {"Service"} for p in principals), (lid, principals)  # services only
 
 
 @pytest.mark.parametrize("template", TEMPLATES)
@@ -121,7 +211,8 @@ def captured_roles(monkeypatch, tmp_path):
     aws.cfg.cache_clear()
     monkeypatch.setattr(aws, "account_id", lambda: A)
     seen = {}
-    monkeypatch.setattr(aws, "ensure_role", lambda name, trust, inline, desc="": seen.setdefault(name, inline) and name)
+    monkeypatch.setattr(aws, "ensure_role",
+                        lambda name, trust, inline, desc="": seen.setdefault(name, {"trust": trust, "inline": inline}) and name)
     from labkit import evaluators_reg, online, runtime
     runtime.ensure_role()
     evaluators_reg.lambda_role()
@@ -131,13 +222,14 @@ def captured_roles(monkeypatch, tmp_path):
 
 
 def test_roles_the_lab_creates_invoke_only_the_allowlist(captured_roles):
-    assert len(captured_roles) == 3  # AgentCore Runtime, evaluator Lambda, online evaluation
-    want = sorted(models.invoke_resources(R, A))
-    for name, inline in captured_roles.items():
-        invoking = [s for s in inline["Statement"] if any(INVOKE_LIKE.match(a) for a in _acts(s))]
-        assert len(invoking) == 1, name
-        assert sorted(invoking[0]["Resource"]) == want and set(_acts(invoking[0])) == set(models.INVOKE_ACTIONS), name
-        assert not [s for s in inline["Statement"] if set(_acts(s)) & CRED_ACTIONS or "iam:*" in _acts(s)], name
+    calls = sum(p.read_text(encoding="utf-8").count("aws.ensure_role(") for p in (ROOT / "labkit").glob("*.py"))
+    assert calls == len(captured_roles) == 3, "a new lab-created role: add it to the captured_roles fixture"
+    for name, role in captured_roles.items():
+        inline = role["inline"]
+        _check_statements(name, inline["Statement"])
+        invoking = [s for s in inline["Statement"] if any(_grants(s, a) for a in SCOPED)]
+        assert len(invoking) == 1 and set(_acts(invoking[0])) == set(models.INVOKE_ACTIONS), name
+        assert not [s for s in inline["Statement"] if any(_grants(s, a) for a in CRED_ACTIONS)], name
 
 
 # ---------------------------------------------------------------------------------------------- other policies
@@ -146,13 +238,17 @@ def _policy(rel):
 
 
 def test_manual_path_policy_denies_everything_but_the_allowlist():
-    """The manual path uses PowerUserAccess (bedrock:*), so the allowlist is a Deny with NotResource."""
+    """Best effort only (PowerUserAccess + boundary-less roles can escalate, see labkit/models.py): Deny NotResource."""
     st = {s["Sid"]: s for s in _policy("ec2/manual-iam-inline-policy.json")}
     allow = st["ModelAllowlist"]
-    assert allow["Effect"] == "Deny" and "bedrock:InvokeModel*" in allow["Action"]
+    assert allow["Effect"] == "Deny" and set(allow["Action"]) == {"bedrock:InvokeModel*", "bedrock:CountTokens"}
     prof = {f"arn:aws:bedrock:*:*:inference-profile/{p}" for p in models.profile_ids()}
     fm = {x for x in models.invoke_resources(R, A) if ":foundation-model/" in x}
     assert set(allow["NotResource"]) == prof | fm
+    other = st["NoOtherModelInvocationPaths"]
+    assert other["Effect"] == "Deny" and other["Resource"] == "*" and set(other["Action"]) >= {
+        "bedrock:CreateModelInvocationJob", "bedrock:InvokeAgent", "bedrock:InvokeInlineAgent",
+        "bedrock:RetrieveAndGenerate", "bedrock:InvokeFlow", "bedrock:CallWithBearerToken"}
     assert st["DenyCredentialCreation"]["Effect"] == "Deny" and CRED_ACTIONS <= set(st["DenyCredentialCreation"]["Action"])
 
 
@@ -170,3 +266,234 @@ def test_reference_judge_policy_uses_the_allowlist():
     (inv,) = [s for s in _policy("evaluators/adlc_reject_quality/execution-role-policy.json")
               if "bedrock:InvokeModel" in s["Action"]]
     assert set(inv["Action"]) == set(models.INVOKE_ACTIONS) and not [r for r in inv["Resource"] if r.endswith("/*")]
+
+
+def test_claude_code_aliases_map_onto_allowlisted_models():
+    setup = (ROOT / "ec2" / "setup-ec2.sh").read_text(encoding="utf-8")
+    for key, var in (("ANTHROPIC_MODEL", "$model"), ("ANTHROPIC_SMALL_FAST_MODEL", "$fast"),
+                     ("ANTHROPIC_DEFAULT_HAIKU_MODEL", "$fast"), ("ANTHROPIC_DEFAULT_SONNET_MODEL", "$model"),
+                     ("ANTHROPIC_DEFAULT_OPUS_MODEL", "$model"), ("ANTHROPIC_DEFAULT_FABLE_MODEL", "$model")):
+        assert f"{key}: {var}" in setup, key                                    # settings.json
+        shell = "$FAST_MODEL" if var == "$fast" else "$MODEL"
+        assert f'echo "export {key}=\\"{shell}\\""' in setup, key  # ~/.bashrc, same value
+    assert "CLAUDE_CODE_SUBAGENT_MODEL" not in setup  # subagents follow the mapped aliases (Haiku stays Haiku)
+
+
+def test_use_model_rejects_ids_outside_the_allowlist(tmp_path):
+    import shutil
+    import subprocess
+    for rel in ("tools/use-model.sh", "config/lab.env", "labkit/__init__.py", "labkit/models.py"):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ROOT / rel, tmp_path / rel)
+    run = lambda arg: subprocess.run(["bash", "tools/use-model.sh", arg], cwd=tmp_path, capture_output=True, text=True)
+    r = run("us.anthropic.claude-opus-4-8")
+    assert r.returncode == 1 and "us.anthropic.claude-haiku-5-5" in r.stderr
+    assert not (tmp_path / "config" / "local.env").exists()
+    assert run("us.anthropic.claude-haiku-5-5").returncode == 0
+    assert "us.anthropic.claude-haiku-5-5" in (tmp_path / "config" / "local.env").read_text()
+    assert run("nova").returncode == 0 and "nova-2-lite" in (tmp_path / "config" / "local.env").read_text()
+
+
+# ---------------------------------------------------------------------------------------------- round-6 guards
+# Representative IAM writes; a statement "grants" one when any of its (case-insensitive, wildcard) actions match.
+IAM_WRITES = ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:UpdateAssumeRolePolicy", "iam:PassRole",
+              "iam:DeleteRole", "iam:DeleteRolePolicy", "iam:DetachRolePolicy", "iam:TagRole", "iam:CreatePolicy",
+              "iam:CreatePolicyVersion", "iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary",
+              "iam:CreateUser", "iam:CreateAccessKey", "iam:UpdateRole", "iam:CreateServiceLinkedRole",
+              "iam:AddRoleToInstanceProfile", "iam:CreateInstanceProfile"]
+IAM_SIDS = {"LabIamPassAgentCoreRoles": {"iam:PassRole"}, "LabIamPassLambdaRole": {"iam:PassRole"},
+            "ServiceLinkedRoles": {"iam:CreateServiceLinkedRole"}}
+
+
+def _walk_policies(node, path=""):
+    """Every PolicyDocument anywhere in a template (inline policies, managed policies, nested)."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k == "PolicyDocument":
+                yield path, v
+            else:
+                yield from _walk_policies(v, f"{path}/{k}")
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk_policies(v, f"{path}[{i}]")
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_template_has_no_other_iam_principal_or_policy(template):
+    t = cfn(ROOT / template)
+    iam = {r: v["Type"] for r, v in t["Resources"].items() if v["Type"].startswith("AWS::IAM::")}
+    assert iam == {"InstanceRole": "AWS::IAM::Role", "LabRoleBoundary": "AWS::IAM::ManagedPolicy",
+                   "InstanceProfile": "AWS::IAM::InstanceProfile", "LabRuntimeRole": "AWS::IAM::Role",
+                   "LabEvalLambdaRole": "AWS::IAM::Role", "LabOnlineEvalRole": "AWS::IAM::Role"}, iam
+    assert not set(t["Resources"]["LabRoleBoundary"]["Properties"]) & {"Roles", "Users", "Groups"}  # never attached
+    docs = list(_walk_policies(t["Resources"]))
+    assert {p for p, _ in docs} == {"/InstanceRole/Properties/Policies[0]", "/LabRoleBoundary/Properties"} | {
+        f"/{lid}/Properties/Policies[0]" for lid in LAB_ROLES}, docs
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_iam_writes_only_in_the_named_statements(template):
+    st = cfn(ROOT / template)["Resources"]["InstanceRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]
+    for s in st:
+        if s["Effect"] != "Allow":
+            continue
+        writes = {w for w in IAM_WRITES if _grants(s, w)}
+        assert writes <= IAM_SIDS.get(s.get("Sid"), set()), (s.get("Sid"), writes)
+    sids = {s.get("Sid"): s for s in st}
+    assert sids["DenyIamRoleWrites"]["Effect"] == "Deny"  # details: test_instance_role_cannot_write_iam_...
+    assert sids["LabLambda"]["Resource"] == {"Fn::Sub": "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"}
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_deny_statements_are_unconditional_and_cover_the_exposure_paths(template):
+    t = cfn(ROOT / template)
+    role = {s.get("Sid"): s for s in t["Resources"]["InstanceRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]}
+    boundary = {s.get("Sid"): s for s in t["Resources"]["LabRoleBoundary"]["Properties"]["PolicyDocument"]["Statement"]}
+    for s in (role["DenyCredentialCreation"], role["DenyPublicExposure"], boundary["DenyCredentialCreation"]):
+        assert s["Effect"] == "Deny" and s["Resource"] == "*" and "Condition" not in s
+    assert set(role["DenyPublicExposure"]["Action"]) >= {
+        "lambda:CreateFunctionUrlConfig", "lambda:UpdateFunctionUrlConfig", "lambda:AddPermission",
+        "bedrock-agentcore:PutResourcePolicy", "bedrock-agentcore:CreateGateway*", "bedrock-agentcore:UpdateGateway*",
+        "bedrock-agentcore:CreateHarness*", "bedrock-agentcore:UpdateHarness*", "s3:PutBucketPolicy", "s3:PutBucketAcl",
+        "s3:PutObjectAcl", "s3:PutBucketWebsite", "s3:DeleteBucketPolicy", "logs:PutSubscriptionFilter",
+        "logs:PutDestination", "logs:PutDestinationPolicy", "logs:CreateExportTask"}
+    fed = boundary["DenyFederatedSessions"]
+    assert fed == {"Sid": "DenyFederatedSessions", "Effect": "Deny", "Action": "*", "Resource": "*",
+                   "Condition": {"Null": {"aws:FederatedProvider": "false"}}}
+    assert boundary["InvokeLabEvaluators"]["Resource"] == {"Fn::Sub": "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:adlc-${LabSuffix}-*"}
+
+
+def test_only_labkit_aws_creates_roles_and_through_ensure_role():
+    py = [p for g in ("labkit/*.py", "tools/*.py", "agent/**/*.py", "evaluators/**/*.py", "data/tools/*.py")
+          for p in ROOT.glob(g) if p.is_file()]
+    raw = [str(p.relative_to(ROOT)) for p in py if p.name != "aws.py"
+           and re.search(r"\.(create_role|put_role_policy|attach_role_policy|update_assume_role_policy)\(", p.read_text(encoding="utf-8"))]
+    assert not raw, f"create IAM roles through labkit.aws.ensure_role (checked by this file): {raw}"
+    text = "".join(p.read_text(encoding="utf-8") for p in py if p.name != "aws.py")
+    assert not re.search(r"from \.?(labkit\.)?aws import|import labkit\.aws as|ensure_role\s*=", text)  # no aliasing
+    assert len(re.findall(r"\baws\.ensure_role\(", text)) == 3  # the three lab roles of the captured_roles fixture
+
+
+@pytest.mark.parametrize("bad", ["ec2", "Ws", "1ab", "a", "abcdefghijklm", "ws-x"])
+def test_suffix_rule_reserves_ec2_everywhere(bad, tmp_path):
+    import subprocess
+    t = cfn(ROOT / "workshop-studio/static/adlc-lab.yaml")
+    for tpl in [t, cfn(ROOT / "ec2/adlc-ec2.yaml")]:
+        assert not re.match(tpl["Parameters"]["LabSuffix"]["AllowedPattern"], bad)
+    assert not labcfg.SUFFIX_RE.match(bad)
+    for good in ("ws", "zhang3", "ec2x", "wssec2"):
+        assert re.match(t["Parameters"]["LabSuffix"]["AllowedPattern"], good) and labcfg.SUFFIX_RE.match(good)
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "config").mkdir()
+    (tmp_path / "tools" / "set-suffix.sh").write_text((ROOT / "tools" / "set-suffix.sh").read_text(encoding="utf-8"))
+    r = subprocess.run(["bash", "tools/set-suffix.sh", bad], cwd=tmp_path, capture_output=True, text=True)
+    assert r.returncode == 1 and not (tmp_path / "config" / "local.env").exists()
+    # launch-from-cloudshell.sh validates its argument before any AWS call
+    r = subprocess.run(["bash", str(ROOT / "ec2" / "launch-from-cloudshell.sh"), bad], cwd=tmp_path,
+                       capture_output=True, text=True, stdin=subprocess.DEVNULL, env={"PATH": "/usr/bin:/bin"})
+    assert r.returncode == 1 and "ec2 保留" in r.stderr, r.stderr
+    # setup-ec2.sh: run its suffix line on its own
+    line = next(x for x in (ROOT / "ec2" / "setup-ec2.sh").read_text(encoding="utf-8").splitlines()
+                if 'SUFFIX=""' in x and "[[" in x)
+    for value, kept in ((bad, ""), ("zhang3", "zhang3"), ("ec2x", "ec2x")):
+        out = subprocess.run(["bash", "-c", f'SUFFIX={value}; {line}; printf %s "$SUFFIX"'], capture_output=True, text=True)
+        assert out.stdout == kept, (value, out.stdout)
+
+
+def test_online_enable_repoints_an_existing_config_at_the_refreshed_role(monkeypatch, tmp_path):
+    monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "none.env")
+    monkeypatch.setenv("LAB_SUFFIX", "zhang3")
+    aws.cfg.cache_clear()
+    from labkit import online
+    seen = {}
+
+    class Ctl:
+        def update_online_evaluation_config(self, **kw):
+            seen.update(kw)
+
+    monkeypatch.setattr(aws, "client", lambda name: Ctl())
+    monkeypatch.setattr(aws, "load_state", lambda n, default=None: {"label_accuracy": {"evaluatorId": "e1"}} if n == "evaluators" else {})
+    monkeypatch.setattr(aws, "save_state", lambda n, data: None)
+    monkeypatch.setattr(online, "find", lambda name: {"onlineEvaluationConfigId": "cfg-1"})
+    monkeypatch.setattr(online, "role_arn", lambda: "arn:aws:iam::123456789012:role/adlc-zhang3-online-eval-role-us-west-2")
+    monkeypatch.setattr(online, "data_source", lambda path: {})
+    try:
+        online.enable("b")
+    finally:
+        aws.cfg.cache_clear()
+    assert seen["evaluationExecutionRoleArn"].endswith("adlc-zhang3-online-eval-role-us-west-2")
+
+
+# ---------------------------------------------------------------------------------------------- pre-created roles in labkit
+class _FakeIam:
+    class exceptions:
+        class NoSuchEntityException(Exception):
+            pass
+
+    def __init__(self, role=None):
+        self.role, self.writes = role, []
+
+    def get_role(self, RoleName):
+        if self.role is None:
+            raise self.exceptions.NoSuchEntityException(RoleName)
+        return {"Role": self.role}
+
+    def __getattr__(self, name):  # create_role, put_role_policy, update_assume_role_policy, ...
+        return lambda **kw: self.writes.append(name) or {"Role": {"Arn": "arn:aws:iam::1:role/new"}}
+
+
+MANAGED = {"Arn": "arn:aws:iam::123456789012:role/adlc-zhang3-runtime-role-us-west-2",
+           "Tags": [{"Key": "adlc:managed-by", "Value": "cloudformation"}]}
+
+
+@pytest.mark.parametrize("caller, role, outcome", [
+    ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3-us-west-2/i-1", MANAGED, "arn"),       # lab EC2: used as is
+    ("arn:aws:sts::1:assumed-role/Admin/me", MANAGED, "arn"),                            # laptop: still not touched
+    ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3-us-west-2/i-1", None, "exit"),         # lab EC2 never creates
+    ("arn:aws:sts::1:assumed-role/adlc-ec2-zhang3-us-west-2/i-1", {"Arn": "x", "Tags": []}, "exit"),  # nor re-trusts
+    ("arn:aws:sts::1:assumed-role/Admin/me", None, "created"),                           # laptop path unchanged
+])
+def test_ensure_role_uses_pre_created_roles_and_never_writes_iam_on_the_lab_ec2(monkeypatch, caller, role, outcome):
+    fake = _FakeIam(role)
+    monkeypatch.setattr(aws, "client", lambda name: fake)
+    monkeypatch.setattr(aws, "caller_arn", lambda: caller)
+    monkeypatch.setattr(aws, "boundary_arn", lambda: None)
+    monkeypatch.setattr(aws, "cfg", lambda: {"LAB_SUFFIX": "zhang3", "AWS_REGION": R})
+    monkeypatch.setattr(aws, "tags_list", lambda: [])
+    monkeypatch.setattr(aws.time, "sleep", lambda s: None)
+    if outcome == "exit":
+        with pytest.raises(SystemExit, match="预先创建"):
+            aws.ensure_role("adlc-zhang3-runtime-role-us-west-2", {}, {})
+        assert fake.writes == []
+    elif outcome == "arn":
+        assert aws.ensure_role("adlc-zhang3-runtime-role-us-west-2", {}, {}) == MANAGED["Arn"] and fake.writes == []
+    else:
+        aws.ensure_role("adlc-zhang3-runtime-role-us-west-2", {}, {})
+        assert fake.writes == ["create_role", "put_role_policy"]
+
+
+def test_cleanup_leaves_stack_managed_roles_to_the_stack(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(labcfg, "LOCAL_FILE", tmp_path / "none.env")
+    monkeypatch.setenv("LAB_SUFFIX", "zhang3")
+    monkeypatch.setenv("AWS_REGION", R)
+    aws.cfg.cache_clear()
+    from labkit import cleanup
+    names = ["adlc-zhang3-runtime-role-us-west-2", "adlc-zhang3-old-runtime-role", "adlc-ec2-zhang3-us-west-2",
+             "adlc-zhang3x-runtime-role-us-west-2"]
+
+    class Iam:
+        def get_paginator(self, op):
+            return type("P", (), {"paginate": lambda self_: [{"Roles": [{"RoleName": n} for n in names]}]})()
+
+        def get_role(self, RoleName):
+            tags = [{"Key": "adlc:managed-by", "Value": "cloudformation"}] if RoleName.endswith("-us-west-2") else []
+            return {"Role": {"RoleName": RoleName, "Tags": tags}}
+
+    monkeypatch.setattr(aws, "client", lambda name: Iam())
+    try:
+        c = cleanup.Cleaner.__new__(cleanup.Cleaner)
+        c.c, c.dash = labcfg.load(), "adlc-zhang3-"
+        assert c.roles() == ["adlc-zhang3-old-runtime-role"]           # deleted by cleanup
+        assert c.managed_roles() == ["adlc-zhang3-runtime-role-us-west-2"]  # deleted with the stack
+    finally:
+        aws.cfg.cache_clear()

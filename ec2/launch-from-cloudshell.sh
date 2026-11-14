@@ -15,9 +15,9 @@ set -euo pipefail
 export AWS_PAGER=""
 
 SUFFIX="${1:-}"
-if [[ ! "$SUFFIX" =~ ^[a-z][a-z0-9]{1,11}$ ]]; then
+if [[ ! "$SUFFIX" =~ ^[a-z][a-z0-9]{1,11}$ ]] || [ "$SUFFIX" = ec2 ]; then
   echo "用法: bash $0 <后缀>    例如: bash $0 zhang3" >&2
-  echo "后缀规则: 2-12 位，小写字母或数字，必须以字母开头" >&2
+  echo "后缀规则: 2-12 位，小写字母或数字，必须以字母开头；ec2 保留不能用" >&2
   exit 1
 fi
 

@@ -69,22 +69,36 @@ def wait_until(fn, desc: str, timeout: int = 600, interval: int = 10):
         time.sleep(interval)
 
 
+MANAGED_TAG = ("adlc:managed-by", "cloudformation")
+
+
+def stack_managed(role: dict) -> bool:
+    """A lab role pre-created by the EC2 CloudFormation stack (its trust and permissions are fixed there)."""
+    return any(t.get("Key") == MANAGED_TAG[0] and t.get("Value") == MANAGED_TAG[1] for t in role.get("Tags") or [])
+
+
 def ensure_role(name: str, trust: dict, inline: dict, description: str = "") -> str:
-    """Create (or update) an IAM role with one inline policy; return its ARN."""
+    """The ARN of lab role `name`.
+
+    On the lab EC2 the stack pre-creates the three lab roles and the EC2 has no IAM write permissions, so the role
+    is used as is (nothing can re-trust it). Off the lab EC2 (a laptop with admin credentials, no stack) the role
+    is created or updated here with `trust` and one inline policy, with the lab boundary when one exists."""
     iam = client("iam")
-    on_lab_ec2 = "assumed-role/adlc-ec2-" in caller_arn()
-    if on_lab_ec2 and not boundary_arn():
-        raise SystemExit(f"❌ 找不到实验权限边界 {cfg()['BOUNDARY_POLICY_NAME']}（由 EC2 堆栈创建）。"
-                         f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致（当前 {cfg()['AWS_REGION']}）。")
     try:
         role = iam.get_role(RoleName=name)["Role"]
-        if on_lab_ec2 and not role.get("PermissionsBoundary"):
-            raise SystemExit(f"❌ 角色 {name} 是在没有权限边界时创建的，实验 EC2 不能再修改它。"
-                             f"请先运行 ./99-cleanup.sh 删除旧资源，再重新运行本脚本。")
+    except iam.exceptions.NoSuchEntityException:
+        role = None
+    if role is not None and stack_managed(role):
+        return role["Arn"]
+    if "assumed-role/adlc-ec2-" in caller_arn():
+        raise SystemExit(f"❌ 找不到由 EC2 堆栈预先创建的角色 {name}（实验 EC2 不能自己创建或修改 IAM 角色）。"
+                         f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致"
+                         f"（当前 {cfg()['AWS_REGION']}）。")
+    if role is not None:
         arn = role["Arn"]
         iam.update_assume_role_policy(RoleName=name, PolicyDocument=json.dumps(trust))
         created = False
-    except iam.exceptions.NoSuchEntityException:
+    else:
         kw = {}
         b = boundary_arn()
         if b:
@@ -105,10 +119,8 @@ def caller_arn() -> str:
 
 @functools.lru_cache(maxsize=1)
 def boundary_arn():
-    """The lab permissions boundary created by the EC2 CloudFormation stack (if any).
-
-    On the lab EC2 the instance role may only create roles with this boundary; on a laptop
-    (no stack) roles are created without one."""
+    """The lab permissions boundary created by the EC2 CloudFormation stack (if any): roles created from a
+    laptop in an account that has the stack get it too; without a stack, roles are created without one."""
     arn = f"arn:aws:iam::{account_id()}:policy/{cfg()['BOUNDARY_POLICY_NAME']}"
     try:
         client("iam").get_policy(PolicyArn=arn)

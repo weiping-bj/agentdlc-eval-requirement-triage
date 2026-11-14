@@ -101,7 +101,27 @@
         "iam:CreateServiceSpecificCredential",
         "iam:ResetServiceSpecificCredential",
         "iam:AttachUserPolicy",
-        "iam:PutUserPolicy"
+        "iam:PutUserPolicy",
+        "iam:UpdateAccessKey",
+        "iam:UpdateServiceSpecificCredential",
+        "iam:UploadSSHPublicKey",
+        "iam:UploadSigningCertificate",
+        "iam:AddUserToGroup",
+        "iam:PutGroupPolicy",
+        "iam:AttachGroupPolicy",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:CreateSAMLProvider",
+        "sts:GetFederationToken",
+        "iam:UpdateSSHPublicKey",
+        "iam:UpdateSigningCertificate",
+        "iam:UpdateSAMLProvider",
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
+        "iam:PutUserPermissionsBoundary",
+        "iam:DeleteUserPermissionsBoundary",
+        "rolesanywhere:CreateTrustAnchor",
+        "rolesanywhere:CreateProfile",
+        "sts:GetSessionToken"
       ],
       "Resource": "*"
     }

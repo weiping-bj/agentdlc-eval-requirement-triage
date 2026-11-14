@@ -184,7 +184,8 @@ Resources:
   # ---------------------------------------------------------------------------
   # Instance role.
   # INTENTIONALLY BROAD for a 1-day lab in a disposable account (AgentCore, Lambda,
-  # S3, observability without friction); NO IAM writes. Not for real workloads.
+  # S3, observability without friction). IAM: only PassRole of the 3 lab roles and service-linked
+  # roles, no other IAM writes. Not for real workloads.
   # ---------------------------------------------------------------------------
   InstanceRole:
     Type: AWS::IAM::Role

@@ -131,6 +131,21 @@ elif [ "${ADLC_UPDATE:-0}" = "1" ]; then
   echo "==> ADLC_UPDATE=1: 将更新堆栈。注意: 如果期间发布了新的 AL2023 AMI，EC2 会被重建，盘上数据会丢失。"
 fi
 
+# The stack pre-creates the lab's three service roles. IAM role names are global: a same-name role left by
+# an older lab version or a laptop run would fail the deploy, so stop here with what to do instead.
+if [ "$DEPLOY" = "1" ]; then
+  for KIND in runtime eval-lambda online-eval; do
+    ROLE="adlc-$SUFFIX-$KIND-role-$REGION"
+    if OWNER="$(aws_ iam get-role --role-name "$ROLE" \
+        --query "Role.Tags[?Key=='adlc:managed-by'].Value | [0]" --output text 2>/dev/null)" \
+        && [ "$OWNER" != "cloudformation" ]; then
+      echo "IAM 角色 $ROLE 已存在，但不是由 EC2 堆栈创建的（旧版本实验或在笔记本上运行实验时留下的）。" >&2
+      echo "请先在创建它的地方（旧的实验 EC2 或笔记本）运行 ./99-cleanup.sh 删除旧资源，或换一个后缀重新运行。" >&2
+      exit 1
+    fi
+  done
+fi
+
 if [ "$DEPLOY" = "1" ]; then
   echo "==> 正在创建/更新 EC2（约 3-5 分钟，请勿关闭窗口）..."
   if ! aws_ cloudformation deploy \

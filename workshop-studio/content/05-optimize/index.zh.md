@@ -202,7 +202,13 @@ results/compare-runtime-v0-20261114T134711Z-vs-runtime-v1-20261114T135605Z.html
    https://us-west-2.console.aws.amazon.com/s3/object/adlc-ws-<account>-us-west-2?region=us-west-2&prefix=reports/compare-runtime-v0-20261114T134711Z-vs-runtime-v1-20261114T135605Z.html
 ```
 
-在已登录控制台的笔记本浏览器打开打印的链接，点右上角 **打开**。对比页在三大支柱明细前面先回答四个问题：
+在已登录控制台的笔记本浏览器打开打印的链接，点右上角 **打开**（Open）：
+
+:image[S3 控制台里对比页对象的详情页，Open 按钮被红框标出]{src="/static/images/05-compare-top-open.png" width=900}
+
+*图 5-2 S3 对象页：点 Open 在新标签页打开对比页*
+
+对比页在三大支柱明细前面先回答四个问题：
 
 | 块 | 回答什么 |
 |---|---|
@@ -213,15 +219,15 @@ results/compare-runtime-v0-20261114T134711Z-vs-runtime-v1-20261114T135605Z.html
 
 :image[对比页顶部：V0 与 V1 各自的结论、红线条数、各门禁 V0 到 V1 的变化和 70% 门槛]{src="/static/images/05-compare-top.png" width=900}
 
-*图 5-2 对比页顶部：两个版本的结论（红线一票否决）和关键指标*
+*图 5-3 对比页顶部：两个版本的结论（红线一票否决）和关键指标*
 
 :image[对比页的 ③ 改了什么：提示词差异、工具变化，以及失败原因、修改、预期影响的指标表]{src="/static/images/05-compare-changes.png" width=900}
 
-*图 5-3 ③ 改了什么：每一处修改都能追溯到一个评估发现*
+*图 5-4 ③ 改了什么：每一处修改都能追溯到一个评估发现*
 
 :image[对比页的 ④ 效果验证：错到对、对到错的条数，按字段和按五维的翻转]{src="/static/images/05-compare-flips.png" width=900}
 
-*图 5-4 ④ 效果验证：“对 → 错”的条目要先看原始输出再下结论*
+*图 5-5 ④ 效果验证：“对 → 错”的条目要先看原始输出再下结论*
 
 桶禁止公开访问，没有公开链接；只有登录了你这个实验账号控制台的人能看到。
 

@@ -56,9 +56,13 @@ weight: 60
 - 在 **Sessions** 里也可以按 session 名区分：V0 的 session 名含 `-v0-`，V1 参考版的含 `-v1-ref-`，你自己的 V1 含 `-v1-FB-`（`-v1-` 也会匹配到参考版）。
 - （可选）**CloudWatch** → **Metrics** → 命名空间 `Bedrock-AgentCore/Evaluations`：各评估器的分数是指标，可以画成随时间变化的曲线，也可以配告警。
 
-:image[CloudWatch GenAI Observability 的 Evaluations 页签：时间范围选在 V1 参考版那次运行，各评估器的平均分]{src="/static/images/06-online-eval-v1.png" width=900}
+:image[Evaluations 页签 Other 区，时间范围只含 V1 参考版的 31 个 session：label_decision 0.98、label_urgent 0.96、label_accuracy 0.89、label_important 0.73、reject_quality 0.86]{src="/static/images/06-online-eval-v1-Others.png" width=900}
 
-*图 6-1 在线评估：上线后用同一组评估器持续打分*
+*图 6-1 在线评估（V1 参考版）：自定义评估器，和图 4-1 的 V0 比；这里 Pass 是蓝色，颜色以图例为准*
+
+:image[Evaluations 页签 Style 区，V1 参考版：Builtin.Helpfulness 0.84]{src="/static/images/06-online-eval-v1-Builtin.png" width=900}
+
+*图 6-2 在线评估（V1 参考版）：内置评估器 Builtin.Helpfulness*
 
 控制台菜单名称可能随版本略有不同。
 
@@ -92,7 +96,7 @@ results/triage-report-runtime-v1-ref-20261114T140927Z.html
 
 :image[分诊报告：60 条需求中迭代、拒绝、待评估的条数，重要乘紧急矩阵和自动拒绝清单]{src="/static/images/06-triage-report.png" width=900}
 
-*图 6-2 分诊报告：这 60 条大部分不在黄金集里*
+*图 6-3 分诊报告：这 60 条大部分不在黄金集里*
 
 这 60 条里大部分不在黄金集中：在线评估仍会给话术质量和 Helpfulness 打分，标签评估器对不在黄金集里的条目返回 Skipped、不计分。这正是“上线后的持续评估”：没有标准答案的流量，也能盯住一部分质量；盯不住的部分（例如这些条目的标签对不对），就是下一轮回流要补进黄金集的。
 

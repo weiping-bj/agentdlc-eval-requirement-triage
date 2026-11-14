@@ -303,3 +303,18 @@ def test_no_account_ids_or_full_instance_ids_in_the_handbook():
     t = all_text() + text(WS / "SHOTLIST.md")
     assert not re.search(r"(?<!\d)\d{12}(?!\d)", t), "a 12-digit AWS account id is in the handbook (use <account>)"
     assert not re.search(r"\bi-[0-9a-f]{17}\b", t), "a full EC2 instance id is in the handbook (shorten it)"
+
+
+def test_screenshot_files_match_the_shot_list_and_are_at_most_1600_px():
+    import struct
+    shot = text(WS / "SHOTLIST.md")
+    rows = dict(re.findall(r"^\| `([\w\-]+\.png)` \|[^|]*\| ([^|]+?) \|", shot, re.M))
+    pngs = {p.name: p for p in (WS / "static" / "images").glob("*.png")}
+    assert set(pngs) <= set(rows), sorted(set(pngs) - set(rows))                       # every file is listed
+    shot_done = {n for n, status in rows.items() if status.startswith("已拍")}
+    assert shot_done == set(pngs), (sorted(shot_done - set(pngs)), sorted(set(pngs) - shot_done))
+    for name, p in pngs.items():
+        head = p.read_bytes()[:24]
+        assert head[:8] == b"\x89PNG\r\n\x1a\n", name
+        width = struct.unpack(">I", head[16:20])[0]
+        assert width <= 1600, (name, width)

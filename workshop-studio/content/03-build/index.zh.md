@@ -93,17 +93,21 @@ AgentCore Runtime 支持直接部署代码包，不需要 Docker。一条命令�
 
 ## 3.4 在控制台看 Runtime 和 trace {#s-3-4}
 
-**Runtime**：控制台顶部搜索 `Bedrock AgentCore` → 左侧 **Runtime** → 列表里的 `adlc_ws_agent`，状态 Ready；点进去能看到版本号、**DEFAULT** 端点、执行角色，以及环境变量 `AGENT_VERSION=v0`。
+**Runtime**：控制台顶部搜索 `Bedrock AgentCore` → 左侧 **Runtime** → 列表里的 `adlc_ws_agent`，状态 **Active**。**Configuration** 页签里的 **Versioned configurations** 能看到版本号和版本说明（第 3 章是 `Version 1`、`AgentDLC lab triage agent (v0)`）；**Endpoints** 页签里 **DEFAULT** 端点的 **Associated version** 就是线上在跑的版本。Agent 版本也可以在命令行看：`./30-deploy-runtime.sh status` 里的 `agentVersion`。
 
-:image[Amazon Bedrock AgentCore 控制台的 Runtime 详情页：adlc_ws_agent 状态 Ready，版本号，DEFAULT 端点和环境变量]{src="/static/images/03-runtime-console.png" width=900}
+:image[AgentCore Runtime adlc_ws_agent 的 Configuration 页签：Status Active，Versioned configurations 选的是 Version 3，说明 AgentDLC lab triage agent (v1-ref)]{src="/static/images/03-runtime-console-Configuration.png" width=900}
 
-*图 3-1 AgentCore Runtime 详情页*
+*图 3-1 Configuration 页签（截图来自第 5 章部署 V1 参考版之后：版本 3，说明里是 v1-ref；第 3 章此时是版本 1、v0）*
 
-**trace**：调用后等 2–3 分钟，打开 **CloudWatch** → 左侧 **GenAI Observability** → **Bedrock AgentCore** → **Agents** 里的 `adlc_ws_agent` → **Sessions** → 刚才那个 `adlc-ws-smoke-…` 会话 → **Traces**。调用树里有 `adlc.triage` → `invoke_agent` → `chat` 和 `execute_tool lookup_capability`。点 `adlc.triage`，在属性里找到 `adlc.triage_output`：就是 3.3 里看到的那段 JSON。
+:image[AgentCore Runtime adlc_ws_agent 的 Endpoints 页签：DEFAULT 端点，Associated version 为 Version 3，Status Active]{src="/static/images/03-runtime-console-Endpoints.png" width=900}
 
-:image[CloudWatch GenAI Observability 里一个 session 的 trace 调用树，选中 adlc.triage span，属性里能看到 adlc.triage_output]{src="/static/images/03-trace-triage-span.png" width=900}
+*图 3-2 Endpoints 页签：DEFAULT 端点关联的就是线上版本*
 
-*图 3-2 trace 调用树：结论写在 adlc.triage 这个 span 上*
+**trace**：调用后等 2–3 分钟，打开 **CloudWatch** → 左侧 **GenAI Observability** → **Bedrock AgentCore** → **Agents** 里的 `adlc_ws_agent` → **Sessions** → 刚才那个 `adlc-ws-smoke-…` 会话 → **Traces**。调用树（**Trajectory**）里有 `adlc.triage` → `invoke_agent` → `chat` 和 `execute_tool lookup_capability`。如果 span 列表是空的，先点 **Clear filters**；再点 `adlc.triage`，右侧切到 **JSON**，在 `attributes` 里找到 `adlc.triage_output`：就是 3.3 里看到的那段 JSON。
+
+:image[CloudWatch GenAI Observability 的 trace 详情：左侧 Trajectory 是 POST /invocations → adlc.triage → invoke_agent → execute_event_loop_cycle → chat / execute_tool search_capabilities / find_similar_requests；右侧选中 adlc.triage 的 JSON，attributes 里有 adlc.triage_output]{src="/static/images/03-trace-triage-span.png" width=900}
+
+*图 3-3 trace 调用树：结论写在 adlc.triage 这个 span 的 adlc.triage_output 上（截图是 V1 参考版处理一条上月需求的 session，不在黄金集里，所以标签评估器显示 Skipped；V0 的结构相同，工具是 lookup_capability）*
 
 Runtime 上的服务名是 `adlc_ws_agent.DEFAULT`；在线评估和指标都按这个名字聚合。控制台菜单名称可能随版本略有不同。
 

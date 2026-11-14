@@ -114,6 +114,7 @@ def run(scheme: str, tolerance: int, dry_run: bool = False) -> int:
             # the file, labkit/config.py), so the new scheme reaches every later step
             write_local_env(local_env_path(), {"LABEL_SCHEME": scheme, "LEVEL_TOLERANCE": str(tolerance)})
             continue
+        sys.stdout.flush()   # piped stdout is block-buffered: show the step before the child's own output
         rc = subprocess.call(argv, cwd=ROOT)
         if rc:
             print(f"❌ 第 {i} 步失败（退出码 {rc}）。改好后重新运行同一条命令即可（每一步都可以重复运行）。")

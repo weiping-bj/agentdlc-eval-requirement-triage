@@ -88,3 +88,25 @@ def test_locked_evaluator_update_also_removes_legacy_online_configs(monkeypatch,
     monkeypatch.setattr(online, "find", lambda name: live.get(name))
     assert ER.remove_online() == ["runtime"] and deleted == ["old-b"]
     aws.cfg.cache_clear()
+
+
+def test_label_switch_prints_each_step_before_running_it(monkeypatch, tmp_path, capsys):
+    """Found live: piped stdout is block-buffered, so the step headers appeared after all child output. Each step
+    line must be flushed before its command runs."""
+    from labkit import label_scheme as LS
+    monkeypatch.setenv("ADLC_LOCAL_ENV", str(tmp_path / "local.env"))
+    monkeypatch.setattr(LS, "_state", lambda name: {"agentVersion": "v0"} if name == "runtime" else None)
+    seen = []
+
+    class Out:
+        def __init__(self):
+            self.buf, self.flushed = "", ""
+        def write(self, s):
+            self.buf += s
+        def flush(self):
+            self.flushed = self.buf
+    out = Out()
+    monkeypatch.setattr(LS.sys, "stdout", out)
+    monkeypatch.setattr(LS.subprocess, "call", lambda argv, cwd: seen.append((argv[-1], out.flushed)) or 0)
+    assert LS.main(["level"]) == 0
+    assert seen and all(f"$ " in flushed and cmd in flushed.splitlines()[-1] for cmd, flushed in seen), seen

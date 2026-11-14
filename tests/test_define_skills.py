@@ -207,6 +207,33 @@ def test_long_sticky_warns_by_display_width(tmp_path):
     assert len(warns) == 1 and warns[0].startswith("cost:")
 
 
+@pytest.mark.parametrize("dim, text, warned", [
+    ("performance", "一条反馈里写了四个诉求时，常漏掉后面几个", True),   # completeness filed under performance
+    ("quality", "一条反馈里写了四个诉求时，常漏掉后面几个", False),      # the right place: no warning
+    ("performance", "整批跑到一半超时，没跑出来的那部分漏掉了", False),  # really performance (超时)
+    ("performance", "整批 60 条要 30 分钟内跑完", False),
+])
+def test_completeness_filed_under_performance_is_warned(dim, text, warned):
+    data = sample()
+    data["barriers"][dim] = [{"sticky_text": text, "confirmed": True, "selected": True}]
+    data["coverage"][dim] = "confirmed"
+    _, warns = GF.validate_json(data)
+    assert any("omission / completeness" in w for w in warns) is warned, warns
+
+
+def test_skill_states_the_classification_rule():
+    text = (FISH_DIR / "SKILL.md").read_text(encoding="utf-8")
+    rule = text.split("**怎么归类**", 1)[1].split("###", 1)[0]
+    assert "延迟、吞吐、稳定性、可用性" in rule and "**质量**" in rule and "全不全" in rule
+    step3 = text.split("### 第 3 步", 1)[1].split("### 第 4 步", 1)[0]
+    assert "逐条核对每张便签放的方面" in step3
+    card = (ROOT / "data" / "scenario" / "role-card.md").read_text(encoding="utf-8")
+    perf = card.split("6. **性能", 1)[1].split("\n\n", 1)[0]
+    assert "诉求" not in perf  # the role card no longer files the multi-request omission under performance
+    crit_skill = (CRIT_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert "在鱼骨图上放在性能" not in crit_skill
+
+
 @pytest.mark.parametrize("kind", ["missing", "duplicate"])
 def test_changed_template_cell_ids_hard_stop(tmp_path, kind):
     text = TEMPLATE.read_text(encoding="utf-8")

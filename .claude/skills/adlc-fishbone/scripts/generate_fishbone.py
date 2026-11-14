@@ -53,6 +53,11 @@ CURRENT_LAYER_PREFIX = "3QwRYIxs2djGdYka4jAl-"  # the 2400x1350 editable layer; 
 # full copies (bB5O89TeUSKUgIe8cjWL-*) hidden behind it, still holding placeholders. They are dropped from the output.
 KEEP_CELLS = ("0", "1")
 COVERAGE_STATES = ("confirmed", "explored_empty", "unresolved")
+# Performance = latency / throughput / stability / availability only (SKILL.md "怎么归类"). A performance note that talks
+# about omissions and has none of the performance words is most likely completeness, i.e. quality.
+OMISSION_WORDS = ("漏", "遗漏", "不完整", "没覆盖", "没考虑")
+PERFORMANCE_WORDS = ("秒", "分钟", "小时", "超时", "卡", "慢", "延迟", "并发", "吞吐", "排队", "高峰", "可用", "挂", "宕",
+                     "跑完", "跑不完", "时间窗", "响应")
 STICKY_SOFT_LIMIT = 50  # display width (CJK = 1, ASCII = 0.5); wider notes may overflow the 340x82 sticky
 
 CHECKS = [  # (key, text) in report order
@@ -171,6 +176,10 @@ def validate_json(data) -> Tuple[Dict[str, List[str]], List[str]]:
             elif display_width(text) > STICKY_SOFT_LIMIT:
                 warns.append(f"{dim}: sticky text is {display_width(text):g} CJK characters wide (>{STICKY_SOFT_LIMIT}), "
                              f"may overflow; split it into two notes: {text}")
+            if dim == "performance" and any(w in text for w in OMISSION_WORDS) \
+                    and not any(w in text for w in PERFORMANCE_WORDS):
+                warns.append(f"performance: this note reads like an omission / completeness problem, which belongs to "
+                             f"quality (SKILL.md 怎么归类); check its dimension: {text}")
     return err, warns
 
 

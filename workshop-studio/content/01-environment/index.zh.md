@@ -16,7 +16,7 @@ weight: 10
 
 :image[实验堆栈 adlc-lab 的输出（共 6 项，截图里是前 5 项）：FirstCommand、InstanceId、LabDirectory、RoleName、SessionManagerUrl]{src="/static/images/01-event-outputs.png" width=900}
 
-*图 1-1 实验堆栈的输出：SessionManagerUrl 就是登录链接（活动页面的 Event Outputs 里是同样的内容）*
+*图 1-1 实验堆栈的输出（CloudFormation 控制台）：SessionManagerUrl 就是登录链接；活动页面的 Event Outputs 只列出其中的 SessionManagerUrl、FirstCommand 和 InstanceId*
 
 ## 1.2 用 Session Manager 登录，切换到实验用户 {#s-1-2}
 

@@ -362,7 +362,11 @@ def test_deny_statements_are_unconditional_and_cover_the_exposure_paths(template
         "bedrock-agentcore:PutResourcePolicy", "bedrock-agentcore:CreateGateway*", "bedrock-agentcore:UpdateGateway*",
         "bedrock-agentcore:CreateHarness*", "bedrock-agentcore:UpdateHarness*", "s3:PutBucketPolicy", "s3:PutBucketAcl",
         "s3:PutObjectAcl", "s3:PutBucketWebsite", "s3:DeleteBucketPolicy", "logs:PutSubscriptionFilter",
-        "logs:PutDestination", "logs:PutDestinationPolicy", "logs:CreateExportTask"}
+        "logs:PutDestination", "logs:PutDestinationPolicy", "logs:CreateExportTask",
+        # ACL path to a public object: re-enable ACLs (ownership controls), then a public version ACL.
+        "s3:PutBucketOwnershipControls", "s3:PutObjectVersionAcl"}
+    # labkit (runtime.ensure_bucket, pull_templates) re-applies an all-true public access block itself.
+    assert "s3:PutBucketPublicAccessBlock" not in role["DenyPublicExposure"]["Action"]
     fed = boundary["DenyFederatedSessions"]
     assert fed == {"Sid": "DenyFederatedSessions", "Effect": "Deny", "Action": "*", "Resource": "*",
                    "Condition": {"Null": {"aws:FederatedProvider": "false"}}}

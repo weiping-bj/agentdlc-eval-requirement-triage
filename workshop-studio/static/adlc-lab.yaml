@@ -355,6 +355,8 @@ Resources:
                   - s3:PutBucketPolicy
                   - s3:PutBucketAcl
                   - s3:PutObjectAcl
+                  - s3:PutObjectVersionAcl
+                  - s3:PutBucketOwnershipControls
                   - s3:PutBucketWebsite
                   - s3:DeleteBucketPolicy
                   - logs:PutSubscriptionFilter

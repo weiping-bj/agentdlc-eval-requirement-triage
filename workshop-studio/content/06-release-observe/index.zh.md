@@ -58,7 +58,7 @@ weight: 60
 
 :image[Evaluations 页签 Other 区，时间范围只含 V1 参考版的 31 个 session：label_decision 0.98、label_urgent 0.96、label_accuracy 0.89、label_important 0.73、reject_quality 0.86]{src="/static/images/06-online-eval-v1-Others.png" width=900}
 
-*图 6-1 在线评估（V1 参考版）：自定义评估器，和图 4-1 的 V0 比；这里 Pass 是蓝色，颜色以图例为准*
+*图 6-1 在线评估（V1 参考版）：自定义评估器，和图 4-1 的 V0 比；这里 Pass 是蓝色，颜色以图例为准。卡片下的“vs. previous period”是和所选范围之前同样长的一段比，那一段里是别的运行，不用看*
 
 :image[Evaluations 页签 Style 区，V1 参考版：Builtin.Helpfulness 0.84]{src="/static/images/06-online-eval-v1-Builtin.png" width=900}
 
@@ -94,7 +94,7 @@ results/triage-report-runtime-v1-ref-20261114T140927Z.html
 
 在已登录控制台的笔记本浏览器打开打印的链接，点右上角 **打开**。报告第一行就是结论，实测为：本次共分诊 60 条需求反馈：建议迭代 14 条、自动拒绝 27 条（已附客户沟通话术）、待人工评估 19 条。下面还有重要 × 紧急 2×2 矩阵、按模块分布、自动拒绝清单（内部理由 + 客户话术全文）和待评估清单。
 
-:image[分诊报告：60 条需求中迭代、拒绝、待评估的条数，重要乘紧急矩阵和自动拒绝清单]{src="/static/images/06-triage-report.png" width=900}
+:image[分诊报告：60 条需求中迭代 14、拒绝 27、待评估 19，本次运行信息，重要乘紧急矩阵和按模块分布]{src="/static/images/06-triage-report.png" width=900}
 
 *图 6-3 分诊报告：这 60 条大部分不在黄金集里*
 

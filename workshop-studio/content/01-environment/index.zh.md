@@ -14,13 +14,23 @@ weight: 10
 1. 在 Workshop Studio 的活动页面点 **Open AWS console**（打开 AWS 控制台），确认右上角的区域是讲师指定的区域（默认 **美国西部（俄勒冈）us-west-2**）。后面所有控制台操作都在这个区域里做；看不到自己的资源时，先检查右上角的区域。
 2. 回到活动页面，在页面下方的 **Event Outputs** 里找到 `SessionManagerUrl`（登录链接）和 `FirstCommand`（登录后的第一条命令）。
 
-:image[实验堆栈 adlc-lab 的输出：FirstCommand、InstanceId、LabDirectory、RoleName、SessionManagerUrl]{src="/static/images/01-event-outputs.png" width=900}
+:image[实验堆栈 adlc-lab 的输出（共 6 项，截图里是前 5 项）：FirstCommand、InstanceId、LabDirectory、RoleName、SessionManagerUrl]{src="/static/images/01-event-outputs.png" width=900}
 
 *图 1-1 实验堆栈的输出：SessionManagerUrl 就是登录链接（活动页面的 Event Outputs 里是同样的内容）*
 
 ## 1.2 用 Session Manager 登录，切换到实验用户 {#s-1-2}
 
-1. 在已登录控制台的浏览器里打开 `SessionManagerUrl`，点 **Connect**（连接）。也可以在 **EC2** → **实例** 里选中这台实验实例 → **连接** → **Session Manager** → **连接**（见下面两张图）。
+::::expand{header="从 EC2 控制台连接（不用登录链接时）"}
+:image[EC2 控制台的实例列表：选中实验实例 adlc-ws，右上角的 Connect 按钮被红框标出]{src="/static/images/ec2-console-connect.png" width=900}
+
+*图 1-2 EC2 → 实例：选中 adlc-ws，点 Connect*
+
+:image[Connect to instance 页面：选中 SSM Session Manager，Ping status 为 Online，右下角 Connect 按钮]{src="/static/images/ec2-console-SSM.png" width=900}
+
+*图 1-3 选 SSM Session Manager，再点右下角 Connect*
+::::
+
+1. 在已登录控制台的浏览器里打开 `SessionManagerUrl`，点 **Connect**（连接）。也可以在 **EC2** → **实例** 里选中这台实验实例 → **连接** → **Session Manager** → **连接**（见上面的展开块）。
 2. 浏览器新标签页里出现命令行后，你的身份是 `ssm-user`。先切换到实验用户 `ec2-user`：
 
 ```bash
@@ -33,16 +43,6 @@ sudo su - ec2-user
 Last login: Sat Nov 14 13:38:53 UTC 2026
 (.venv) [ec2-user@ip-10-12-0-245 adlc-lab]$
 ```
-
-::::expand{header="从 EC2 控制台连接（不用登录链接时）"}
-:image[EC2 控制台的实例列表：选中实验实例 adlc-ws，右上角的 Connect 按钮被红框标出]{src="/static/images/ec2-console-connect.png" width=900}
-
-*图 1-2 EC2 → 实例：选中 adlc-ws，点 Connect*
-
-:image[Connect to instance 页面：选中 SSM Session Manager，Ping status 为 Online，右下角 Connect 按钮]{src="/static/images/ec2-console-SSM.png" width=900}
-
-*图 1-3 选 SSM Session Manager，再点右下角 Connect*
-::::
 
 :::alert{header="以后每次重新连接" type="warning"}
 Session Manager 的会话空闲一段时间会断开。重新连接后，**第一件事**都是 `sudo su - ec2-user`；否则你在 `ssm-user` 下，找不到实验目录，脚本也会报错。脚本跑到一半断开了（例如跑黄金集或评估时），重连后重跑同一条命令即可：没跑完的运行不会被登记，评估用的总是最后一次跑完的运行。

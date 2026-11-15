@@ -82,7 +82,7 @@ V1 已写好，`TOOLSETS` 里有 `v1`（检查输出 `['v0', 'v1', 'v1-ref']`）
 git diff --stat; git status --short agent/
 ```
 
-:image[Claude Code 写完 V1 后在终端输出的总结：失败原因、修改的文件、预期影响的指标]{src="/static/images/05-claude-v1-summary.png" width=900}
+:image[Claude Code 写完 V1 后在终端输出的总结：评估发现、失败原因 → 修改 → 预期影响的指标表、这一轮不改的（修评估体系）、下一步]{src="/static/images/05-claude-v1-summary.png" width=900}
 
 *图 5-1 Claude Code 的总结：每个修改都对应一个评估发现*
 
@@ -217,13 +217,13 @@ results/compare-runtime-v0-20261114T134711Z-vs-runtime-v1-20261114T135605Z.html
 | ③ 改了什么 | 模型、提示词（逐行差异）、工具、能力目录、评估器各改了什么；“失败原因 → 修改 → 预期影响的指标”来自 `v1.changes.md`（参考版是 `v1-ref.changes.md`） |
 | ④ 效果验证 | 哪些需求错 → 对、对 → 错，按字段和按五维看 |
 
-:image[对比页顶部：V0 与 V1 各自的结论、红线条数、各门禁 V0 到 V1 的变化和 70% 门槛]{src="/static/images/05-compare-top.png" width=900}
+:image[对比页顶部（V0 → V1 参考版）：两个版本的结论、红线 1 条到 0 条、各门禁 V0 到 V1 参考版的变化和 70% 门槛，下方是两次运行]{src="/static/images/05-compare-top.png" width=900}
 
-*图 5-3 对比页顶部：两个版本的结论（红线一票否决）和关键指标*
+*图 5-3 对比页顶部：两个版本的结论（红线一票否决）和关键指标（截图是 V0 → V1 参考版；你自己的 V1 有红线时，这里显示“不通过”）*
 
 :image[对比页的 ③ 改了什么：提示词差异、工具变化，以及失败原因、修改、预期影响的指标表]{src="/static/images/05-compare-changes.png" width=900}
 
-*图 5-4 ③ 改了什么：每一处修改都能追溯到一个评估发现*
+*图 5-4 ③ 改了什么：每一处修改都能追溯到一个评估发现（截图里改动说明的第一行是参考版早先的写法，以你自己的对比页为准）*
 
 :image[对比页的 ④ 效果验证：错到对、对到错的条数，按字段和按五维的翻转]{src="/static/images/05-compare-flips.png" width=900}
 

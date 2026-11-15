@@ -194,7 +194,7 @@ trace 写进 CloudWatch 有延迟。跑完 4.4 后先等 2–3 分钟再评估�
 
 这三层就是第 2.3 步判据表里的三档。但要分清**签字的判据**和**本实验自动执行的规则**：结论固定由上表的 2 类红线 + 4 个门禁决定，阈值是 `config/lab.env` 的 `TARGET_ACCURACY`（70%）。判据表里的其它门禁（成本、性能、待评估占比这类指标读数），以及签字时改过的阈值，**不会自动进结论**：它们要么在第 6 章人工对一眼，要么是将来要接上的评估器。规则代码在 `evaluators/shared/pillars.py`（终端结论、对比页共用）。
 
-**在控制台看同样的分数**：**CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。在线评估在 session 空闲 2 分钟后才开始打分，分数大约在 4.4 跑完后 10–15 分钟才陆续出现。图表和平均分按 **session 的时间**画，但所选时间范围里必须已经写入过分数，否则只显示“没有可显示的评估配置”；所以时间范围要从 4.4 开始之前一直选到打分完成之后，最简单的是等 15 分钟后选“过去 1 小时”。能看到每个评估器的平均分、分布，以及每个 session 的得分与解释。平均分卡片是“每根柱子（一个时间段，宽度随所选范围变化，例如 1 或 2 分钟）的平均分”再平均，不按条数加权：哪个时间段只有一两个 session，它们的分数就被放大，所以卡片可能和 4.5 差十几个百分点（实测 V1 参考版“是否重要”卡片 0.73，4.5 的准确率 87%）。发布结论以 4.5 的按需评估为准，控制台用来看分布和持续观测。
+**在控制台看同样的分数**：**CloudWatch** → **GenAI Observability** → **Bedrock AgentCore** → `adlc_ws_agent` → **Evaluations** 页签。在线评估在 session 空闲 2 分钟后才开始打分，分数大约在 4.4 跑完后 10–15 分钟才陆续出现。图表和平均分按 **session 的时间**画，但所选时间范围里至少要有一条已经写入的分数（哪个 session 的都算），否则只显示“没有可显示的评估配置”；最稳妥的是从 4.4 开始之前一直选到打分完成之后，最简单的是等 15 分钟后选“过去 1 小时”。能看到每个评估器的平均分、分布，以及每个 session 的得分与解释。平均分卡片是“每根柱子（一个时间段，宽度随所选范围变化，例如 1 或 2 分钟）的平均分”再平均，不按条数加权：哪个时间段只有一两个 session，它们的分数就被放大，所以卡片可能和 4.5 差十几个百分点（实测 V1 参考版“是否重要”：卡片 0.73，5.4 的按需评估是 87%）。发布结论以 4.5 的按需评估为准，控制台用来看分布和持续观测。
 
 :image[Evaluations 页签的 Other 区：adlc_ws_label_urgent 0.9、reject_quality 0.26、label_decision 0.49、label_accuracy 0.69、label_important 0.69，下方是 label_urgent 的柱状图，图例 FormatError / Pass / Fail]{src="/static/images/04-online-eval-tab-Others.png" width=900}
 
@@ -202,7 +202,7 @@ trace 写进 CloudWatch 有延迟。跑完 4.4 后先等 2–3 分钟再评估�
 
 :image[Evaluations 页签的 Style 区：Builtin.Helpfulness 0.83，柱状图按 Not Helpful At All / Very Helpful / Above And Beyond 分色]{src="/static/images/04-online-eval-tab-Builtin.png" width=900}
 
-*图 4-2 在线评估结果（V0）：内置评估器 Builtin.Helpfulness*
+*图 4-2 在线评估结果（V0）：内置评估器 Builtin.Helpfulness（同样按图例读颜色）*
 
 ## 4.7 失败归因：该修 Agent，还是该修评估体系 {#s-4-7}
 

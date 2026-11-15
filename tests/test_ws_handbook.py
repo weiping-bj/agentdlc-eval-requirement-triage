@@ -305,16 +305,27 @@ def test_no_account_ids_or_full_instance_ids_in_the_handbook():
     assert not re.search(r"\bi-[0-9a-f]{17}\b", t), "a full EC2 instance id is in the handbook (shorten it)"
 
 
-def test_screenshot_files_match_the_shot_list_and_are_at_most_1600_px():
+def test_screenshot_files_match_the_shot_list_and_are_about_1600_px_without_metadata():
+    """Every committed PNG has exactly one SHOTLIST row whose status starts with 已拍 (已拍（替身） / 已拍（待重拍）
+    flag the ones to replace), every 已拍 row has its file, widths are 1200-1600 px, and no ancillary chunk that can
+    carry metadata (text, EXIF, XMP, colour profile) survives."""
     import struct
     shot = text(WS / "SHOTLIST.md")
-    rows = dict(re.findall(r"^\| `([\w\-]+\.png)` \|[^|]*\| ([^|]+?) \|", shot, re.M))
+    rows = re.findall(r"^\| `([\w\-]+\.png)` \|[^|]*\| ([^|]+?) \|", shot, re.M)
+    names = [n for n, _ in rows]
+    assert len(names) == len(set(names)), "duplicate SHOTLIST rows"
+    status = dict(rows)
     pngs = {p.name: p for p in (WS / "static" / "images").glob("*.png")}
-    assert set(pngs) <= set(rows), sorted(set(pngs) - set(rows))                       # every file is listed
-    shot_done = {n for n, status in rows.items() if status.startswith("已拍")}
+    shot_done = {n for n, s in status.items() if s.startswith("已拍")}
     assert shot_done == set(pngs), (sorted(shot_done - set(pngs)), sorted(set(pngs) - shot_done))
     for name, p in pngs.items():
-        head = p.read_bytes()[:24]
-        assert head[:8] == b"\x89PNG\r\n\x1a\n", name
-        width = struct.unpack(">I", head[16:20])[0]
-        assert width <= 1600, (name, width)
+        data = p.read_bytes()
+        assert data[:8] == b"\x89PNG\r\n\x1a\n", name
+        width = struct.unpack(">I", data[16:20])[0]
+        assert 1200 <= width <= 1600, (name, width)
+        pos, chunks = 8, []
+        while pos < len(data):
+            n, typ = struct.unpack(">I4s", data[pos:pos + 8])
+            chunks.append(typ)
+            pos += 12 + n
+        assert not set(chunks) & {b"tEXt", b"iTXt", b"zTXt", b"eXIf", b"iCCP", b"tIME"}, (name, chunks)

@@ -302,7 +302,7 @@ FB-2610-014  FormatError：trace 中有 Agent 回复，但解析不出约定的 
 ./46-try-one.sh FB-2610-009
 ```
 
-它打印 Agent 这次的三项判断、理由和话术，并逐项和黄金集比对（✓ / ✗）；也可以 `--text "……"` 发一条你自己写的需求。加 `--eval` 会再对这一个 session 跑一遍评估器（要等 trace 写入 CloudWatch，约 2–3 分钟）。
+它打印 Agent 这次的三项判断、理由和话术，并逐项和黄金集比对（✓ / ✗）；也可以 `--text "……"` 发一条你自己写的需求。加 `--eval` 会**再调用一次 Agent**，等 trace 写入 CloudWatch（约 2–3 分钟）后对这个新 session 跑一遍评估器；只想给刚才那次打分、不再调用 Agent，用 `--session <session>`（6 小时内；session 名是输出里 `session = ` 后面那一串）。
 
 | 维度 | 典型失败现象 | 多半是哪里的问题 |
 |---|---|---|

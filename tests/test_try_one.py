@@ -232,3 +232,31 @@ def test_wrapper_script_runs_the_module():
     assert 'exec "${_ADLC_PY}" -m labkit.try_one "$@"' in sh and "source ./00-config.sh" in sh
     for flag in ("--text", "--eval"):
         assert flag in sh
+
+
+def test_round2_empty_session_is_an_error_not_a_new_invocation(capsys):
+    with pytest.raises(SystemExit) as e:
+        try_one.parse_args(["FB-2610-009", "--session", ""])
+    assert e.value.code == 2
+
+
+def test_round2_level_uses_the_tolerance_like_label_level():
+    res = {"important": "否", "urgent": "否", "decision": "拒绝", "level": "P1"}
+    g = dict(G06, expected=dict(G06["expected"], level="P2"))
+    strict = "\n".join(try_one.output_lines(g, g, res, None, False, graded=True, tolerance=0))
+    loose = "\n".join(try_one.output_lines(g, g, res, None, False, graded=True, tolerance=1))
+    assert "优先级  P1    黄金集 P2 ✗" in strict and "优先级  P1    黄金集 P2 ✓" in loose
+    assert try_one.level_ok("p0", "P2", 1) is False and try_one.level_ok("P0", "P0") is True
+
+
+def test_round2_session_must_belong_to_the_item_and_alone_finds_its_item(lab, capsys):
+    _state, calls = lab
+    other = "adlc-t-try-v1-ref-FB-2610-004-" + "0" * 32
+    with pytest.raises(SystemExit) as e:
+        try_one.main(["G06", "--session", other])
+    assert "不是 FB-2610-009 的试跑" in str(e.value) and calls["eval"] == []
+    mine = f"adlc-t-try-v1-ref-{G06['feedback_id']}-" + "0" * 32
+    assert try_one.main(["--session", mine]) == 0
+    (rec, golden, *_rest), = calls["eval"]
+    assert rec["feedback_id"] == G06["feedback_id"] and golden == {G06["feedback_id"]: G06}
+    assert "红线：无" in capsys.readouterr().out

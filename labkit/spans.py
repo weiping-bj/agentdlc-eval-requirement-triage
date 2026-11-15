@@ -83,7 +83,7 @@ def _maybe_json(v, depth: int = 0):
         if s[:1] in ("[", "{"):
             try:
                 return _maybe_json(json.loads(s), depth + 1)
-            except ValueError:
+            except (ValueError, RecursionError):  # not JSON, or nested too deep to parse: keep the text
                 return v
     return v
 

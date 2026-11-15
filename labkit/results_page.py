@@ -207,11 +207,12 @@ def requirement_index() -> dict:
 
 
 def _inside(p: Path, roots: list) -> bool:
+    """p (symlinks resolved) is a file directly in one of roots, not somewhere below it."""
     try:
         rp = p.resolve()
     except (OSError, RuntimeError):
         return False
-    return any(rp == r or r in rp.parents for r in roots)
+    return rp.parent in roots
 
 
 def run_records(ev: cmp.EvalRun) -> tuple:
@@ -258,6 +259,9 @@ class Version:
             fid = fid_of(s, i)
             seen[fid] = seen.get(fid, 0) + 1
             k = fid if seen[fid] == 1 else f"{fid}（第 {seen[fid]} 条）"   # a repeated id stays its own row
+            while k in self.sessions:                                      # ... even if another id looks like that key
+                seen[fid] += 1
+                k = f"{fid}（第 {seen[fid]} 条）"
             self.sessions[k], self.cases[k], self.items[k], self.base[k] = s, cmp.case_of(s), it, fid
         self.runs, self.run_file = run_records(ev)
 
@@ -390,8 +394,8 @@ def trend_card(vs: list, target: float) -> str:
                 ok = None if x is None or thr is None else x >= thr
                 badge = "" if ok is None else (pill("✓", "g") if ok else pill("✗", "r"))
                 cells.append(f'<td class="num" data-col="{v.idx}">{esc(cmp.pct(x))} {badge}</td>')
-        first = next((x for x in vals if x is not None), None)
-        last = next((x for x in reversed(vals) if x is not None), None)
+        known = [x for x in vals if x is not None]
+        first, last = (known[0], known[-1]) if len(known) > 1 else (None, None)  # one value: nothing to compare
         delta = cmp.delta_html(first, last, kind, higher_is_better=(kind != "count"))
         thr_txt = "0 条" if kind == "count" else ("—" if thr is None else f"≥ {cmp.pct_short(thr)}")
         rows.append(f'<tr><td>{esc(name)}</td><td class="num small">{esc(thr_txt)}</td>{"".join(cells)}'
@@ -720,7 +724,7 @@ def build_page(evs: list, target: float) -> str:
         notes.append("这几次评估的需求集合不完全一致：缺的条目在对应的列里显示“—”。")
     if len({tuple(v.fields) for v in vs}) > 1:
         notes.append("这几个版本的标签口径不同（二分 / 分级）：每个版本按自己的口径计分（和 ./43-run-eval.sh 一样），"
-                     "优先级只在分级口径的版本里进门禁，其它版本这一行显示“—”。")
+                     "优先级只在分级口径的版本里进门禁，其它版本这一行显示“—”；“错 → 对 / 对 → 错”也是两列各按自己的口径比较。")
     if len({text(v.ev.run.get("mode")) for v in vs}) > 1:
         notes.append("这几次运行的位置不同（Runtime / 自托管 / 导入），对比仅供参考。")
     if not any(isinstance(s.get("tool_calls"), list) for v in vs for s in v.ev.sessions):
@@ -790,7 +794,8 @@ def main(argv=None) -> int:
     evs = [cmp.EvalRun.load(p) for p in paths]
     target = cmp.target_accuracy()
     labels = labels_for(evs)
-    print("▶ 结果页：" + " → ".join(pillars.plain(f"{lab} {ev.run_id}", 120) for lab, ev in zip(labels, evs)), file=sys.stderr)
+    status = " → ".join(pillars.plain(f"{lab} {ev.run_id}", 120) for lab, ev in zip(labels, evs))
+    print("▶ 结果页：" + re.sub(r"[\x80-\x9f]", "", status), file=sys.stderr)
     out = Path(a.out) if a.out else cmp.root() / "results" / out_name(evs)
     path = cmp.write_page(out, build_page(evs, target))
     print("✅ 结果页已生成（本地文件，可直接用浏览器打开）：", file=sys.stderr)

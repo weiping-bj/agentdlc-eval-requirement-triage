@@ -529,3 +529,47 @@ def test_tool_calls_survive_unhashable_span_ids_and_odd_messages():
 def test_shared_helpers_do_not_overflow_on_bogus_values():
     assert compare.fmt_time("0001-01-01T00:00:00+01:00") == "0001-01-01T00:00:00+01:00"
     assert compare.case_of({"scores": {"label_accuracy": {"value": 1e308, "label": "Fail"}}})["n"] == 3
+
+
+def test_round2_duplicate_key_never_overwrites_a_real_id(tmp_path):
+    d = json.loads(V1.read_text(encoding="utf-8"))
+    base = copy.deepcopy(d["sessions"][0])
+    fid = base["feedback_id"]
+    a, b, c = (copy.deepcopy(base) for _ in range(3))
+    a["feedback_id"] = f"{fid}（第 2 条）"
+    a["agent_output"]["reasoning"] = "REAL-ID-LOOKALIKE"
+    d["sessions"] = [a, b, c]
+    p = tmp_path / "eval-collide.json"
+    p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    ver = rp.Version(compare.EvalRun.load(p), 0, "V", compare.feedback_index(), 0.7)
+    assert len(ver.sessions) == 3 and ver.sessions[f"{fid}（第 2 条）"]["agent_output"]["reasoning"] == "REAL-ID-LOOKALIKE"
+
+
+def test_round2_trend_delta_needs_two_versions_with_the_gate(tmp_path):
+    g0 = _graded_copy(tmp_path, V0, "runtime-v0-graded")
+    out = tmp_path / "mix.html"
+    assert rp.main([str(V1), str(g0), "--out", str(out)]) == 0
+    trend = out.read_text(encoding="utf-8").split('id="trend"')[1].split('id="list"')[0]
+    row = next(r for r in trend.split("<tr>") if r.startswith("<td>优先级准确率"))
+    assert "持平" not in row and '<span class="flat">—</span>' in row
+
+
+def test_round2_run_file_must_be_directly_in_results_or_the_eval_dir(tmp_path):
+    v2 = json.loads(V2.read_text(encoding="utf-8"))
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (sub / "any.jsonl").write_text(json.dumps({"session_id": v2["sessions"][0]["session_id"], "raw": "X"}) + "\n",
+                                   encoding="utf-8")
+    v2["run"]["file"] = str(sub / "any.jsonl")
+    p = tmp_path / "eval-x.json"
+    p.write_text(json.dumps(v2, ensure_ascii=False), encoding="utf-8")
+    assert rp.run_records(compare.EvalRun.load(p))[1] is None
+
+
+def test_round2_deeply_nested_json_text_does_not_raise():
+    deep = "[" * 100000 + "]" * 100000
+    docs = [{"name": "execute_tool t", "spanId": "s", "attributes": {"gen_ai.tool.status": "success"}},
+            {"spanId": "s", "body": {"input": {"messages": [{"role": "tool", "content": deep}]},
+                                     "output": {"messages": [{"content": {"message": deep}}]}}}]
+    calls = spans.tool_calls(docs)
+    assert calls[0]["status"] == "success" and calls[0]["input"].startswith("[[[")

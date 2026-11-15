@@ -44,7 +44,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--session", metavar="SESSION_ID",
                     help="不再调用 Agent，只对之前试过的这个 session 重新跑评估器（6 小时内；可带上需求编号，用黄金集答案作参考）")
     a = ap.parse_args(argv)
-    if a.session:
+    if a.session is not None:   # an empty value (e.g. an unset shell variable) is an error, not "no --session"
         if a.text:
             ap.error("--session 不和 --text 一起用（可以带上需求编号）")
         if not re.fullmatch(r"[\w.:-]{33,256}", a.session):
@@ -79,6 +79,23 @@ def find_item(arg: str, golden: list, pool: list) -> tuple:
     raise UsageError(f"❌ 黄金集和上月需求池里都没有 {key}（例如 {ids} …）。要试自己写的需求：--text \"……\"")
 
 
+def item_of_session(sid: str, golden: list, pool: list):
+    """The golden / pool row whose feedback id is in a tryout session id (<lab>-try-<version>-<fid>-<uuid>), else None."""
+    hits = [r for r in [*golden, *pool] if items.fid_of(r) and f"-{items.fid_of(r)}-".upper() in sid.upper()]
+    by_fid = {items.fid_of(r): r for r in reversed(hits)}
+    return next(iter(by_fid.values())) if len(by_fid) == 1 else None
+
+
+LEVEL_RANK = {"P0": 0, "P1": 1, "P2": 2}  # the label_level rule (evaluators/adlc_label_accuracy/label_scoring.py)
+
+
+def level_ok(got, want, tolerance: int = 0) -> bool:
+    g, w = str(got or "").strip().upper(), str(want or "").strip().upper()
+    if g in LEVEL_RANK and w in LEVEL_RANK:
+        return abs(LEVEL_RANK[g] - LEVEL_RANK[w]) <= tolerance
+    return g == w
+
+
 def free_text_row(text: str, now: datetime | None = None) -> dict:
     ts = (now or datetime.now(timezone.utc)).strftime("%Y%m%d%H%M%S")
     first = text.splitlines()[0].strip()
@@ -106,7 +123,8 @@ def _val(v) -> str:
     return _safe(v if isinstance(v, str) else json.dumps(v, ensure_ascii=False))
 
 
-def output_lines(row: dict, golden: dict | None, result, raw: str | None, show_raw: bool, graded: bool = False) -> list:
+def output_lines(row: dict, golden: dict | None, result, raw: str | None, show_raw: bool, graded: bool = False,
+                 tolerance: int = 0) -> list:
     """The agent's structured output, each label next to the golden answer when there is one. 优先级 is shown when
     the agent gave one, and compared with the golden set only in the graded scheme (LABEL_SCHEME=level)."""
     from .compare import ALIASES, first_present, parse_obj
@@ -125,7 +143,7 @@ def output_lines(row: dict, golden: dict | None, result, raw: str | None, show_r
         if golden and (k != "level" or graded):
             want = "/".join(map(str, acc)) if k == "decision" and isinstance(acc, list) and acc else exp.get(k)
             if want not in (None, ""):
-                ok = got in str(want).split("/")
+                ok = level_ok(got, want, tolerance) if k == "level" else got in str(want).split("/")
                 line += f"    黄金集 {_safe(want)} {'✓' if ok else '✗'}"
         L.append(line)
     for k, cn in TEXTS:
@@ -211,18 +229,27 @@ def main(argv=None) -> int:
         raise SystemExit("❌ 找不到 Runtime（.lab-state/runtime.json）。请先运行 ./30-deploy-runtime.sh（第 3 章）")
     if a.text:
         row, golden = free_text_row(a.text), None
-    elif a.item:
+    else:
         gold_rows = items.load("golden")
         try:
             pool = items.load("feedback")
         except FileNotFoundError:
             pool = []
-        row, golden = find_item(a.item, gold_rows, pool)
-    else:
-        row, golden = None, None
+        if a.item:
+            row, golden = find_item(a.item, gold_rows, pool)
+            if a.session and f"-{items.fid_of(row)}-".upper() not in a.session.upper():
+                raise UsageError(f"❌ session {_safe(a.session)} 不是 {items.fid_of(row)} 的试跑（session 里没有这个编号）："
+                                 "拿错了黄金集答案会给出错误的分数。去掉需求编号，或换成对应的 session")
+        else:  # --session alone: the item is the one named in the session id, if it is a golden / pool item
+            row = item_of_session(a.session, gold_rows, pool)
+            golden = row if row is not None and any(row is g for g in gold_rows) else None
     evaluators = evaluators_of(a.no_builtin) if a.eval else []
     c = aws.cfg()
     graded = str(c.get("LABEL_SCHEME") or "binary").strip().lower() == "level"
+    try:
+        tolerance = int(str(c.get("LEVEL_TOLERANCE") or "0").strip())
+    except ValueError:
+        tolerance = 0
     if a.session:  # evaluate an earlier tryout again: no Agent call
         fid = items.fid_of(row) if row else "try"
         print(_safe(f"▶ 重新评估 session {a.session}：{len(evaluators)} 个评估器（不调用 Agent）"))
@@ -240,7 +267,7 @@ def main(argv=None) -> int:
         print(_safe(f"❌ 调用失败：{type(e).__name__}: {_short(e)}"))
         return 1
     secs = time.time() - t0
-    for line in output_lines(row, golden, res.get("result"), res.get("raw"), a.raw, graded):
+    for line in output_lines(row, golden, res.get("result"), res.get("raw"), a.raw, graded, tolerance):
         print(line)
     print(f"✅ 用时 {secs:.1f}s · session = {sid}")
     if not a.eval:

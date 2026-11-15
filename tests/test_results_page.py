@@ -330,7 +330,7 @@ def test_tool_calls_fall_back_to_tooluse_blocks_and_tolerate_odd_docs():
         "not a dict", {"body": "str body"}, {},
     ]
     calls = spans.tool_calls(docs)
-    assert calls[0]["name"] == "search" and calls[0]["status"] == "ERROR" and calls[0]["output"] == "boom"
+    assert calls[0]["name"] == "search" and calls[0]["status"] == "error" and calls[0]["output"] == "boom"  # toolResult status
     assert len(calls[0]["input"]) == spans.TOOL_INPUT_MAX and calls[0]["input"].endswith("…")
     assert calls[0]["duration_ms"] == 2.0
     assert calls[1] == {"name": "tool", "input": "", "output": "", "status": None, "duration_ms": None, "call_id": None}
@@ -394,7 +394,7 @@ def test_handbook_runs_the_results_page_after_the_eval_and_again_after_v1():
     ev = compare.EvalRun({"run": {"run_id": run_id, "version": "v0"}}, Path(f"eval-{run_id}.json"))
     assert f"results/{rp.out_name([ev])}" in s45 and f"reports/{rp.out_name([ev])}" in s45
     src = (ROOT / "labkit" / "results_page.py").read_text(encoding="utf-8")
-    assert 'f"▶ 结果页：' in src and "✅ 结果页已生成（本地文件，可直接用浏览器打开）：" in src
+    assert '"▶ 结果页："' in src and "✅ 结果页已生成（本地文件，可直接用浏览器打开）：" in src
     assert "./46-try-one.sh FB-2610-009" in s47 and "04-results-page-drawer.png" in s47 and "FB-2610-009" in s47
     assert "```bash\n./45-results-page.sh\n```" in _section(ch5, "s-5-5")
     assert "./46-try-one.sh FB-2610-004" in _section(ch5, "s-5-4")
@@ -407,3 +407,125 @@ def test_new_screenshot_is_planned_and_scripts_are_listed():
     assert "`45-results-page.sh`" in readme and "`46-try-one.sh`" in readme
     home = _ws("content/index.zh.md")
     assert "| **合计** | | | **160 分钟** |" in home
+
+
+# ------------------------------------------------------------------------------------------ review regressions
+
+
+def _graded_copy(tmp_path: Path, src: Path, run_id: str) -> Path:
+    """The evaluation re-scored in the graded scheme: a label_level result on every session."""
+    d = json.loads(src.read_text(encoding="utf-8"))
+    d["run"].update(run_id=run_id)
+    for s in d["sessions"]:
+        if s.get("scores"):
+            s["scores"]["label_level"] = {"value": 1.0, "label": "Pass", "explanation": "优先级 对"}
+    p = tmp_path / f"eval-{run_id}.json"
+    p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    return p
+
+
+def test_each_version_is_scored_under_its_own_label_scheme(tmp_path):
+    """A graded V0 next to binary V1 / V2 (the e5 label-scheme extension): the binary ones keep the verdict
+    ./43-run-eval.sh printed for them, with no 优先级 gate and no '? 无评分' cells."""
+    g0 = _graded_copy(tmp_path, V0, "runtime-v0-graded")
+    out = tmp_path / "mix.html"
+    assert rp.main([str(g0), str(V1), str(V2), "--out", str(out)]) == 0
+    page = out.read_text(encoding="utf-8")
+    fb = compare.feedback_index()
+    for path in (V1, V2):
+        ev = compare.EvalRun.load(path)
+        assert compare.pillars_of(ev, fb, 0.70)["verdict"] == "pass"   # what 43-run-eval.sh says (own specs)
+    ov = page[page.index('id="overview"'):page.index('id="trend"')]
+    assert ov.count("✅ 通过") == 2 and "优先级准确率" in ov and ov.count("优先级准确率") == 1
+    assert "标签口径不同" in page
+    v1_cells = re.findall(r'<td data-col="1">(.*?)</td>', page[page.index('id="items"'):])
+    assert v1_cells and not any("无评分" in c for c in v1_cells)
+    assert 'data-v="level"' in page                                     # the 优先级 field filter exists (graded V0)
+
+
+def test_repeated_feedback_ids_stay_separate_rows(tmp_path):
+    d = json.loads(V1.read_text(encoding="utf-8"))
+    d["sessions"].append(copy.deepcopy(d["sessions"][0]))
+    d["sessions"][-1]["agent_output"]["reasoning"] = "第二次运行的理由"
+    p = tmp_path / "eval-dup.json"
+    p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "dup.html"
+    assert rp.main([str(p), "--out", str(out)]) == 0
+    page = out.read_text(encoding="utf-8")
+    assert page.count('<tr class="rp-row"') == len(d["sessions"]) == page.count('<section class="rp-item"')
+    fid = d["sessions"][0]["feedback_id"]
+    assert f"{fid}（第 2 条）" in page and "第二次运行的理由" in page
+
+
+def test_run_file_is_read_only_inside_results_or_next_to_the_eval(tmp_path, monkeypatch):
+    (tmp_path / "lab").mkdir()
+    root = _lab(tmp_path / "lab", monkeypatch)
+    secret = tmp_path / "elsewhere" / "notes.jsonl"
+    secret.parent.mkdir()
+    v2 = json.loads(V2.read_text(encoding="utf-8"))
+    s0 = v2["sessions"][0]
+    secret.write_text(json.dumps({"session_id": s0["session_id"], "raw": "SECRET-OUTSIDE"}) + "\n", encoding="utf-8")
+    for f in (str(secret), "../" * 12 + str(secret).lstrip("/"), "results/../../elsewhere/notes.jsonl"):
+        v2["run"]["file"] = f
+        p = root / "results" / "eval-x.json"
+        p.write_text(json.dumps(v2, ensure_ascii=False), encoding="utf-8")
+        ev = compare.EvalRun.load(p)
+        assert rp.run_records(ev) == ({"sid": {}, "fid": {}}, None), f
+    # inside results/: read, and matched by session id only (another session's raw is never shown)
+    run = root / "results" / "run-ok.jsonl"
+    run.write_text(json.dumps({"session_id": "other-session", "feedback_id": s0["feedback_id"], "raw": "WRONG-SESSION"})
+                   + "\n", encoding="utf-8")
+    v2["run"]["file"] = "results/run-ok.jsonl"
+    p.write_text(json.dumps(v2, ensure_ascii=False), encoding="utf-8")
+    ver = rp.Version(compare.EvalRun.load(p), 0, "V2", compare.feedback_index(), 0.7)
+    assert ver.run_file == "results/run-ok.jsonl" and ver.run_record(s0["feedback_id"]) is None
+
+
+def test_requirement_text_follows_adlc_data_dir_like_the_titles(tmp_path, monkeypatch):
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    (pack / "feedback_last_month.jsonl").write_text(json.dumps(
+        {"id": "FB-2610-006", "title": "场景包里的标题", "content": "场景包里的需求原文"}, ensure_ascii=False) + "\n", encoding="utf-8")
+    monkeypatch.setenv("ADLC_DATA_DIR", str(pack))
+    req = rp.requirement_index()
+    assert req["FB-2610-006"]["item"]["content"] == "场景包里的需求原文"
+    assert compare.feedback_index()["FB-2610-006"]["title"] == "场景包里的标题"
+    assert req["FB-2610-001"]["golden"]["golden_id"] == "G01"
+
+
+def test_default_falls_back_to_an_older_evaluation_whose_file_still_exists(tmp_path, monkeypatch, capsys):
+    root = _lab(tmp_path, monkeypatch)
+    evals = [_copy_eval(root, V0, "r-v0-old", "v0"), _copy_eval(root, V1, "r-v1", "v1"),
+             {"run_id": "r-v0-gone", "file": "results/eval-r-v0-gone.json", "version": "v0", "mode": "runtime"}]
+    (root / ".lab-state" / "evals.json").write_text(json.dumps(evals), encoding="utf-8")
+    assert [p.name for p in rp.pick_default()] == ["eval-r-v0-old.json", "eval-r-v1.json"]
+    assert "r-v0-gone" in capsys.readouterr().err
+
+
+def test_reject_tag_follows_the_gate_and_field_filter_reads_the_wrong_side(page3):
+    v0 = json.loads(V0.read_text(encoding="utf-8"))
+    fb = compare.feedback_index()
+    ver = rp.Version(compare.EvalRun.load(V0), 0, "V0", fb, 0.7)
+    for i, s in enumerate(v0["sessions"]):
+        it = ver.items[rp.fid_of(s, i)]
+        rej = it.get("reject") or {}
+        gate_fail = rej.get("status") == "judged" and not (rej.get("passed") and not compare.pillars.red_line_kinds(it))
+        assert ver.state(rp.fid_of(s, i))["rej_fail"] == gate_fail, s["feedback_id"]
+    assert "var fv = st === 'fixed' ? b : t;" in rp.JS and "'v' + fv + ':f-' + cur.field" in rp.JS
+
+
+def test_tool_calls_survive_unhashable_span_ids_and_odd_messages():
+    docs = [{"name": "execute_tool x", "spanId": {"a": 1}, "status": {"code": "UNSET"}},
+            {"spanId": {"a": 1}, "body": {"input": {"messages": True}, "output": {"messages": "x"}}},
+            {"spanId": ["l"], "body": {"output": {"messages": [{"content": {"message": json.dumps(
+                [{"toolResult": {"toolUseId": "c", "status": "success", "content": [{"text": "ok"}]}}])}}]}}},
+            {"name": "execute_tool y", "attributes": {"gen_ai.tool.call.id": "c"}, "status": {"code": "UNSET"},
+             "startTimeUnixNano": True, "durationNano": True}]
+    calls = spans.tool_calls(docs)
+    assert [c["status"] for c in calls] == [None, "success"]       # UNSET is no status; the toolResult's wins
+    assert calls[1]["output"] == "ok" and calls[1]["duration_ms"] is None
+
+
+def test_shared_helpers_do_not_overflow_on_bogus_values():
+    assert compare.fmt_time("0001-01-01T00:00:00+01:00") == "0001-01-01T00:00:00+01:00"
+    assert compare.case_of({"scores": {"label_accuracy": {"value": 1e308, "label": "Fail"}}})["n"] == 3

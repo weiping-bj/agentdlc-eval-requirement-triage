@@ -95,7 +95,8 @@ JS = r"""(function () {
       else if (st === 'red') { ok = has(tags, 'v' + t + ':red'); }
       else if (st === 'fixed') { ok = b >= 0 && b !== t && has(tags, 'v' + b + ':bad') && has(tags, 'v' + t + ':ok'); }
       else if (st === 'broke') { ok = b >= 0 && b !== t && has(tags, 'v' + b + ':ok') && has(tags, 'v' + t + ':bad'); }
-      if (ok && cur.field !== 'all') { ok = has(tags, 'v' + t + ':f-' + cur.field); }
+      var fv = st === 'fixed' ? b : t;  // 错 → 对: the field was wrong in the base version
+      if (ok && cur.field !== 'all') { ok = has(tags, 'v' + fv + ':f-' + cur.field); }
       if (ok && cur.dim !== 'all') { ok = has(tags, cur.dim); }
       tr.style.display = ok ? '' : 'none';
       if (ok) { shown++; }
@@ -182,9 +183,21 @@ def version_key(v: str) -> tuple:
 
 
 def requirement_index() -> dict:
-    """{feedback_id: {"item": agent input, "golden": golden row or None}} from the golden set and the feedback pool."""
+    """{feedback_id: {"item": agent input, "golden": golden row or None}}: the golden answer from the golden set, the
+    requirement text from the first data file that has the id, in compare.feedback_index order (ADLC_DATA_DIR, golden
+    set, feedback pool), so the drawer and the list show the same title."""
+    import os
     golden, _src = story.load_golden()
-    idx = {fid: {"item": labitems.item_of(row), "golden": row} for fid, row in golden.items()}
+    data_dir = os.environ.get("ADLC_DATA_DIR")
+    customer = [Path(data_dir) / n for n in ("feedback_last_month.jsonl", "feedback.jsonl")] if data_dir else []
+    idx = {}
+    for p in customer:
+        for row in cmp.read_jsonl_safe(p):
+            fid = labitems.fid_of(row)
+            if fid and fid not in idx:
+                idx[fid] = {"item": labitems.item_of(row), "golden": golden.get(fid)}
+    for fid, row in golden.items():
+        idx.setdefault(fid, {"item": labitems.item_of(row), "golden": row})
     for c in labitems.FEEDBACK_CANDIDATES:
         for row in cmp.read_jsonl_safe(cmp.root() / c):
             fid = labitems.fid_of(row)
@@ -193,8 +206,18 @@ def requirement_index() -> dict:
     return idx
 
 
+def _inside(p: Path, roots: list) -> bool:
+    try:
+        rp = p.resolve()
+    except (OSError, RuntimeError):
+        return False
+    return any(rp == r or r in rp.parents for r in roots)
+
+
 def run_records(ev: cmp.EvalRun) -> tuple:
-    """({session_id or feedback_id: run record}, shown path or None): the run file this evaluation scored, if local."""
+    """({"sid": {session_id: record}, "fid": {feedback_id: record}}, shown path or None): the run file this evaluation
+    scored, if it is still on disk. Only read from the lab's results/ or the eval file's own directory."""
+    roots = [(cmp.root() / "results").resolve(), ev.path.parent.resolve()]
     cands = []
     f = text(ev.run.get("file")).strip()
     if f:
@@ -203,14 +226,15 @@ def run_records(ev: cmp.EvalRun) -> tuple:
     if cmp.safe_name(ev.run_id) == ev.run_id:  # next to the eval file; never a path built from odd characters
         cands.append(ev.path.parent / f"run-{ev.run_id}.jsonl")
     for p in cands:
-        if p.is_file():
-            out = {}
+        if p.suffix == ".jsonl" and _inside(p, roots) and p.is_file():
+            out = {"sid": {}, "fid": {}}
             for r in cmp.read_jsonl_safe(p):
-                for k in (r.get("session_id"), r.get("feedback_id")):
-                    if k:
-                        out.setdefault(str(k), r)
+                if r.get("session_id"):
+                    out["sid"].setdefault(text(r["session_id"]), r)
+                if r.get("feedback_id"):
+                    out["fid"].setdefault(text(r["feedback_id"]), r)
             return out, cmp.shown_path(p)
-    return {}, None
+    return {"sid": {}, "fid": {}}, None
 
 
 def fid_of(s: dict, i: int) -> str:
@@ -219,23 +243,32 @@ def fid_of(s: dict, i: int) -> str:
 
 
 class Version:
-    """One evaluated run on the page."""
+    """One evaluated run on the page. Scored under its own label scheme (compare.label_specs of this evaluation only),
+    exactly as ./43-run-eval.sh scored it, so a binary and a graded evaluation can share a page."""
 
-    def __init__(self, ev: cmp.EvalRun, idx: int, label: str, specs: tuple, fb: dict, target: float):
+    def __init__(self, ev: cmp.EvalRun, idx: int, label: str, fb: dict, target: float):
         self.ev, self.idx, self.label = ev, idx, label
-        self.p = cmp.pillars_of(ev, fb, target, specs)
-        self.items = self.p.pop("_items")
-        self.sessions, self.cases = {}, {}
-        for i, s in enumerate(ev.sessions):
-            k = fid_of(s, i)
-            self.sessions[k] = s
-            self.cases[k] = cmp.case_of(s)
+        self.specs = cmp.label_specs(ev)
+        self.fields = [k for _n, k, _c in self.specs]
+        self.p = cmp.pillars_of(ev, fb, target, self.specs)
+        self.p.pop("_items", None)
+        self.sessions, self.cases, self.items, self.base = {}, {}, {}, {}
+        seen: dict = {}
+        for i, (s, it) in enumerate(zip(ev.sessions, cmp.pillar_items(ev, fb, self.specs))):
+            fid = fid_of(s, i)
+            seen[fid] = seen.get(fid, 0) + 1
+            k = fid if seen[fid] == 1 else f"{fid}（第 {seen[fid]} 条）"   # a repeated id stays its own row
+            self.sessions[k], self.cases[k], self.items[k], self.base[k] = s, cmp.case_of(s), it, fid
         self.runs, self.run_file = run_records(ev)
-        self.fields = [k for _n, k, _c in specs]
 
-    def state(self, fid: str) -> dict:
+    def run_record(self, key: str):
+        s = self.sessions[key]
+        sid = text(s.get("session_id"))
+        return self.runs["sid"].get(sid) if sid else self.runs["fid"].get(self.base[key])
+
+    def state(self, key: str) -> dict:
         """Item state: ok (every label right after the veto, no red line) / bad / na (not scored) / none (absent)."""
-        it, s = self.items.get(fid), self.sessions.get(fid)
+        it, s = self.items.get(key), self.sessions.get(key)
         if it is None or s is None:
             return {"state": "none", "red": [], "wrong": [], "rej_fail": False}
         red = pillars.red_line_kinds(it)
@@ -244,7 +277,8 @@ class Version:
         st = "na" if any(v is None for v in vetoed) else ("ok" if all(vetoed) and not red else "bad")
         wrong = list(self.fields) if it.get("no_output") else [f for f in self.fields if flds.get(f) is False]
         rej = it.get("reject") or {}
-        rej_fail = rej.get("status") == "judged" and (not rej.get("passed") or bool(rej.get("red_flags")))
+        # same rule as the 拒绝话术通过率 gate: a judged reject that did not pass, or any red line on the item
+        rej_fail = rej.get("status") == "judged" and (not rej.get("passed") or bool(red))
         return {"state": st, "red": red, "wrong": wrong, "rej_fail": rej_fail, "eval_error": s.get("error"),
                 "agent_error": s.get("agent_error")}
 
@@ -337,8 +371,13 @@ def trend_card(vs: list, target: float) -> str:
         return ('<div class="card" id="trend"><h2>版本趋势</h2><p class="muted">现在只有一个版本。第 5 章评估过 V1 之后再运行 '
                 '<span class="mono">./45-results-page.sh</span>，这里会按版本画出红线、门禁和整条通过率的变化。</p></div>')
     metrics = [("红线（条，要求 0）", [v.p["red_line"]["count"] for v in vs], "count", None)]
-    for g in vs[-1].p["gates"]:
-        metrics.append((g["name"], [cmp._gate(v.p, g["key"])["actual"] for v in vs], "pct", g.get("threshold", target)))
+    gates = {}
+    for v in vs:  # every gate any version has (a binary-scheme version has no 优先级 gate: its cell shows —)
+        for g in v.p["gates"]:
+            gates.setdefault(g["key"], g)
+    for key, g in sorted(gates.items(), key=lambda kv: kv[0] == "reject_quality"):
+        metrics.append((g["name"], [cmp._gate(v.p, key)["actual"] if any(x["key"] == key for x in v.p["gates"]) else None
+                                    for v in vs], "pct", g.get("threshold", target)))
     metrics.append(("整条通过率（观测）", [v.p["observations"]["all_correct_rate"] for v in vs], "pct", None))
     head = "".join(f'<th class="num" data-col="{v.idx}">{esc(v.label)}</th>' for v in vs)
     rows = []
@@ -411,24 +450,25 @@ def _expected_txt(g: dict | None) -> str:
     return f"重要 {text(exp.get('important')) or '—'} · 紧急 {text(exp.get('urgent')) or '—'} · {text(dec) or '—'}"
 
 
-def list_card(vs: list, order: list, req: dict, fb: dict) -> str:
+def list_card(vs: list, order: list, req: dict, fb: dict, base: dict) -> str:
     dims = [d for d in pillars.DIMS]
-    seen = {str(d) for fid in order for d in (as_dict(fb.get(fid)).get("dimensions") or [])}
+    seen = {str(d) for key in order for d in (as_dict(fb.get(base[key])).get("dimensions") or [])}
     dims = [d for d in dims if d in seen] + sorted(seen - set(dims))
     dim_idx = {d: i for i, d in enumerate(dims)}
     rows = []
-    for k, fid in enumerate(order):
+    for k, key in enumerate(order):
+        fid = base[key]
         info = as_dict(fb.get(fid))
         item = as_dict(as_dict(req.get(fid)).get("item"))
         title = info.get("title") or item.get("title")
         gid = info.get("golden_id")
-        who = (f'<span class="mono">{esc(fid)}</span>' + (f' <span class="small muted">{esc(gid)}</span>' if gid else "")
+        who = (f'<span class="mono">{esc(key)}</span>' + (f' <span class="small muted">{esc(gid)}</span>' if gid else "")
                + (f'<div class="small">{esc(clip(title, 46))}</div>' if title else ""))
         ds = [str(d) for d in info.get("dimensions") or []]
         dcell = "".join(pill(d, "n") for d in ds) or '<span class="muted small">—</span>'
         exp = _expected_txt(as_dict(req.get(fid)).get("golden"))
-        cells = "".join(_state_cell(v, v.state(fid)) for v in vs)
-        rows.append(f'<tr class="rp-row" data-item="{k}" data-tags="{esc(_tags(vs, fid, ds, dim_idx))}" tabindex="0">'
+        cells = "".join(_state_cell(v, v.state(key)) for v in vs)
+        rows.append(f'<tr class="rp-row" data-item="{k}" data-tags="{esc(_tags(vs, key, ds, dim_idx))}" tabindex="0">'
                     f'<td>{who}</td><td>{dcell}</td><td class="small">{esc(exp) or "—"}</td>{cells}'
                     f'<td><button type="button" class="rp-open">详情</button></td></tr>')
     opts = "".join(f'<option value="{v.idx}"{" selected" if v is vs[-1] else ""}>{esc(v.label)}</option>' for v in vs)
@@ -442,7 +482,8 @@ def list_card(vs: list, order: list, req: dict, fb: dict) -> str:
     states = [("all", "全部"), ("bad", "判错（含红线）"), ("red", "含红线")]
     if len(vs) > 1:
         states += [("fixed", "错 → 对"), ("broke", "对 → 错")]
-    fields = [(f, f"{pillars.FIELD_CN.get(f, f)}错") for f in vs[0].fields] + [("rej", "话术未通过")]
+    union = list(dict.fromkeys(f for v in vs for f in v.fields))
+    fields = [(f, f"{pillars.FIELD_CN.get(f, f)}错") for f in union] + [("rej", "话术未通过")]
     filters = (
         '<div class="rp-filters">'
         f'<span class="grp"><span class="lab">看版本</span><select id="rp-target" aria-label="看哪个版本">{opts}</select></span>'
@@ -460,7 +501,8 @@ def list_card(vs: list, order: list, req: dict, fb: dict) -> str:
             '<p class="small muted">每个版本一列：<span class="pill g">✓ 全对</span>= 各项都对且没有红线；'
             '<span class="pill r">✗ 重要·建议</span>= 单项评估器判错的字段；<span class="pill r">⛔ 红线</span>= 一票否决，整条判错；'
             '<span class="pill n">? 无评分</span>= 评估出错或缺少结果。“看版本”决定状态和字段筛选看哪一列；'
-            '“错 → 对 / 对 → 错”比较“对照”和“看版本”两列。字段筛选按单项评估器的原始判定（红线条目也照原样）。</p>'
+            '“错 → 对 / 对 → 错”比较“对照”和“看版本”两列，这时字段筛选看判错的那一列（错 → 对看“对照”，对 → 错看“看版本”）。'
+            '字段筛选按单项评估器的原始判定（红线条目也照原样）；“话术未通过”和拒绝话术通过率门禁同一口径。</p>'
             + filters +
             f'<table id="items" class="rp-list"><thead><tr><th style="width:24%">需求</th><th>五维</th><th>期望</th>{head}'
             '<th></th></tr></thead><tbody>' + "".join(rows) + '</tbody></table></div>')
@@ -560,7 +602,7 @@ def output_html(v: Version, fid: str, g: dict | None) -> str:
     if out.get("_warnings"):
         rows.append(f'<tr><td>取值警告</td><td class="small">{esc(clip(out.get("_warnings"), 400))}</td></tr>')
     parts.append(f'<table class="kv">{"".join(rows)}</table>' if out else '<p class="muted">没有结构化输出。</p>')
-    rec = v.runs.get(text(s.get("session_id"))) or v.runs.get(fid)
+    rec = v.run_record(fid)
     raw = rec.get("raw") if rec else None
     if raw not in (None, ""):
         parts.append(f'<details><summary class="small">模型原始输出（run 文件里的 raw）</summary>{_pre(raw, RAW_MAX)}</details>')
@@ -637,16 +679,17 @@ def version_block(v: Version, fid: str, g: dict | None, is_open: bool) -> str:
             f'{red}{output_html(v, fid, g)}{tools_html(v, fid)}{evaluators_html(v, fid)}</details>')
 
 
-def drawer_html(vs: list, order: list, req: dict, fb: dict, graded: bool) -> str:
+def drawer_html(vs: list, order: list, req: dict, fb: dict, base: dict, graded: bool) -> str:
     secs = []
-    for k, fid in enumerate(order):
+    for k, key in enumerate(order):
+        fid = base[key]
         entry = as_dict(req.get(fid))
         info = as_dict(fb.get(fid))
         g = entry.get("golden")
         gid = info.get("golden_id") or (g or {}).get("golden_id")
-        blocks = "".join(version_block(v, fid, g, v is vs[-1]) for v in vs)
+        blocks = "".join(version_block(v, key, g, v is vs[-1]) for v in vs)
         secs.append(f'<section class="rp-item" id="item-{k}" hidden>'
-                    f'<h2 style="margin-top:12px"><span class="mono">{esc(fid)}</span>'
+                    f'<h2 style="margin-top:12px"><span class="mono">{esc(key)}</span>'
                     + (f' <span class="small muted">{esc(gid)}</span>' if gid else "") + "</h2>"
                     f'{requirement_html(fid, entry, info)}{golden_html(g, graded)}'
                     f'<h3>各版本（展开的是“看版本”和“对照”选中的两个）</h3>{blocks}</section>')
@@ -665,15 +708,19 @@ def build_page(evs: list, target: float) -> str:
     labels = labels_for(evs)
     fb = cmp.feedback_index()
     req = requirement_index()
-    specs = cmp.label_specs(*evs)
-    vs = [Version(ev, i, labels[i], specs, fb, target) for i, ev in enumerate(evs)]
+    vs = [Version(ev, i, labels[i], fb, target) for i, ev in enumerate(evs)]
     order = list(dict.fromkeys(k for v in vs for k in v.sessions))
+    base = {k: b for v in vs for k, b in v.base.items()}
+    graded = any(cmp.LEVEL_SPEC in v.specs for v in vs)
     notes = []
     if len({text(v.ev.run.get("model")) for v in vs}) > 1:
         notes.append("这几个版本用的模型不同，变化里同时包含模型的影响。")
     sets = {frozenset(v.sessions) for v in vs}
     if len(sets) > 1:
         notes.append("这几次评估的需求集合不完全一致：缺的条目在对应的列里显示“—”。")
+    if len({tuple(v.fields) for v in vs}) > 1:
+        notes.append("这几个版本的标签口径不同（二分 / 分级）：每个版本按自己的口径计分（和 ./43-run-eval.sh 一样），"
+                     "优先级只在分级口径的版本里进门禁，其它版本这一行显示“—”。")
     if len({text(v.ev.run.get("mode")) for v in vs}) > 1:
         notes.append("这几次运行的位置不同（Runtime / 自托管 / 导入），对比仅供参考。")
     if not any(isinstance(s.get("tool_calls"), list) for v in vs for s in v.ev.sessions):
@@ -689,8 +736,8 @@ def build_page(evs: list, target: float) -> str:
     bar = cmp.topbar(f"AgentDLC 动手实验 · 评估结果 {' → '.join(labels)}",
                      "需求反馈分诊 Agent · 按需评估结果：结论、趋势、逐条详情",
                      [("版本", " · ".join(labels)), ("最新 run", vs[-1].ev.run_id), ("区域", region)])
-    body = head + overview_card(vs) + trend_card(vs, target) + list_card(vs, order, req, fb) + \
-        drawer_html(vs, order, req, fb, cmp.LEVEL_SPEC in specs)
+    body = head + overview_card(vs) + trend_card(vs, target) + list_card(vs, order, req, fb, base) + \
+        drawer_html(vs, order, req, fb, base, graded)
     return cmp.page(f"评估结果 {' → '.join(labels)} · AgentDLC 动手实验", bar, body, FOOTER,
                     cmp.PILLAR_CSS + story.STORY_CSS + CSS, JS)
 
@@ -702,17 +749,17 @@ def pick_default() -> list:
         raise SystemExit("❌ .lab-state/evals.json 里还没有评估记录：先运行 ./43-run-eval.sh（第 4.5 步），"
                          "或直接指定 eval JSON：./45-results-page.sh results/eval-<run_id>.json")
     main_mode = next((e.get("mode") for e in reversed(evals) if e.get("mode") in story.MOCK_MODES), evals[-1].get("mode"))
-    latest = {}
+    by_version: dict = {}
     for e in evals:
         if e.get("mode") == main_mode:
-            latest[str(e.get("version") or "?").lower()] = e
-    picked = sorted(latest.values(), key=lambda e: version_key(e.get("version")))
+            by_version.setdefault(str(e.get("version") or "?").lower(), []).append(e)
     paths = []
-    for e in picked:
-        p = cmp.root() / str(e["file"])
-        if p.exists():
-            paths.append(p)
-        else:
+    for v in sorted(by_version, key=version_key):
+        for e in reversed(by_version[v]):  # newest first; an evaluation whose file is gone falls back to the one before
+            p = cmp.root() / str(e["file"])
+            if p.is_file():
+                paths.append(p)
+                break
             print(f"⚠️  找不到 {e['file']}（{e.get('run_id')}），跳过", file=sys.stderr)
     if not paths:
         raise SystemExit("❌ evals.json 里登记的评估结果文件都不在了：重新运行 ./43-run-eval.sh")
@@ -743,7 +790,7 @@ def main(argv=None) -> int:
     evs = [cmp.EvalRun.load(p) for p in paths]
     target = cmp.target_accuracy()
     labels = labels_for(evs)
-    print(f"▶ 结果页：{' → '.join(f'{lab} {ev.run_id}' for lab, ev in zip(labels, evs))}", file=sys.stderr)
+    print("▶ 结果页：" + " → ".join(pillars.plain(f"{lab} {ev.run_id}", 120) for lab, ev in zip(labels, evs)), file=sys.stderr)
     out = Path(a.out) if a.out else cmp.root() / "results" / out_name(evs)
     path = cmp.write_page(out, build_page(evs, target))
     print("✅ 结果页已生成（本地文件，可直接用浏览器打开）：", file=sys.stderr)

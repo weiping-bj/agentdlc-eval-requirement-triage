@@ -246,7 +246,10 @@ def fmt_time(v) -> str:
             return s
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    try:
+        return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    except (OverflowError, ValueError):  # e.g. year 1 with a positive offset: show it as written
+        return s
 
 
 def path_of(mode) -> tuple:
@@ -570,7 +573,7 @@ def case_of(s: dict) -> dict:
     if known == 3:
         n = correct
     elif lav is not None:
-        n = int(round(lav * 3))
+        n = int(round(max(0.0, min(1.0, lav)) * 3))  # label_accuracy is 0-1; never overflow on a bogus value
     elif agent_error or la_label == "FormatError":
         n = 0
     else:

@@ -127,7 +127,13 @@ def _walk_blocks(v, uses: dict, results: dict, depth: int = 0):
 
 def _msgs(body: dict, side: str) -> list:
     m = body.get(side)
-    return [x for x in ((m.get("messages") or []) if isinstance(m, dict) else []) if isinstance(x, dict)]
+    msgs = m.get("messages") if isinstance(m, dict) else None
+    return [x for x in msgs if isinstance(x, dict)] if isinstance(msgs, list) else []
+
+
+def _span_key(d: dict):
+    k = d.get("spanId")
+    return str(k) if isinstance(k, (str, int)) and not isinstance(k, bool) else None
 
 
 def tool_calls(docs: list, trace_id: str | None = None) -> list:
@@ -140,7 +146,8 @@ def tool_calls(docs: list, trace_id: str | None = None) -> list:
     uses, results = {}, {}
     for d in docs:
         if not d.get("name") and isinstance(d.get("body"), dict):
-            logs_by_span.setdefault(d.get("spanId"), []).append(d["body"])
+            if _span_key(d) is not None:
+                logs_by_span.setdefault(_span_key(d), []).append(d["body"])
             _walk_blocks(d["body"], uses, results)
     calls = []
     for d in docs:
@@ -152,7 +159,7 @@ def tool_calls(docs: list, trace_id: str | None = None) -> list:
         cid = None if cid is None else str(cid)
         tool = attrs.get("gen_ai.tool.name") or name.removeprefix("execute_tool").strip() or "tool"
         inp = out = None
-        for body in logs_by_span.get(d.get("spanId"), []):
+        for body in logs_by_span.get(_span_key(d), []) if _span_key(d) is not None else []:
             for m in _msgs(body, "input"):
                 if inp is None and m.get("role") == "tool":
                     inp = m.get("content")
@@ -161,19 +168,23 @@ def tool_calls(docs: list, trace_id: str | None = None) -> list:
                     out = m.get("content")
         if inp is None and cid in uses:
             inp = uses[cid]
-        status = d.get("status") if isinstance(d.get("status"), dict) else {}
-        st = attrs.get("gen_ai.tool.status") or status.get("code")
+        # status: the tool's own (gen_ai.tool.status), else the toolResult's, else the span's unless it is UNSET
+        st = attrs.get("gen_ai.tool.status") or (results[cid][0] if cid in results else None)
+        if not st:
+            code = (d.get("status") or {}).get("code") if isinstance(d.get("status"), dict) else None
+            st = code if code and str(code).upper() != "UNSET" else None
         if out is None and cid in results:
-            st = st or results[cid][0]
             out = results[cid][1]
         dur = d.get("durationNano")
         t0, t1 = d.get("startTimeUnixNano"), d.get("endTimeUnixNano")
-        if not isinstance(dur, (int, float)) and isinstance(t0, (int, float)) and isinstance(t1, (int, float)):
-            dur = t1 - t0
+        t0 = t0 if isinstance(t0, (int, float)) and not isinstance(t0, bool) else None
+        t1 = t1 if isinstance(t1, (int, float)) and not isinstance(t1, bool) else None
+        if not isinstance(dur, (int, float)) or isinstance(dur, bool):
+            dur = (t1 - t0) if t0 is not None and t1 is not None else None
         calls.append({"name": str(tool), "input": _clip(_text_of(inp), TOOL_INPUT_MAX),
                       "output": _clip(_text_of(out), TOOL_OUTPUT_MAX), "status": None if st is None else str(st),
                       "duration_ms": round(dur / 1e6, 1) if isinstance(dur, (int, float)) else None,
-                      "call_id": cid, "_t": t0 if isinstance(t0, (int, float)) else None})
+                      "call_id": cid, "_t": t0})
     calls.sort(key=lambda c: (c["_t"] is None, c["_t"] or 0))  # call order; spans without a start time last
     for c in calls:
         del c["_t"]

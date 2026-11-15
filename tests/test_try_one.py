@@ -21,7 +21,8 @@ G06 = next(r for r in GOLDEN if r["golden_id"] == "G06")
 
 
 @pytest.mark.parametrize("argv", [[], ["FB-2610-009", "--text", "x"], ["--text", "   "], ["--text", "x" * 4001],
-                                  ["FB-2610-009", "--no-builtin"]])
+                                  ["FB-2610-009", "--no-builtin"], ["--session", "short"],
+                                  ["--text", "x", "--session", "adlc-t-try-v1-ref-G06-" + "a" * 32]])
 def test_bad_arguments_are_usage_errors(argv, capsys):
     with pytest.raises(SystemExit) as e:
         try_one.parse_args(argv)
@@ -34,6 +35,13 @@ def test_good_arguments():
     assert (a.item, a.text, a.eval, a.no_builtin, a.raw) == ("FB-2610-009", None, True, True, True)
     a = try_one.parse_args(["--text", "  希望列表页支持批量编辑  "])
     assert a.item is None and a.text == "希望列表页支持批量编辑" and not a.eval
+
+
+def test_session_means_evaluate_again_without_an_item():
+    sid = "adlc-t-try-v1-ref-FB-2610-009-" + "0" * 32
+    a = try_one.parse_args(["--session", sid])
+    assert a.eval and a.item is None and a.session == sid
+    assert try_one.parse_args(["G06", "--session", sid]).item == "G06"
 
 
 def test_find_item_by_feedback_id_or_golden_id_case_insensitive():
@@ -71,7 +79,20 @@ def test_output_lines_compare_with_the_golden_answer():
     assert "处理建议  待评估    黄金集 " in text and "✗" in text
     assert "理由：\n    需要进一步评估" in text and "客户话术  —" in text
     assert "--eval" in text and "原始输出" not in text
-    assert "优先级" in text  # the golden row has a level, so the line is shown (— when the agent gave none)
+    assert "优先级" not in text  # binary scheme: the agent gives no level and the golden level is not graded
+    graded = "\n".join(try_one.output_lines(G06, G06, {**res, "level": "P2"}, None, False, graded=True))
+    assert f"优先级  P2    黄金集 {G06['expected']['level']}" in graded
+    shown = "\n".join(try_one.output_lines(G06, G06, {**res, "level": "P2"}, None, False))
+    assert "优先级  P2" in shown and "优先级  P2    黄金集" not in shown  # shown, but not compared, in the binary scheme
+
+
+def test_output_lines_read_json_strings_aliases_and_strip_control_characters():
+    res = json.dumps({"是否重要": G06["expected"]["important"], "是否紧急": G06["expected"]["urgent"], "处理建议": "拒绝",
+                      "customer_reply": "您好\x1b]8;;http://x\x07点我\x1b[2J\x9b31m"}, ensure_ascii=False)
+    text = "\n".join(try_one.output_lines(G06, G06, res, "raw\x1b[31m", True))
+    assert f"是否重要  {G06['expected']['important']}    黄金集 {G06['expected']['important']} ✓" in text
+    assert "处理建议  拒绝    黄金集 拒绝 ✓" in text
+    assert "\x1b" not in text and "\x07" not in text and "\x9b" not in text and "您好]8;;http://x点我[2J31m" in text
 
 
 def test_output_lines_for_free_text_and_empty_output():
@@ -133,6 +154,8 @@ def lab(monkeypatch):
     monkeypatch.setattr(aws, "cfg", lambda: {"LAB_NAME": "adlc-t", "AGENT_MODEL_ID": "cfg-model"})
     monkeypatch.setattr(batch, "_runtime_one", invoke)
     monkeypatch.setattr(evaluate, "evaluate_session", fake_eval)
+    calls["sleep"] = []
+    monkeypatch.setattr(try_one.time, "sleep", lambda s: calls["sleep"].append(s))
     return state, calls
 
 
@@ -156,10 +179,30 @@ def test_main_eval_runs_the_registered_evaluators_with_the_golden_reference(lab,
     assert evaluators == [("label_accuracy", "la-1")] + [(b, b) for b in evaluate.BUILTINS]
     out = capsys.readouterr().out
     assert "▶ 评估这个 session：3 个评估器" in out and "label_accuracy" in out and "红线：无" in out
+    assert calls["sleep"] == [try_one.TRACE_WAIT]          # waits for the trace before the first query
     calls["eval"].clear()
     assert try_one.main(["--text", "自己写的", "--eval", "--no-builtin"]) == 0
     (rec, golden, evaluators, _lg, _s), = calls["eval"]
     assert golden == {} and evaluators == [("label_accuracy", "la-1")] and rec["feedback_id"].startswith("TRY-")
+
+
+def test_main_session_re_evaluates_without_calling_the_agent(lab, monkeypatch, capsys):
+    state, calls = lab
+    sid = "adlc-t-try-v1-ref-FB-2610-009-" + "0" * 32
+    monkeypatch.setattr(try_one.time, "time", lambda: 1_800_000_000)
+    assert try_one.main(["G06", "--session", sid, "--no-builtin"]) == 0
+    assert calls["invoke"] == [] and calls["sleep"] == []
+    (rec, golden, evaluators, _lg, start), = calls["eval"]
+    assert rec["session_id"] == sid and golden == {G06["feedback_id"]: G06}
+    assert start == 1_800_000_000 - try_one.SESSION_LOOKBACK and evaluators == [("label_accuracy", "la-1")]
+    assert "不调用 Agent" in capsys.readouterr().out
+
+
+def test_main_eval_failure_exits_1_and_says_how_to_retry(lab, monkeypatch, capsys):
+    monkeypatch.setattr(evaluate, "evaluate_session", lambda *a, **k: {"error": "no spans found in CloudWatch"})
+    assert try_one.main(["G06", "--eval"]) == 1
+    out = capsys.readouterr().out
+    assert "评估没完成：no spans found" in out and "./46-try-one.sh G06 --session adlc-t-try-v1-ref-" in out
 
 
 def test_main_explains_missing_runtime_and_evaluators(lab):

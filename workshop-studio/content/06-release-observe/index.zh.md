@@ -56,9 +56,11 @@ weight: 60
 - 在 **Sessions** 里也可以按 session 名区分：V0 的 session 名含 `-v0-`，V1 参考版的含 `-v1-ref-`，你自己的 V1 含 `-v1-FB-`（`-v1-` 也会匹配到参考版）。
 - （可选）**CloudWatch** → **Metrics** → 命名空间 `Bedrock-AgentCore/Evaluations`：各评估器的分数是指标，可以画成随时间变化的曲线，也可以配告警。
 
+分数迟迟不出现、页签显示“没有可显示的评估配置”，或者和按需评估的数对不上时，见[第 4 章的常见问题](/04-evaluate#s-4-faq)。
+
 :image[Evaluations 页签 Other 区，时间范围只含 V1 参考版的 31 个 session：label_decision 0.98、label_urgent 0.96、label_accuracy 0.89、label_important 0.73、reject_quality 0.86]{src="/static/images/06-online-eval-v1-Others.png" width=900}
 
-*图 6-1 在线评估（V1 参考版）：自定义评估器，和图 4-1 的 V0 比；这里 Pass 是蓝色，颜色以图例为准。卡片下的“vs. previous period”是和所选范围之前同样长的一段比，那一段里是别的运行，不用看*
+*图 6-1 在线评估（V1 参考版）：自定义评估器，和图 4-2 的 V0 比；这里 Pass 是蓝色，颜色以图例为准。卡片下的“vs. previous period”是和所选范围之前同样长的一段比，那一段里是别的运行，不用看*
 
 :image[Evaluations 页签 Style 区，V1 参考版：Builtin.Helpfulness 0.84]{src="/static/images/06-online-eval-v1-Builtin.png" width=900}
 

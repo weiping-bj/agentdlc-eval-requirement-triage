@@ -329,3 +329,83 @@ def test_screenshot_files_match_the_shot_list_and_are_about_1600_px_without_meta
             chunks.append(typ)
             pos += 12 + n
         assert not set(chunks) & {b"tEXt", b"iTXt", b"zTXt", b"eXIf", b"iCCP", b"tIME"}, (name, chunks)
+
+
+def _assigned(path: Path, name: str):
+    """A module-level literal (list / tuple / dict) from a source file, without importing it (labkit needs boto3)."""
+    import ast
+    for node in ast.parse(text(path)).body:
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
+            return ast.literal_eval(node.value)
+    raise AssertionError(f"{name} not found in {path.name}")
+
+
+def _evaluator_modes() -> dict:
+    """Evaluator -> (on demand, online), from what 40-/41-/43- actually register, attach and call (binary scheme)."""
+    code = [suffix for suffix, _key, _desc in _assigned(ROOT / "labkit" / "evaluators_reg.py", "CODE_EVALUATORS")]
+    names = code + ["reject_quality_llm"] + list(_assigned(ROOT / "labkit" / "evaluate.py", "BUILTINS"))
+    online = set(_assigned(ROOT / "labkit" / "online.py", "ONLINE_EVALUATORS")) | set(
+        _assigned(ROOT / "labkit" / "online.py", "ONLINE_BUILTINS"))
+    return {n: (True, n in online) for n in names}
+
+
+def _section(p: Path, anchor: str) -> str:
+    b = body(p)
+    start = b.index("{#" + anchor + "}")
+    nxt = b.find("\n## ", start)
+    return b[start:nxt if nxt != -1 else len(b)]
+
+
+def test_chapter4_evaluator_map_matches_what_the_scripts_register_and_attach():
+    """4.1: the three evaluation modes, one map row per evaluator whose 按需 / 在线 columns match labkit, and the
+    golden-set diagram (drawn by tools/ws_flywheel.py from rows that must match the same code)."""
+    p = CONTENT / "04-evaluate" / "index.zh.md"
+    s41 = _section(p, "s-4-1")
+    for mode in ("**按需评估**（on-demand）", "**在线评估**（online）", "**批量评估**（batch）"):
+        assert mode in s41, mode
+    rows = {}
+    for line in s41.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        m = re.fullmatch(r"`([\w.]+)`", cells[0]) if len(cells) == 7 else None
+        if m:
+            assert cells[2] in ("是", "否") and cells[3] in ("是", "否"), line
+            rows[m.group(1)] = (cells[2] == "是", cells[3] == "是")      # columns 按需 / 在线
+    assert "| 注册名 | 类型 | 按需 | 在线 |" in s41
+    want = _evaluator_modes()
+    assert rows == want, (rows, want)
+    assert ':image[' in s41 and 'src="/static/images/eval-golden-map.svg"' in s41
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ws_flywheel", ROOT / "tools" / "ws_flywheel.py")
+    fw = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fw)
+    drawn = {}
+    for names, _typ, _fields, ondemand, online, _pills in fw.EVAL_ROWS:
+        for n in names.split(" · "):
+            drawn[n] = (ondemand, online)
+    assert drawn == want, (drawn, want)
+    svg = (WS / "static" / "images" / "eval-golden-map.svg").read_text(encoding="utf-8")
+    assert svg == fw.evalmap_svg()                                   # committed file is what the script draws
+    rest = svg.replace("http://www.w3.org/2000/svg", "")
+    assert "href" not in rest and "http" not in rest and "@import" not in rest and "@font-face" not in rest
+    assert not re.findall(r"url\((?!#)", rest)
+
+
+def test_chapter4_dissects_one_recorded_failure_and_ends_with_the_faq():
+    """4.7 walks one real V0 failure (the recorded run the expected outputs come from); a FAQ of collapsible
+    answers sits right before the check question, and chapter 6 points at it. Section ids other pages link to stay."""
+    p = CONTENT / "04-evaluate" / "index.zh.md"
+    anchors = _anchors(p)
+    assert anchors == ["s-4-1", "s-4-2", "s-4-3", "s-4-4", "s-4-5", "s-4-6", "s-4-7", "s-4-faq", "s-4-check"], anchors
+    s47 = _section(p, "s-4-7")
+    m = re.search(r'^::::expand\{header="拆一条失败：(FB-\d{4}-\d{3})[^"]*"\}\n(.*?)^::::$', s47, re.S | re.M)
+    assert m, "4.7 has no dissect expand block"
+    fid, block = m.group(1), m.group(2)
+    assert "runtime-v0-20261114T134711Z" in block and f"[29/31] {fid}" in body(p)      # the same recorded run as 4.4
+    golden = [ln for ln in text(ROOT / "data" / "golden" / "golden_set.jsonl").splitlines() if f'"{fid}"' in ln]
+    assert golden and "G29" in golden[0] and "G29" in block
+    for step in ("① 黄金样本", "② V0 的输出", "③ 评估器的判断", "④ 进结论", "⑤ 五维归因", "⑥ V1 改了什么"):
+        assert step in block, step
+    faq = _section(p, "s-4-faq")
+    assert 5 <= len(re.findall(r'^::::expand\{header="[^"]+？"\}$', faq, re.M)) <= 8
+    assert faq.count("::::expand") * 2 == faq.count("::::")
+    assert "(/04-evaluate#s-4-faq)" in body(CONTENT / "06-release-observe" / "index.zh.md")

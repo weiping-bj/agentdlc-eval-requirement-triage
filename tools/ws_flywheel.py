@@ -1,11 +1,16 @@
-"""Draw the AgentDLC six-ring flywheel SVGs used by the Workshop Studio handbook (maintainer tool).
+"""Draw the AgentDLC six-ring flywheel SVGs (and the chapter-4 evaluator map) used by the Workshop Studio handbook
+(maintainer tool).
 
-  python3 tools/ws_flywheel.py            # (re)write workshop-studio/static/images/flywheel-*.svg
+  python3 tools/ws_flywheel.py            # (re)write workshop-studio/static/images/flywheel-*.svg, eval-golden-map.svg
   python3 tools/ws_flywheel.py --check    # exit 1 if a committed SVG differs from what this script draws
 
 flywheel-overview.svg   chapter 0: the six rings around the hub 黄金标准, each ring's relation to the hub, and the two
                         loops (修 Agent = prompt / tools; 修评估体系 = golden set / capability catalog)
 flywheel-<ring>.svg     the small "你在这里" marker of one chapter: the ring(s) of that chapter highlighted
+eval-golden-map.svg     chapter 4.1: which golden-set fields each evaluator reads, how the answers reach it (bundled
+                        into the Lambdas / reference input on demand), on-demand vs online, and which pillar
+                        (红线 / 门禁 / 观测) its result feeds. Mirrors labkit/evaluate.py, labkit/online.py and
+                        evaluators/shared/pillars.py: change it with them.
 Self-contained SVG (no external font, image or link), deterministic output. Standard library only.
 """
 from __future__ import annotations
@@ -131,12 +136,132 @@ def overview_svg() -> str:
     return "".join(parts)
 
 
+MONO = "Menlo,Consolas,'DejaVu Sans Mono',monospace"
+# golden-set field chips: key -> (label, text colour, fill)
+FIELDS = {"exp": ("期望标签", "#2f6fdc", "#e8f0fd"), "acc": ("可接受答案", "#138a8a", "#e3f4f4"),
+          "car": ("可否自动拒绝", "#b0306a", "#fbe9f1"), "pts": ("拒绝 / 话术要点", "#7b5bd6", "#f0ecfb"),
+          "cat": ("能力目录", "#8a6d1f", "#f7f1e1"), "ref": ("期望标签（参考输入）", "#2f6fdc", "#ffffff"),
+          "none": ("不读黄金集", "#6b7785", "#f1f3f6")}
+PILLARS = {"red": ("#c62828", "#fdecea"), "gate": ("#c45f00", "#fff1e3"), "obs": ("#6b7785", "#f1f3f6")}
+# (evaluator, type, golden fields read, on demand, online, [(pillar, chip text)]):
+# labkit/evaluate.py (BUILTINS, expected_text), labkit/online.py (ONLINE_*), evaluators/*/ (what each one reads)
+EVAL_ROWS = [
+    ("label_important · label_urgent", "代码型（Lambda）", ("exp", "car"), True, True, [("gate", "门禁 · 准确率")]),
+    ("label_decision", "代码型（Lambda）", ("exp", "acc", "car"), True, True, [("gate", "门禁 · 准确率")]),
+    ("label_accuracy", "代码型（Lambda）", ("exp", "acc", "car"), True, True,
+     [("red", "红线 · 误拒"), ("obs", "观测 · 整条通过率")]),
+    ("reject_quality", "代码型（Lambda 内调用评审模型）", ("pts", "car", "cat"), True, True,
+     [("red", "红线 · 话术红线"), ("gate", "门禁 · 话术通过率")]),
+    ("reject_quality_llm", "LLM 评审（AgentCore 原生）", ("none",), True, False, [("obs", "观测")]),
+    ("Builtin.Correctness", "内置", ("ref",), True, False, [("obs", "观测")]),
+    ("Builtin.Helpfulness", "内置", ("none",), True, True, [("obs", "观测")]),
+]
+
+
+def _tw(s: str, size: float) -> float:
+    """Approximate rendered width: CJK / full-width characters are one em, the rest about 0.6 em."""
+    return sum(size if ord(c) > 0x2E7F else size * 0.6 for c in s)
+
+
+def _chip(x: float, y: float, label: str, color: str, fill: str, size: float = 12, dashed: bool = False) -> tuple:
+    w = _tw(label, size) + 14
+    dash = ' stroke-dasharray="4 3"' if dashed else ""
+    svg = (f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{size + 10:.0f}" rx="9" fill="{fill}" '
+           f'stroke="{color}" stroke-width="1.2"{dash}/>'
+           f'<text x="{x + 7:.1f}" y="{y + size + 3:.1f}" font-family="{FONT}" font-size="{size}" fill="{color}">'
+           f'{escape(label)}</text>')
+    return svg, w
+
+
+def _t(x, y, s: str, size: float = 13, color: str = LO_TEXT, weight: int = 400, family: str = FONT) -> str:
+    return (f'<text x="{x}" y="{y}" font-family="{family}" font-size="{size}" font-weight="{weight}" '
+            f'fill="{color}" xml:space="preserve">{escape(s)}</text>')
+
+
+def evalmap_svg() -> str:
+    w, h = 960, 700
+    title = "评估器怎么用黄金集：读哪些字段、按需还是在线、进结论的哪一支柱"
+    p = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" '
+         f'aria-label="{escape(title)}"><title>{escape(title)}</title>',
+         f'<rect width="{w}" height="{h}" fill="#ffffff"/>', _t(20, 30, "评估器怎么用黄金集", 19, LO_TEXT, 700)]
+    # top band: one golden item, the capability catalog, how the answers reach the evaluators
+    p.append(f'<rect x="20" y="46" width="440" height="146" rx="8" fill="#fbfcfd" stroke="{LINE}"/>')
+    p.append(_t(34, 70, "黄金集的一条样本（例：G29 · FB-2610-041）", 14, LO_TEXT, 700))
+    sample = [("exp", "重要 否 · 紧急 否 · 建议 拒绝"), ("acc", "拒绝（模糊样例可以有多个）"),
+              ("car", "是（为“否”的需求判拒绝 = 误拒）"), ("pts", "租户间数据隔离（CAP-027）· 替代方案")]
+    for i, (k, val) in enumerate(sample):
+        chip, _w = _chip(34, 82 + i * 26, *FIELDS[k])
+        p.append(chip)
+        p.append(_t(146, 82 + i * 26 + 16, val, 12.5, "#3b4654"))
+    p.append(f'<rect x="474" y="46" width="200" height="146" rx="8" fill="#fbfcfd" stroke="{LINE}"/>')
+    chip, _w = _chip(488, 58, *FIELDS["cat"])
+    p.append(chip)
+    for j, ln in enumerate(["不在黄金集里，随", "reject_quality 打包；", "评审时摘录相关能力的", "状态、限制、替代方案和",
+                            "菜单路径，用来核实话术"]):
+        p.append(_t(488, 104 + j * 18, ln, 12.5, "#3b4654"))
+    p.append(f'<rect x="688" y="46" width="252" height="146" rx="8" fill="#fbfcfd" stroke="{LINE}"/>')
+    p.append(_t(702, 70, "答案怎么到评估器", 14, LO_TEXT, 700))
+    for j, ln in enumerate(["① 冻结时打包进 Lambda", "   （golden_set.json）：按需、", "   在线都按需求编号查",
+                            "② 按需评估另把期望标签当", "   参考输入传给每个评估器；", "   在线评估没有这一项"]):
+        p.append(_t(702, 94 + j * 17, ln, 12.5, "#3b4654"))
+    # the table: one row per evaluator
+    p.append(_t(20, 222, "每一行：左边同色标签 = 这个评估器读的黄金集字段；右边 = 它的结果进结论的哪一支柱", 12.5, "#6b7785"))
+    top, rh = 256, 44
+    for x, s in ((26, "读黄金集的哪些字段"), (330, "评估器 · 类型"), (575, "按需 / 在线"), (690, "进结论的哪一支柱")):
+        p.append(_t(x, 246, s, 13, LO_TEXT, 700))
+    p.append(f'<line x1="20" y1="{top - 2}" x2="940" y2="{top - 2}" stroke="{LINE}" stroke-width="1.2"/>')
+    for i, (name, typ, fields, ondemand, online, pills) in enumerate(EVAL_ROWS):
+        y = top + i * rh
+        if i % 2 == 0:
+            p.append(f'<rect x="20" y="{y}" width="920" height="{rh}" fill="#f7f9fb"/>')
+        x = 26.0
+        for k in fields:
+            chip, cw = _chip(x, y + 11, *FIELDS[k], dashed=(k == "ref"))
+            p.append(chip)
+            x += cw + 6
+        p.append(_t(330, y + 19, name, 13, LO_TEXT, 700, MONO))
+        p.append(_t(330, y + 36, typ, 11.5, "#6b7785"))
+        for j, (on, label) in enumerate(((ondemand, "按需"), (online, "在线"))):
+            px = 575 + j * 52
+            if on:
+                p.append(f'<rect x="{px}" y="{y + 11}" width="44" height="22" rx="11" fill="{HUB}"/>'
+                         + _t(px + 10, y + 26, label, 12, "#ffffff"))
+            else:
+                p.append(f'<rect x="{px}" y="{y + 11}" width="44" height="22" rx="11" fill="#ffffff" stroke="#c3cad3" '
+                         'stroke-dasharray="3 3"/>' + _t(px + 10, y + 26, label, 12, "#b3bcc7"))
+        x = 690.0
+        for kind, label in pills:
+            chip, cw = _chip(x, y + 11, label, *PILLARS[kind])
+            p.append(chip)
+            x += cw + 6
+    bottom = top + len(EVAL_ROWS) * rh
+    p.append(f'<line x1="20" y1="{bottom}" x2="940" y2="{bottom}" stroke="{LINE}" stroke-width="1.2"/>')
+    # the three pillars (evaluators/shared/pillars.py)
+    boxes = [("red", "红线 · 一票否决（要求 0 条）", ["误拒：标签评估器返回 CriticalFail", "话术红线：reject_quality 解释里的“红线：…”"]),
+             ("gate", "门禁 · 各 ≥ 70%", ["是否重要 / 是否紧急 / 处理建议准确率", "拒绝话术通过率（判拒绝的条目中 Pass 占比）"]),
+             ("obs", "观测 · 只看趋势", ["整条通过率、话术分项、reject_quality_llm、", "Builtin.*：不影响结论，用来归因和对比"])]
+    by = bottom + 18
+    for i, (kind, head, lines) in enumerate(boxes):
+        color, fill = PILLARS[kind]
+        bx = 20 + i * 310
+        p.append(f'<rect x="{bx}" y="{by}" width="300" height="76" rx="8" fill="{fill}" stroke="{color}" '
+                 'stroke-width="1.5"/>')
+        p.append(_t(bx + 12, by + 22, head, 13.5, color, 700))
+        for j, ln in enumerate(lines):
+            p.append(_t(bx + 12, by + 44 + j * 19, ln, 12, "#3b4654"))
+    p.append(_t(20, by + 104, "结论 = 红线 0 条且 4 个门禁全部达标。一条需求出现红线，它在每个门禁里都按错计"
+                "（规则在 evaluators/shared/pillars.py）", 13, LO_TEXT, 700))
+    p.append("</svg>\n")
+    return "".join(p)
+
+
 def drawings() -> dict:
     names = {"define": "你在这里：① 定义", "build": "你在这里：② 构建", "evaluate": "你在这里：③ 评估",
              "optimize": "你在这里：② 构建 + ③ 评估（修 Agent）", "release-observe": "你在这里：④ 发布 + ⑤ 观测",
              "feedback": "你在这里：⑥ 回流", "all": "六环全景"}
     out = {f"flywheel-{k}.svg": marker_svg(v, names[k]) for k, v in MARKERS.items()}
     out["flywheel-overview.svg"] = overview_svg()
+    out["eval-golden-map.svg"] = evalmap_svg()
     return out
 
 

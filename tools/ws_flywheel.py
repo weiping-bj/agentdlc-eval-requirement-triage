@@ -143,15 +143,17 @@ FIELDS = {"exp": ("期望标签", "#2f6fdc", "#e8f0fd"), "acc": ("可接受答�
           "cat": ("能力目录", "#8a6d1f", "#f7f1e1"), "ref": ("期望标签（参考输入）", "#2f6fdc", "#ffffff"),
           "none": ("不读黄金集", "#6b7785", "#f1f3f6")}
 PILLARS = {"red": ("#c62828", "#fdecea"), "gate": ("#c45f00", "#fff1e3"), "obs": ("#6b7785", "#f1f3f6")}
-# (evaluator, type, golden fields read, on demand, online, [(pillar, chip text)]):
-# labkit/evaluate.py (BUILTINS, expected_text), labkit/online.py (ONLINE_*), evaluators/*/ (what each one reads)
+# (evaluator, type, golden fields read, on demand, online, [(pillar, chip text)]): labkit/evaluate.py (BUILTINS,
+# expected_text), labkit/online.py (ONLINE_*), labkit/compare_story.py (ROLES: pillars), evaluators/*/ (fields read)
 EVAL_ROWS = [
-    ("label_important · label_urgent", "代码型（Lambda）", ("exp", "car"), True, True, [("gate", "门禁 · 准确率")]),
-    ("label_decision", "代码型（Lambda）", ("exp", "acc", "car"), True, True, [("gate", "门禁 · 准确率")]),
+    ("label_important · label_urgent", "代码型（Lambda）", ("exp", "car"), True, True,
+     [("gate", "门禁 · 准确率"), ("red", "红线 · 误拒")]),
+    ("label_decision", "代码型（Lambda）", ("exp", "acc", "car"), True, True,
+     [("gate", "门禁 · 准确率"), ("red", "红线 · 误拒")]),
     ("label_accuracy", "代码型（Lambda）", ("exp", "acc", "car"), True, True,
      [("red", "红线 · 误拒"), ("obs", "观测 · 整条通过率")]),
     ("reject_quality", "代码型（Lambda 内调用评审模型）", ("pts", "car", "cat"), True, True,
-     [("red", "红线 · 话术红线"), ("gate", "门禁 · 话术通过率")]),
+     [("red", "红线 · 话术"), ("gate", "门禁 · 话术通过率"), ("obs", "观测")]),
     ("reject_quality_llm", "LLM 评审（AgentCore 原生）", ("none",), True, False, [("obs", "观测")]),
     ("Builtin.Correctness", "内置", ("ref",), True, False, [("obs", "观测")]),
     ("Builtin.Helpfulness", "内置", ("none",), True, True, [("obs", "观测")]),
@@ -179,7 +181,7 @@ def _t(x, y, s: str, size: float = 13, color: str = LO_TEXT, weight: int = 400, 
 
 
 def evalmap_svg() -> str:
-    w, h = 960, 700
+    w, h = 960, 740
     title = "评估器怎么用黄金集：读哪些字段、按需还是在线、进结论的哪一支柱"
     p = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" '
          f'aria-label="{escape(title)}"><title>{escape(title)}</title>',
@@ -207,7 +209,7 @@ def evalmap_svg() -> str:
     # the table: one row per evaluator
     p.append(_t(20, 222, "每一行：左边同色标签 = 这个评估器读的黄金集字段；右边 = 它的结果进结论的哪一支柱", 12.5, "#6b7785"))
     top, rh = 256, 44
-    for x, s in ((26, "读黄金集的哪些字段"), (330, "评估器 · 类型"), (575, "按需 / 在线"), (690, "进结论的哪一支柱")):
+    for x, s in ((26, "读黄金集的哪些字段"), (330, "评估器 · 类型"), (575, "按需 / 在线"), (682, "进结论的哪一支柱")):
         p.append(_t(x, 246, s, 13, LO_TEXT, 700))
     p.append(f'<line x1="20" y1="{top - 2}" x2="940" y2="{top - 2}" stroke="{LINE}" stroke-width="1.2"/>')
     for i, (name, typ, fields, ondemand, online, pills) in enumerate(EVAL_ROWS):
@@ -229,7 +231,7 @@ def evalmap_svg() -> str:
             else:
                 p.append(f'<rect x="{px}" y="{y + 11}" width="44" height="22" rx="11" fill="#ffffff" stroke="#c3cad3" '
                          'stroke-dasharray="3 3"/>' + _t(px + 10, y + 26, label, 12, "#b3bcc7"))
-        x = 690.0
+        x = 682.0
         for kind, label in pills:
             chip, cw = _chip(x, y + 11, label, *PILLARS[kind])
             p.append(chip)
@@ -237,20 +239,24 @@ def evalmap_svg() -> str:
     bottom = top + len(EVAL_ROWS) * rh
     p.append(f'<line x1="20" y1="{bottom}" x2="940" y2="{bottom}" stroke="{LINE}" stroke-width="1.2"/>')
     # the three pillars (evaluators/shared/pillars.py)
-    boxes = [("red", "红线 · 一票否决（要求 0 条）", ["误拒：标签评估器返回 CriticalFail", "话术红线：reject_quality 解释里的“红线：…”"]),
-             ("gate", "门禁 · 各 ≥ 70%", ["是否重要 / 是否紧急 / 处理建议准确率", "拒绝话术通过率（判拒绝的条目中 Pass 占比）"]),
-             ("obs", "观测 · 只看趋势", ["整条通过率、话术分项、reject_quality_llm、", "Builtin.*：不影响结论，用来归因和对比"])]
+    boxes = [("red", "红线 · 一票否决（要求 0 条）", ["误拒：判了拒绝，黄金集却标“不可自动拒绝”", "（标签评估器返回 CriticalFail）",
+                                                  "话术红线：reject_quality 解释里的“红线：…”"]),
+             ("gate", "门禁 · 各 ≥ 70%", ["是否重要 / 是否紧急 / 处理建议准确率", "拒绝话术通过率（判拒绝的条目中 Pass 占比）",
+                                        "没有拒绝条目时话术门禁“不适用”"]),
+             ("obs", "观测 · 只看趋势", ["整条通过率、五维准确率、话术分项和均分、", "reject_quality_llm、Builtin.*：", "不影响结论，用来归因和对比"])]
     by = bottom + 18
     for i, (kind, head, lines) in enumerate(boxes):
         color, fill = PILLARS[kind]
         bx = 20 + i * 310
-        p.append(f'<rect x="{bx}" y="{by}" width="300" height="76" rx="8" fill="{fill}" stroke="{color}" '
+        p.append(f'<rect x="{bx}" y="{by}" width="300" height="96" rx="8" fill="{fill}" stroke="{color}" '
                  'stroke-width="1.5"/>')
         p.append(_t(bx + 12, by + 22, head, 13.5, color, 700))
         for j, ln in enumerate(lines):
             p.append(_t(bx + 12, by + 44 + j * 19, ln, 12, "#3b4654"))
-    p.append(_t(20, by + 104, "结论 = 红线 0 条且 4 个门禁全部达标。一条需求出现红线，它在每个门禁里都按错计"
-                "（规则在 evaluators/shared/pillars.py）", 13, LO_TEXT, 700))
+    p.append(_t(20, by + 122, "结论 = 没有红线，且每个门禁都达标。一条需求出现红线，它在每个门禁和整条通过率里都按错计。",
+                13, LO_TEXT, 700))
+    p.append(_t(20, by + 142, "规则在 evaluators/shared/pillars.py；评估器的角色和第 5 章对比页 ① 一致（labkit/compare_story.py）",
+                12, "#6b7785"))
     p.append("</svg>\n")
     return "".join(p)
 

@@ -353,7 +353,7 @@ results/triage-report-local-v1-ref-20261105T145251Z.html
    https://us-west-2.console.aws.amazon.com/s3/object/…
 ```
 
-在已登录控制台的浏览器里打开脚本打印的链接，在 S3 对象页面点右上角 **打开**（Open）。报告的“运行位置”一行显示“EC2 上自托管的 mock agent（ADOT 埋点）”，其余版式和第 6.3 步的报告相同。这批需求大部分不在黄金集里：E1.8 的在线评估照样给话术质量和 Helpfulness 打分，标签准确率评估器对不在黄金集里的条目返回 `Skipped`，不计分。
+在已登录控制台的浏览器里打开脚本打印的链接，在 S3 对象页面点右上角 **打开**（Open）。报告的“运行位置”一行显示“EC2 上自托管的 mock agent（ADOT 埋点）”，其余版式和第 6.3 步的报告相同。这批需求约一半不在黄金集里：E1.8 的在线评估照样给话术质量和 Helpfulness 打分，标签准确率评估器对不在黄金集里的条目返回 `Skipped`，不计分。
 
 :::alert{header="清理" type="info"}
 不用单独清理：[第 9 章](/09-cleanup)的 `./99-cleanup.sh` 按前缀删除你的资源，包括在线评估配置 `adlc_ws_online_local` 和日志组 `/aws/bedrock-agentcore/adlc-ws-local-agent`。只想停掉自托管的在线评估，运行 `./41-online-eval.sh disable --mode local`。

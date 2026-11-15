@@ -232,9 +232,10 @@ def test_images_are_marker_svgs_or_planned_screenshots_with_captions():
 def test_flywheel_svgs_are_current_and_self_contained():
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "ws_flywheel.py"), "--check"], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout
-    for svg in (WS / "static" / "images").glob("flywheel-*.svg"):
+    for svg in (WS / "static" / "images").glob("*.svg"):
         s = svg.read_text(encoding="utf-8")
         assert "href" not in s and "http" not in s.replace("http://www.w3.org/2000/svg", ""), svg.name
+        assert not re.search(r"<script|<foreignObject|@import|@font-face|\son\w+=|url\((?!#)", s, re.I), svg.name
 
 
 def test_switch_version_command_accepts_the_handbook_version_names(tmp_path):
@@ -331,6 +332,7 @@ def test_screenshot_files_match_the_shot_list_and_are_about_1600_px_without_meta
         assert not set(chunks) & {b"tEXt", b"iTXt", b"zTXt", b"eXIf", b"iCCP", b"tIME"}, (name, chunks)
 
 
+
 def _assigned(path: Path, name: str):
     """A module-level literal (list / tuple / dict) from a source file, without importing it (labkit needs boto3)."""
     import ast
@@ -340,13 +342,20 @@ def _assigned(path: Path, name: str):
     raise AssertionError(f"{name} not found in {path.name}")
 
 
-def _evaluator_modes() -> dict:
-    """Evaluator -> (on demand, online), from what 40-/41-/43- actually register, attach and call (binary scheme)."""
+def _evaluator_facts() -> dict:
+    """Evaluator -> (on demand, online, pillars) from the code (binary label scheme): 40- registers CODE_EVALUATORS plus
+    the native judge, 43- evaluates every registered one plus BUILTINS, 41- attaches ONLINE_*, and the compare page's
+    ROLES (labkit/compare_story.py) say which pillars each feeds."""
+    reg = text(ROOT / "labkit" / "evaluators_reg.py")
     code = [suffix for suffix, _key, _desc in _assigned(ROOT / "labkit" / "evaluators_reg.py", "CODE_EVALUATORS")]
+    judges = [n for n in re.findall(r'ev_name\("(\w+)"\)', reg) if n not in code]
+    assert judges == ["reject_quality_llm"] * len(judges) and judges, judges
     names = code + ["reject_quality_llm"] + list(_assigned(ROOT / "labkit" / "evaluate.py", "BUILTINS"))
+    assert "evaluators = [(k, v[\"evaluatorId\"]) for k, v in ev_state.items()" in text(ROOT / "labkit" / "evaluate.py")
     online = set(_assigned(ROOT / "labkit" / "online.py", "ONLINE_EVALUATORS")) | set(
         _assigned(ROOT / "labkit" / "online.py", "ONLINE_BUILTINS"))
-    return {n: (True, n in online) for n in names}
+    roles = _assigned(ROOT / "labkit" / "compare_story.py", "ROLES")
+    return {n: (True, n in online, set(roles[n][0])) for n in names}
 
 
 def _section(p: Path, anchor: str) -> str:
@@ -356,56 +365,104 @@ def _section(p: Path, anchor: str) -> str:
     return b[start:nxt if nxt != -1 else len(b)]
 
 
-def test_chapter4_evaluator_map_matches_what_the_scripts_register_and_attach():
-    """4.1: the three evaluation modes, one map row per evaluator whose 按需 / 在线 columns match labkit, and the
-    golden-set diagram (drawn by tools/ws_flywheel.py from rows that must match the same code)."""
+PILLAR_WORDS = {"red": "红线", "gate": "门禁", "obs": "观测"}
+
+
+def _flywheel_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ws_flywheel", ROOT / "tools" / "ws_flywheel.py")
+    fw = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fw)
+    return fw
+
+
+def test_chapter4_evaluator_map_matches_what_the_scripts_register_attach_and_score():
+    """4.1: the three evaluation modes, one map row per evaluator whose 按需 / 在线 columns and pillar roles match
+    labkit, and the golden-set diagram, drawn by tools/ws_flywheel.py from rows that must match the same code."""
     p = CONTENT / "04-evaluate" / "index.zh.md"
     s41 = _section(p, "s-4-1")
     for mode in ("**按需评估**（on-demand）", "**在线评估**（online）", "**批量评估**（batch）"):
         assert mode in s41, mode
+    assert "| 注册名 | 类型 | 按需 | 在线 | 读黄金集的什么 | 在结论里的角色 | 打什么分 |" in s41
     rows = {}
     for line in s41.splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         m = re.fullmatch(r"`([\w.]+)`", cells[0]) if len(cells) == 7 else None
         if m:
             assert cells[2] in ("是", "否") and cells[3] in ("是", "否"), line
-            rows[m.group(1)] = (cells[2] == "是", cells[3] == "是")      # columns 按需 / 在线
-    assert "| 注册名 | 类型 | 按需 | 在线 |" in s41
-    want = _evaluator_modes()
+            role = {k for k, w in PILLAR_WORDS.items() if w in cells[5]}
+            rows[m.group(1)] = (cells[2] == "是", cells[3] == "是", role)
+    want = _evaluator_facts()
     assert rows == want, (rows, want)
-    assert ':image[' in s41 and 'src="/static/images/eval-golden-map.svg"' in s41
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("ws_flywheel", ROOT / "tools" / "ws_flywheel.py")
-    fw = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fw)
+    assert 'src="/static/images/eval-golden-map.svg"' in s41
+    fw = _flywheel_module()
     drawn = {}
-    for names, _typ, _fields, ondemand, online, _pills in fw.EVAL_ROWS:
+    for names, _typ, _fields, ondemand, online, pills in fw.EVAL_ROWS:
         for n in names.split(" · "):
-            drawn[n] = (ondemand, online)
+            drawn[n] = (ondemand, online, {k for k, _label in pills})
     assert drawn == want, (drawn, want)
-    svg = (WS / "static" / "images" / "eval-golden-map.svg").read_text(encoding="utf-8")
-    assert svg == fw.evalmap_svg()                                   # committed file is what the script draws
-    rest = svg.replace("http://www.w3.org/2000/svg", "")
-    assert "href" not in rest and "http" not in rest and "@import" not in rest and "@font-face" not in rest
-    assert not re.findall(r"url\((?!#)", rest)
+    assert (WS / "static" / "images" / "eval-golden-map.svg").read_text(encoding="utf-8") == fw.evalmap_svg()
+    # the golden fields each drawn row says it reads are the ones that evaluator's code reads
+    ev = ROOT / "evaluators"
+    reads = {"acc": "acceptable_decisions", "car": "can_auto_reject", "pts": "reject_points", "cat": "capability_catalog"}
+    label_src = text(ev / "adlc_label_accuracy" / "label_scoring.py") + text(ev / "adlc_label_accuracy" / "lambda_function.py")
+    reject_src = text(ev / "adlc_reject_quality" / "judge.py") + text(ev / "adlc_reject_quality" / "lambda_function.py")
+    for names, _typ, fields, *_rest in fw.EVAL_ROWS:
+        src = label_src if names.startswith("label_") else reject_src if names == "reject_quality" else None
+        for k in fields:
+            if k in reads and src is not None:
+                assert reads[k] in src, (names, k)
+        if names == "reject_quality":
+            assert "reply_points" in src and "acceptable_decisions" not in text(ev / "adlc_reject_quality" / "judge.py")
+        if names.startswith("label_"):
+            assert "reject_points" not in text(ev / "adlc_label_accuracy" / "label_scoring.py")
+        if "none" in fields and names == "reject_quality_llm":
+            assert "{expected_response}" not in text(ev / "llm_judge_config" / "adlc_reject_quality.json")
+        if "ref" in fields:
+            assert "evaluationReferenceInputs" in text(ROOT / "labkit" / "evaluate.py")
 
 
 def test_chapter4_dissects_one_recorded_failure_and_ends_with_the_faq():
-    """4.7 walks one real V0 failure (the recorded run the expected outputs come from); a FAQ of collapsible
-    answers sits right before the check question, and chapter 6 points at it. Section ids other pages link to stay."""
+    """4.7 walks one real V0 failure (the recorded run the expected outputs come from); its numbers follow from the
+    judge's own scoring rule. A FAQ of collapsible answers sits right before the check question, and chapter 6 points
+    at it. Section ids other pages link to stay."""
+    import importlib
     p = CONTENT / "04-evaluate" / "index.zh.md"
+    b = body(p)
     anchors = _anchors(p)
     assert anchors == ["s-4-1", "s-4-2", "s-4-3", "s-4-4", "s-4-5", "s-4-6", "s-4-7", "s-4-faq", "s-4-check"], anchors
     s47 = _section(p, "s-4-7")
     m = re.search(r'^::::expand\{header="拆一条失败：(FB-\d{4}-\d{3})[^"]*"\}\n(.*?)^::::$', s47, re.S | re.M)
     assert m, "4.7 has no dissect expand block"
     fid, block = m.group(1), m.group(2)
-    assert "runtime-v0-20261114T134711Z" in block and f"[29/31] {fid}" in body(p)      # the same recorded run as 4.4
+    flag = "话术称可经API/连接器受控跨租户访问，目录无此能力"
+    s44, s45 = _section(p, "s-4-4"), _section(p, "s-4-5")
+    assert "runtime-v0-20261114T134711Z" in block and "runtime-v0-20261114T134711Z" in s44      # same recorded run
+    assert f"[29/31] {fid}       16.7s  重要=是 紧急=否 建议=拒绝" in s44 and "`重要=是 紧急=否 建议=拒绝`" in block
+    row = f"[31/31] {fid}    三项=Fail     重要=Fail  紧急=Pass  建议=Pass  话术=Fail"
+    assert row in s45 and "`三项=Fail 重要=Fail 紧急=Pass 建议=Pass 话术=Fail`" in block
+    assert f"⛔ {fid}（G29）话术红线：{flag}" in s45 and flag in block
     golden = [ln for ln in text(ROOT / "data" / "golden" / "golden_set.jsonl").splitlines() if f'"{fid}"' in ln]
-    assert golden and "G29" in golden[0] and "G29" in block
+    assert golden and '"G29"' in golden[0] and "G29" in block
+    import json
+    g = json.loads(golden[0])
+    assert g["input"]["content"] in block and all(x in block for x in g["reject_points"] + g["reply_points"])
+    # sub-scores 4,4,4,3,2 -> 0.6 without a flag, capped to 0.2 Fail with one (the judge's own rule)
+    sys.path.insert(0, str(ROOT / "evaluators" / "adlc_reject_quality"))
+    try:
+        judge = importlib.import_module("judge")
+        keys = [k for k, _n, _d in judge.rubric.DIMENSIONS]
+        scores = dict(zip(keys, (4, 4, 4, 3, 2)))
+        assert judge.score_verdict({"scores": scores, "red_flags": []})["value"] == 0.6
+        capped = judge.score_verdict({"scores": scores, "red_flags": [flag]})
+        assert (capped["value"], capped["label"]) == (0.2, "Fail")
+    finally:
+        sys.path.remove(str(ROOT / "evaluators" / "adlc_reject_quality"))
+    assert "理由专业性 4，理解与礼貌 4，原因说明 4，替代方案 3，风险控制 2" in block and "本来是 0.6" in block
     for step in ("① 黄金样本", "② V0 的输出", "③ 评估器的判断", "④ 进结论", "⑤ 五维归因", "⑥ V1 改了什么"):
         assert step in block, step
     faq = _section(p, "s-4-faq")
     assert 5 <= len(re.findall(r'^::::expand\{header="[^"]+？"\}$', faq, re.M)) <= 8
     assert faq.count("::::expand") * 2 == faq.count("::::")
     assert "(/04-evaluate#s-4-faq)" in body(CONTENT / "06-release-observe" / "index.zh.md")
+    assert b.index("{#s-4-faq}") < b.index("{#s-4-check}")

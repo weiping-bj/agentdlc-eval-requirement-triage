@@ -18,6 +18,7 @@ PNG，宽度不超过 1600 px（原图更宽时等比缩小）。现有截图来
 | `03-trace-triage-span.png` | 3 · 3.4 | 已拍 | Trajectory 全链路；右侧 `adlc.triage` 的 JSON 里有 `adlc.triage_output` | CloudWatch → GenAI Observability → Bedrock AgentCore → Agents → `adlc_ws_agent` → Sessions → 一个 session → Traces；先 **Clear filters** 再选 `adlc.triage`。本图是 V1 参考版处理上月需求的 session |
 | `04-online-eval-tab-Others.png` | 4 · 4.6 | 已拍 | 自定义评估器卡片和柱状图 | 同上 Agent 页 → **Evaluations**。V0 重跑：session 2026-11-14 16:57:40–16:59:53 UTC，分数写入 17:06:17–17:11:16 UTC；范围 2026-11-14T16:50Z 到 2026-11-14T17:10Z（北京时间 2026-11-15T00:50+08:00 到 2026-11-15T01:10+08:00），2 分钟一根柱子。卡片：decision 0.49 · urgent 0.9 · important 0.69 · accuracy 0.69 · reject_quality 0.26。这张图里 Pass 红、Fail 绿，以图例为准 |
 | `04-online-eval-tab-Builtin.png` | 4 · 4.6 | 已拍 | Builtin.Helpfulness 卡片和柱状图 | 同上；卡片 Helpfulness 0.83。第一次的 V0 运行没有能单独框出的范围（它的分数写入时，V1 的 session 已经开始） |
+| `04-results-page-drawer.png` | 4 · 4.7 | **未拍** | 结果页的需求详情：`FB-2610-009` 的需求原文、黄金集答案、V0 输出（处理建议 待评估，期望 拒绝）、工具调用 `lookup_capability` 的关键词和返回（只有功能名称）、各评估器的结果和解释 | S3 控制台 → `reports/results-page-runtime-v0-….html` → **打开** → 状态选“判错（含红线）”→ 点 `FB-2610-009`；详情里展开 V0，滚到“工具调用”。需要用带工具调用记录的 `./43-run-eval.sh` 评估过的 V0 运行 |
 | `05-claude-v1-summary.png` | 5 · 5.2 | 已拍 | Claude Code 写完 V1 后的总结：失败原因 → 修改 → 预期影响的指标、这一轮不改的、下一步 | 实验 EC2 上运行 5.2 的命令，截最后一屏 |
 | `05-compare-top-open.png` | 5 · 5.5 | 已拍 | S3 对象页，红框标出 **Open** | S3 控制台 → 对比页对象 |
 | `05-compare-top.png` | 5 · 5.5 | 已拍 | 对比页顶部：两个版本的结论、红线、门禁前后值、两次运行 | 对比页 V0 → V1 参考版 → **打开** |

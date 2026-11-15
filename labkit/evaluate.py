@@ -5,7 +5,8 @@
 
 For every session of the run: fetch its spans from CloudWatch, call the Evaluate API once
 per evaluator (custom + built-in) with the golden labels as reference input, and save
-results/eval-<run_id>.json (input to 51-compare.sh). The verdict follows the three pillars
+results/eval-<run_id>.json (input to 45-results-page.sh and 51-compare.sh; each session also records the tool calls
+of its trace, read from the same spans, for the results page). The verdict follows the three pillars
 (evaluators/shared/pillars.py): no red line (误拒 / 话术红线, one-vote veto) AND every gate met;
 observation metrics are printed for the trend only.
 """
@@ -76,6 +77,10 @@ def _evaluate_session(rec: dict, golden: dict, evaluators: list, log_group: str,
     tid = tids[-1]
     out["trace_id"] = tid
     out["span_docs"] = len(docs)
+    try:  # display only (results page): the tool calls of the evaluated trace, from the docs already fetched
+        out["tool_calls"] = spans.tool_calls(docs, trace_id=tid)
+    except Exception:  # noqa: BLE001 - never fail an evaluation over it
+        pass
     ref = None
     if fid in golden:
         ref = [{"context": {"spanContext": {"sessionId": sid, "traceId": tid}},

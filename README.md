@@ -20,7 +20,7 @@
 | `00-config.sh` | — | 共用配置（被其它脚本 `source`，不是步骤） |
 | `10-check-env.sh` · `11-enable-observability.sh` | 1 进入实验环境 | 检查环境 · 开启 Transaction Search（WS 的 CloudFormation 已运行） |
 | `30-deploy-runtime.sh` | 3 构建 | 部署 / 调用 / 查看 Runtime |
-| `40-create-evaluators.sh` · `41-online-eval.sh` · `42-run-golden.sh` · `43-run-eval.sh` · `44-failures.sh` | 4 评估 | 注册评估器 · 在线评估 · 跑黄金集 · 按需评估 · 失败归因 |
+| `40-create-evaluators.sh` · `41-online-eval.sh` · `42-run-golden.sh` · `43-run-eval.sh` · `44-failures.sh` · `45-results-page.sh` · `46-try-one.sh` | 4 评估 | 注册评估器 · 在线评估 · 跑黄金集 · 按需评估 · 失败归因 · 结果页（逐条详情、版本趋势；第 5 章再用）· 单条试跑 |
 | `50-switch-version.sh` · `51-compare.sh` | 5 优化 | 切换版本（v0 / v1 / v1-ref）· 前后对比页 |
 | `60-triage-report.sh` | 6 发布与观测 | 上月 60 条需求的分诊报告 |
 | `99-cleanup.sh` | 9 清理 | 删除实验资源 |

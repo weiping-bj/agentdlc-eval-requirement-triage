@@ -378,14 +378,17 @@ def topbar(title: str, subtitle: str, meta: list) -> str:
             f'<div class="spacer"></div><div class="meta">{m}</div></div>')
 
 
-def page(title: str, bar: str, body: str, footer: str, extra_css: str = "") -> str:
+def page(title: str, bar: str, body: str, footer: str, extra_css: str = "", extra_js: str = "") -> str:
+    """The whole self-contained page. extra_js is the caller's own constant script (never data): it goes into the
+    same single <script> element as FILTER_JS."""
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    js = FILTER_JS + ("\n" + extra_js.replace("</", "<\\/") if extra_js else "")
     return ("<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             f"<title>{esc(title)}</title>\n<style>\n{load_css()}\n{EXTRA_CSS}{extra_css}</style>\n</head>\n"
             f"<body>\n{bar}\n<main class=\"wrap\">\n{body}\n</main>\n"
             f"<footer>{esc(footer)} · 生成时间 {esc(generated)}</footer>\n"
-            f"<script>\n{FILTER_JS}\n</script>\n</body>\n</html>\n")
+            f"<script>\n{js}\n</script>\n</body>\n</html>\n")
 
 
 def delta_html(b, a, kind: str = "pct", higher_is_better: bool = True) -> str:

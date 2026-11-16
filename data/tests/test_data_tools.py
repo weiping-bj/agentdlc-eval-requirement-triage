@@ -1,4 +1,5 @@
-"""Tests for data/tools: mock generation and golden set tooling."""
+"""Tests for data/tools: mock generation, golden set tooling, customer-data ingest."""
+import csv
 import json
 import os
 import re
@@ -12,6 +13,7 @@ import common as C
 import generate_mock_data as GM
 import golden_lib as G
 import golden_tool as GT
+import ingest_customer_data as ING
 
 PY = sys.executable
 
@@ -36,17 +38,9 @@ def test_pool_and_feedback_shape():
         assert set(r) <= set(C.INPUT_FIELDS)
 
 
-PII = {
-    "邮箱": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
-    "身份证号": re.compile(r"(?<!\d)(?:\d{17}[\dXx]|\d{15})(?![\dXx])"),
-    "手机号": re.compile(r"(?<![\d+])(?:\+?86[-\s]?)?1[3-9]\d(?:[-\s]?\d{4}){2}(?!\d)"),
-    "座机": re.compile(r"(?<!\d)(?:\(?0\d{2,3}\)?[-\s]?)\d{7,8}(?!\d)"),
-}
-
-
 def test_mock_data_is_synthetic_and_pii_free():
     texts = open(C.FEEDBACK_PATH, encoding="utf-8").read() + open(C.GOLDEN_PATH, encoding="utf-8").read()
-    for kind, rx in PII.items():
+    for kind, rx in ING.PII.items():
         assert not rx.search(texts), f"{kind} found in mock data"
     for r in C.read_jsonl(C.FEEDBACK_PATH):
         assert r["customer"].endswith("（示例）")
@@ -281,6 +275,68 @@ def test_agentcore_dataset_projection():
     assert {"important", "urgent", "decision", "acceptable_decisions"} <= set(exp)
 
 
+# ---------------------------------------------------------------- ingest
+def _write_csv(path, header, rows):
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        w.writerows(rows)
+
+
+def test_ingest_csv_maps_masks_and_reports(tmp_path):
+    src = tmp_path / "cust.csv"
+    rows = []
+    for i in range(35):
+        rows.append([f"R{i}", f"需求{i}", f"客户反馈第{i}条，联系 13812345678 或 a{i}@example.com，审批报错无法提交", f"客户{i % 7}",
+                     "重点" if i % 2 else "S", "流程", "2026/10/%d" % (i % 28 + 1), "bug" if i % 3 == 0 else "需求",
+                     "是" if i % 2 else "否", "否", "拒绝" if i % 4 == 0 else "迭代", "多余列"])
+    _write_csv(src, ["需求编号", "需求标题", "需求描述", "客户名称", "客户等级", "模块", "提交时间", "需求类型",
+                     "是否重要", "是否紧急", "处理建议", "备注说明"], rows)
+    out = tmp_path / "out"
+    assert ING.main(["--in", str(src), "--out-dir", str(out)]) == 0
+    items = C.read_jsonl(str(out / "feedback.normalized.jsonl"))
+    assert len(items) == 35
+    it = items[0]
+    assert it["id"] == "R0" and it["submitted_at"] == "2026-10-01" and it["customer_tier"] == "战略"
+    assert it["feedback_type"] == "功能缺陷" and items[1]["feedback_type"] == "新需求" and items[1]["customer_tier"] == "KA"
+    assert "13812345678" not in it["content"] and "@example.com" in it["content"] and "a0@" not in it["content"]
+    assert it["extra"] == {"备注说明": "多余列"}
+    rep = (out / "report.md").read_text(encoding="utf-8")
+    assert "充足" in rep and "手机号" in rep
+    cands = C.read_jsonl(str(out / "golden_candidates.jsonl"))
+    assert len(cands) == 35 and cands[0]["expected"]["decision"] == "拒绝" and cands[0]["complete"]
+
+
+def test_ingest_insufficient_and_unmappable(tmp_path):
+    src = tmp_path / "thin.json"
+    src.write_text(json.dumps({"items": [{"反馈正文": "太慢"}, {"反馈正文": "不好用"}]}, ensure_ascii=False), encoding="utf-8")
+    assert ING.main(["--in", str(src), "--out-dir", str(tmp_path / "o")]) == 2  # no title/content column
+    m = tmp_path / "m.json"
+    m.write_text(json.dumps({"反馈正文": "content"}, ensure_ascii=False), encoding="utf-8")
+    assert ING.main(["--in", str(src), "--mapping", str(m), "--out-dir", str(tmp_path / "o"), "--strict"]) == 1
+    rep = (tmp_path / "o" / "report.md").read_text(encoding="utf-8")
+    assert "不足" in rep
+    items = C.read_jsonl(str(tmp_path / "o" / "feedback.normalized.jsonl"))
+    assert items[0]["id"] == "CUST-0001" and items[0]["title"] == "太慢"
+
+
+def test_ingest_xlsx(tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["编号", "标题", "详情", "创建时间"])
+    ws.append(["X1", "批量编辑", "希望批量编辑自定义字段", "2026-10-05"])
+    ws.append([None, None, None, None])
+    ws.append(["X2", "离线", "希望离线录入", 46300])
+    p = tmp_path / "c.xlsx"
+    wb.save(p)
+    rows = C.read_xlsx(str(p))
+    assert len(rows) == 2 and rows[0]["标题"] == "批量编辑"
+    assert ING.main(["--in", str(p), "--out-dir", str(tmp_path / "o")]) == 0
+    items = C.read_jsonl(str(tmp_path / "o" / "feedback.normalized.jsonl"))
+    assert items[1]["submitted_at"] == "2026-10-05"  # Excel serial 46300
+
+
 def test_norm_helpers():
     assert C.norm_date("2026年10月3日") == "2026-10-03"
     assert C.norm_date("20261003") == "2026-10-03"
@@ -292,6 +348,20 @@ def test_norm_helpers():
 
 
 # ---------------------------------------------------------------- regressions from code-review.md
+def test_review_H1_pii_masked_everywhere_and_use_as_input_stays_out_of_git(tmp_path):
+    src = tmp_path / "c.csv"
+    _write_csv(src, ["需求标题", "需求描述", "客户名称", "联系电话", "回复客户", "处理建议", "是否重要", "是否紧急"],
+               [["导出", "请联系 +86 138-1234-5678 或 010-62345678", "张三 13900001111", "138 1234 5678",
+                 "请联系 13812345678 或 zhang.san@acme.com", "拒绝", "否", "否"]])
+    before = open(C.FEEDBACK_PATH, encoding="utf-8").read()
+    out = tmp_path / "o"
+    assert ING.main(["--in", str(src), "--out-dir", str(out), "--use-as-input"]) == 0
+    blob = "".join(p.read_text(encoding="utf-8") for p in out.rglob("*.jsonl"))
+    for raw in ("138-1234-5678", "62345678", "13900001111", "138 1234 5678", "13812345678", "zhang.san@"):
+        assert raw not in blob, raw
+    assert open(C.FEEDBACK_PATH, encoding="utf-8").read() == before  # tracked mock file untouched
+    assert (out / "agent_data" / "feedback_last_month.jsonl").exists() and (out / "agent_data" / "capability_catalog.json").exists()
+    assert not os.path.exists(C.FEEDBACK_PATH + ".bak")
 
 
 def test_review_H2_gbk_csv_and_bom_files(tmp_path):
@@ -359,6 +429,7 @@ def test_review_M3_negated_decisions():
     for v in ("不接受", "暂不开发", "不建议迭代", "won't fix"):
         assert C.norm_decision(v) is None, v
     assert C.norm_decision("已修复，已关闭") != "拒绝"
+    assert "状态" not in ING.SYNONYMS["label_decision"]
 
 
 def test_review_M6_freeze_failure_leaves_file_and_sync_uses_golden_arg(tmp_path):

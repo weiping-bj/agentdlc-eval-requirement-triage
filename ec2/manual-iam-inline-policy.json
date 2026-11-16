@@ -17,7 +17,7 @@
         "iam:TagRole",
         "iam:UpdateAssumeRolePolicy"
       ],
-      "Resource": "arn:aws:iam::*:role/adlc-*"
+      "Resource": "arn:aws:iam::*:role/s12lab*"
     },
     {
       "Sid": "ServiceLinkedRoles",
@@ -39,13 +39,13 @@
         "iam:DetachRolePolicy",
         "iam:UpdateAssumeRolePolicy"
       ],
-      "Resource": "arn:aws:iam::*:role/adlc-ec2-*"
+      "Resource": "arn:aws:iam::*:role/s12lab-ec2-*"
     },
     {
       "Sid": "LabIamPassRole",
       "Effect": "Allow",
       "Action": "iam:PassRole",
-      "Resource": "arn:aws:iam::*:role/adlc-*",
+      "Resource": "arn:aws:iam::*:role/s12lab*",
       "Condition": {
         "StringEquals": {
           "iam:PassedToService": [
@@ -54,76 +54,6 @@
           ]
         }
       }
-    },
-    {
-      "Sid": "ModelAllowlist",
-      "Effect": "Deny",
-      "Action": [
-        "bedrock:InvokeModel*",
-        "bedrock:CountTokens"
-      ],
-      "NotResource": [
-        "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-sonnet-5-5",
-        "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-haiku-5-5",
-        "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-2-lite-v1:0",
-        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5",
-        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-5-5",
-        "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0",
-        "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5",
-        "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-5-5",
-        "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0",
-        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5",
-        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-5-5",
-        "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0"
-      ]
-    },
-    {
-      "Sid": "NoOtherModelInvocationPaths",
-      "Effect": "Deny",
-      "Action": [
-        "bedrock:CreateModelInvocationJob",
-        "bedrock:InvokeAgent",
-        "bedrock:InvokeInlineAgent",
-        "bedrock:RetrieveAndGenerate",
-        "bedrock:InvokeFlow",
-        "bedrock:CallWithBearerToken"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "DenyCredentialCreation",
-      "Effect": "Deny",
-      "Action": [
-        "iam:CreateUser",
-        "iam:CreateAccessKey",
-        "iam:CreateLoginProfile",
-        "iam:UpdateLoginProfile",
-        "iam:CreateServiceSpecificCredential",
-        "iam:ResetServiceSpecificCredential",
-        "iam:AttachUserPolicy",
-        "iam:PutUserPolicy",
-        "iam:UpdateAccessKey",
-        "iam:UpdateServiceSpecificCredential",
-        "iam:UploadSSHPublicKey",
-        "iam:UploadSigningCertificate",
-        "iam:AddUserToGroup",
-        "iam:PutGroupPolicy",
-        "iam:AttachGroupPolicy",
-        "iam:CreateOpenIDConnectProvider",
-        "iam:CreateSAMLProvider",
-        "sts:GetFederationToken",
-        "iam:UpdateSSHPublicKey",
-        "iam:UpdateSigningCertificate",
-        "iam:UpdateSAMLProvider",
-        "iam:AddClientIDToOpenIDConnectProvider",
-        "iam:UpdateOpenIDConnectProviderThumbprint",
-        "iam:PutUserPermissionsBoundary",
-        "iam:DeleteUserPermissionsBoundary",
-        "rolesanywhere:CreateTrustAnchor",
-        "rolesanywhere:CreateProfile",
-        "sts:GetSessionToken"
-      ],
-      "Resource": "*"
     }
   ]
 }

@@ -1,7 +1,7 @@
-"""Chapter 5 (optimize): static HTML page comparing two on-demand evaluations (V0 baseline vs V1 / V1 参考版).
+"""Chapter 9: static HTML page comparing two on-demand evaluations (V0 baseline vs V1 optimized).
 
-  python -m labkit.compare                                  # after = latest non-v0 eval, before = latest v0 eval of the same mode before it
-  python -m labkit.compare --before results/eval-runtime-v0-....json --after results/eval-runtime-v1-....json
+  python -m labkit.compare                                  # after = latest non-v0 eval, before = latest v0 eval of the same path before it
+  python -m labkit.compare --before results/eval-B-v0-....json --after results/eval-B-v1-....json
   python -m labkit.compare --before <eval json|run_id> --after <eval json|run_id> --out page.html
 
 Inputs are the results/eval-<run_id>.json files written by labkit.evaluate (registered in
@@ -14,8 +14,8 @@ same rule batch_score.py and labkit.evaluate use; it is applied to the stored ev
 evaluations written by older evaluator versions are read under the current rule too.
 
 Above the score details the page tells the optimization story in four cards (labkit/compare_story.py):
-evaluators and their pillar, the problems the "before" evaluation found (the 4.7 analysis of labkit.failures),
-what changed (model, prompt and tool diff, change notes agent/adlc_agent/prompts/<version>.changes.md) and the
+evaluators and their pillar, the problems the "before" evaluation found (the 7.5 analysis of labkit.failures),
+what changed (model, prompt and tool diff, change notes agent/s12agent/prompts/<version>.changes.md) and the
 per-item flips.
 
 The page-building helpers at the top of this module are shared with labkit.report.
@@ -39,7 +39,7 @@ from labkit import items as labitems
 def _load_pillars():
     """evaluators/shared/pillars.py (canonical copy; loaded by path next to this package, not via sys.path)."""
     path = Path(__file__).resolve().parent.parent / "evaluators" / "shared" / "pillars.py"
-    spec = importlib.util.spec_from_file_location("adlc_shared_pillars", path)
+    spec = importlib.util.spec_from_file_location("s12_shared_pillars", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -53,20 +53,8 @@ pillars = _load_pillars()
 
 SEED_POOL = "data/tools/seed/pool.jsonl"  # last-resort source of titles when data files are absent
 NA_LABELS = {"skipped", "不适用", "not applicable", "notapplicable", "not_applicable", "n/a", "na"}
-# run mode -> (short tag, long label): where the agent ran / where the data came from
-PATHS = {"runtime": ("Runtime", "AgentCore Runtime"), "local": ("自托管", "EC2 上自托管的 mock agent（ADOT 埋点）"),
-         "imported": ("日志导入", "导入的日志（ext-convert-logs.sh）"), "own": ("自带 Agent", "自带 Agent（手动登记的运行）")}
-VERSION_RE = r"v\d{1,3}(?:-ref)?"   # v0, v1 (the participant's), v1-ref (V1 参考版), v2 ...
-
-
-def version_label(version) -> str:
-    """Display name of an agent version: v1-ref -> "V1 参考版", v1 -> "V1"; anything else upper-cased."""
-    v = str(version or "").strip()
-    if not v:
-        return "?"
-    if v.lower().endswith("-ref") and re.fullmatch(VERSION_RE, v.lower()):
-        return f"{v[:-4].upper()} 参考版"
-    return v.upper()
+PATHS = {"local": ("A", "A 版 · mock agent（EC2 上运行，ADOT 埋点）"), "runtime": ("B", "B 版 · AgentCore Runtime"),
+         "imported": ("A", "导入的日志（11-A-convert-logs.sh）"), "own": ("A", "自带 Agent（手动登记的运行）")}
 
 FALLBACK_CSS = (
     "body{margin:0;background:#f4f6f9;color:#1f2933;font:14px/1.7 -apple-system,'PingFang SC','Microsoft YaHei',sans-serif}"
@@ -246,10 +234,7 @@ def fmt_time(v) -> str:
             return s
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    try:
-        return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    except (OverflowError, ValueError):  # e.g. year 1 with a positive offset: show it as written
-        return s
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def path_of(mode) -> tuple:
@@ -332,7 +317,7 @@ def feedback_index(extra_paths=()) -> dict:
     Used for display only (titles, customer details, expected labels). Earlier files win.
     """
     import os
-    data_dir = os.environ.get("ADLC_DATA_DIR")
+    data_dir = os.environ.get("S12_DATA_DIR")
     customer = [str(Path(data_dir) / n) for n in ("feedback_last_month.jsonl", "feedback.jsonl")] if data_dir else []
     cands = [*extra_paths, *customer, *labitems.GOLDEN_CANDIDATES, *labitems.FEEDBACK_CANDIDATES, SEED_POOL]
     idx: dict = {}
@@ -381,17 +366,14 @@ def topbar(title: str, subtitle: str, meta: list) -> str:
             f'<div class="spacer"></div><div class="meta">{m}</div></div>')
 
 
-def page(title: str, bar: str, body: str, footer: str, extra_css: str = "", extra_js: str = "") -> str:
-    """The whole self-contained page. extra_js is the caller's own constant script (never data): it goes into the
-    same single <script> element as FILTER_JS."""
+def page(title: str, bar: str, body: str, footer: str, extra_css: str = "") -> str:
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    js = FILTER_JS + ("\n" + extra_js.replace("</", "<\\/") if extra_js else "")
     return ("<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             f"<title>{esc(title)}</title>\n<style>\n{load_css()}\n{EXTRA_CSS}{extra_css}</style>\n</head>\n"
             f"<body>\n{bar}\n<main class=\"wrap\">\n{body}\n</main>\n"
             f"<footer>{esc(footer)} · 生成时间 {esc(generated)}</footer>\n"
-            f"<script>\n{js}\n</script>\n</body>\n</html>\n")
+            f"<script>\n{FILTER_JS}\n</script>\n</body>\n</html>\n")
 
 
 def delta_html(b, a, kind: str = "pct", higher_is_better: bool = True) -> str:
@@ -476,7 +458,7 @@ class EvalRun:
         stem = self.path.stem
         self.run_id = str(self.run.get("run_id") or (stem[5:] if stem.startswith("eval-") else stem))
         self.version = str(self.run.get("version") or "").strip()
-        self.vlabel = version_label(self.version)
+        self.vlabel = self.version.upper() if self.version else "?"
         self.evaluators = {str(k): str(v) for k, v in as_dict(self.data.get("evaluators")).items()}
 
     @classmethod
@@ -573,7 +555,7 @@ def case_of(s: dict) -> dict:
     if known == 3:
         n = correct
     elif lav is not None:
-        n = int(round(max(0.0, min(1.0, lav)) * 3))  # label_accuracy is 0-1; never overflow on a bogus value
+        n = int(round(lav * 3))
     elif agent_error or la_label == "FormatError":
         n = 0
     else:
@@ -666,7 +648,7 @@ def _run_box(ev: EvalRun, role: str) -> str:
     count = r.get("count") if r.get("count") not in (None, "") else (len(ev.sessions) or "—")
     rows = [
         ("run_id", f'<span class="mono">{esc(ev.run_id)}</span>'),
-        ("运行位置", esc(plabel)),
+        ("路线", esc(plabel)),
         ("模型", f'<span class="mono">{esc(r.get("model") or "—")}</span>'),
         ("数据集", esc(f"{r.get('source') or '—'} · {count} 条")),
         ("运行时间", esc(fmt_time(r.get("created")))),
@@ -675,7 +657,7 @@ def _run_box(ev: EvalRun, role: str) -> str:
         ("Agent 错误", esc(f"{ev.agent_errors()} 条")),
     ]
     trs = "".join(f"<tr><td>{esc(k)}</td><td>{v}</td></tr>" for k, v in rows)
-    return (f'<div class="runbox"><h3>{esc(role)} · {esc(ev.vlabel)} {pill(letter, "o" if letter == "Runtime" else "p")}</h3>'
+    return (f'<div class="runbox"><h3>{esc(role)} · {esc(ev.vlabel)} {pill("路线 " + letter, "p" if letter == "A" else "o")}</h3>'
             f"<table>{trs}</table></div>")
 
 
@@ -1125,12 +1107,12 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
     story = compare_story.story_html(b, a, pb, pa, specs, target, fb)
 
     region = a.data.get("region") or b.data.get("region") or "—"
-    bar = topbar(f"AgentDLC 动手实验 · 评估对比 {vb} vs {va}", "需求反馈分诊 Agent · AgentCore Evaluations 前后对比（红线 · 门禁 · 观测）",
+    bar = topbar(f"场景 12 · 评估对比 {vb} vs {va}", "需求反馈分诊 Agent · AgentCore Evaluations 前后对比（红线 · 门禁 · 观测）",
                  [("优化前", b.run_id), ("优化后", a.run_id), ("区域", region)])
     head = (f'<div class="card"><h2>{esc(vb)}（基线）→ {esc(va)}（优化后）：红线 0 条，且门禁各 ≥{esc(t)}，才算通过</h2>'
             f'{verdict}{notes_html}<div class="kpis">{kpis}</div>{compare_story.nav_html()}</div>'
             f'<div class="card"><h2>两次运行</h2><div class="runs">{_run_box(b, "优化前")}{_run_box(a, "优化后")}</div></div>')
-    return page(f"评估对比 {vb} vs {va} · AgentDLC 动手实验", bar,
+    return page(f"评估对比 {vb} vs {va} · 场景 12", bar,
                 head + story + _pillars_section(b, a, pb, pa) + chart + table + cases_html,
                 FOOTER, PILLAR_CSS + compare_story.STORY_CSS)
 
@@ -1138,12 +1120,13 @@ def build_compare(b: EvalRun, a: EvalRun, target: float) -> str:
 def pick_default() -> tuple:
     evals = [e for e in load_state_list("evals") if e.get("file")]
     if len(evals) < 2:
-        raise SystemExit("❌ .lab-state/evals.json 里不足两次评估记录：先对 V0 和 V1 各运行一次 ./43-run-eval.sh，"
+        raise SystemExit("❌ .lab-state/evals.json 里不足两次评估记录：先对 V0 和 V1 各运行一次 ./31-run-eval.sh，"
                          "或用 --before / --after 指定两个 eval JSON")
     # after = the latest non-v0 evaluation; before = the latest v0 evaluation of the same
-    # mode (where the agent ran) that happened before it -> re-runs of V0 never pair with a stale baseline
+    # path (mode) that happened before it -> re-runs of V0 never pair with a stale baseline
     ver = lambda e: str(e.get("version") or "").lower()  # noqa: E731
-    after = next((e for e in reversed(evals) if re.fullmatch(VERSION_RE, ver(e)) and ver(e) != "v0"
+    import re as _re
+    after = next((e for e in reversed(evals) if _re.fullmatch(r"v\d+", ver(e)) and ver(e) != "v0"
                   and e.get("mode") != "imported"), None)
     before = None
     if after is not None:
@@ -1153,14 +1136,14 @@ def pick_default() -> tuple:
     if before is None or after is None:
         before, after = evals[-2], evals[-1]
     if before.get("mode") != after.get("mode"):
-        print(f"⚠️  优化前后的 Agent 运行位置不同（{before.get('mode')} vs {after.get('mode')}），对比仅供参考；"
-              "可用 --before/--after 指定同一运行位置的两次评估", file=sys.stderr)
+        print(f"⚠️  优化前后来自不同路线（{before.get('mode')} vs {after.get('mode')}），对比仅供参考；"
+              "可用 --before/--after 指定同一路线的两次评估", file=sys.stderr)
     return root() / str(before["file"]), root() / str(after["file"])
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m labkit.compare", description="生成 V0 vs V1 评估对比页（自包含静态 HTML）")
-    ap.add_argument("--before", help="优化前的 eval JSON 路径或 run_id（默认：同一运行位置、在“优化后”之前最近一次的 v0）")
+    ap.add_argument("--before", help="优化前的 eval JSON 路径或 run_id（默认：同一路线、在“优化后”之前最近一次的 v0）")
     ap.add_argument("--after", help="优化后的 eval JSON 路径或 run_id（默认：evals.json 中最新的非 v0 版本）")
     ap.add_argument("--out", help="输出 HTML（默认：results/compare-<before>-vs-<after>.html）")
     a = ap.parse_args(argv)

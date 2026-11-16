@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>在控制台查看 Runtime 与 trace · AgentDLC 动手实验手册</title>
+<title>在控制台查看 Runtime 与 trace · 场景 12 实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="b4-invoke">
@@ -22,10 +22,10 @@
   <p class="why">确认 Runtime、版本和环境变量（Agent 版本、模型）都符合预期。</p>
   <ol class="clicks">
     <li>控制台顶部搜索 <code>Bedrock AgentCore</code> → 打开 <span class="ui">Amazon Bedrock AgentCore</span> 控制台（区域与实验一致）。</li>
-    <li>左侧 <span class="ui">Runtime</span>（Agent runtime）→ 列表里找到 <code>adlc_zhang3_agent</code>，状态 <span class="pill g">Ready</span>。</li>
-    <li>点进去：能看到版本号、<span class="ui">DEFAULT</span> 端点、执行角色 <code>adlc-zhang3-runtime-role-us-west-2</code>，以及环境变量 <code>AGENT_VERSION=v0</code>、<code>AGENT_MODEL_ID</code>。</li>
+    <li>左侧 <span class="ui">Runtime</span>（Agent runtime）→ 列表里找到 <code>s12lab_zhang3_agent</code>，状态 <span class="pill g">Ready</span>。</li>
+    <li>点进去：能看到版本号、<span class="ui">DEFAULT</span> 端点、执行角色 <code>s12lab-zhang3-runtime-role-us-west-2</code>，以及环境变量 <code>AGENT_VERSION=v0</code>、<code>AGENT_MODEL_ID</code>。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>Runtime 状态 Ready，版本 1（第 8 章重新部署 V1 后变为版本 2）。命令行查看同样的信息：<code>./30-deploy-runtime.sh status</code>。控制台菜单名称可能随版本略有不同。</div>
+  <div class="expect"><span class="label">预期结果：</span>Runtime 状态 Ready，版本 1（第 8 章重新部署 V1 后变为版本 2）。命令行查看同样的信息：<code>./20-B-deploy-runtime.sh status</code>。控制台菜单名称可能随版本略有不同。</div>
 </div>
 
 <div class="step" id="s-b4-2">
@@ -33,10 +33,10 @@
   <p class="why">在控制台看到 Agent、会话、trace 和工具调用；后面的评估就是读这些数据。</p>
   <ol class="clicks">
     <li>B3.4 之后等 2–3 分钟。打开 CloudWatch → 左侧 <span class="ui">GenAI Observability</span> → <span class="ui">Bedrock AgentCore</span>。</li>
-    <li><span class="ui">Agents</span> 列表找到 <code>adlc_zhang3_agent</code> → 点进去，<span class="ui">Overview</span> 里有会话数、调用次数、延迟、token 用量。</li>
-    <li>切到 <span class="ui">Sessions</span> → 点那个 <code>adlc-zhang3-smoke-…</code> 会话 → <span class="ui">Traces</span>：调用树里有 <code>adlc.triage</code> → <code>invoke_agent</code> → <code>chat</code> 和 <code>execute_tool lookup_capability</code>，点开 span 能看到模型的输入和输出。</li>
+    <li><span class="ui">Agents</span> 列表找到 <code>s12lab_zhang3_agent</code> → 点进去，<span class="ui">Overview</span> 里有会话数、调用次数、延迟、token 用量。</li>
+    <li>切到 <span class="ui">Sessions</span> → 点那个 <code>s12lab-zhang3-smoke-…</code> 会话 → <span class="ui">Traces</span>：调用树里有 <code>s12lab.triage</code> → <code>invoke_agent</code> → <code>chat</code> 和 <code>execute_tool lookup_capability</code>，点开 span 能看到模型的输入和输出。</li>
   </ol>
-  <div class="expect"><span class="label">预期结果：</span>能看到 1 个会话、1 个 trace，以及模型和工具调用的耗时。Runtime 上的服务名是 <code>adlc_zhang3_agent.DEFAULT</code>（在线评估和指标都按这个名字聚合）。</div>
+  <div class="expect"><span class="label">预期结果：</span>能看到 1 个会话、1 个 trace，以及模型和工具调用的耗时。Runtime 上的服务名是 <code>s12lab_zhang3_agent.DEFAULT</code>（在线评估和指标都按这个名字聚合）。</div>
   <div class="tip">Runtime 自己的日志在 CloudWatch Logs 日志组 <code>/aws/bedrock-agentcore/runtimes/&lt;Runtime ID&gt;-DEFAULT</code>，调用报错时先看这里。</div>
   <p>下一步：<a href="06-evaluators.html">第 6 章 注册评估器 + 开启在线评估</a>。</p>
 </div>
@@ -44,7 +44,7 @@
 </section>
 </main>
 </div>
-<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

@@ -1,21 +1,18 @@
 """Online evaluation config: lets AgentCore Evaluations score new sessions automatically and
 write the scores to CloudWatch, so they show in GenAI Observability > agent > Evaluations.
 
-  python -m labkit.online enable  [--mode runtime|local]   # create (or re-enable) the config (default: runtime)
-  python -m labkit.online disable [--mode runtime|local]
+  python -m labkit.online enable  --path a|b     # create (or re-enable) the config for your path
+  python -m labkit.online disable --path a|b     # needed before updating/deleting evaluators
   python -m labkit.online status
-
-mode runtime = the agent on AgentCore Runtime (the main path); mode local = the mock agent run on the lab EC2
-with ADOT (extension "self-hosted agent"). Config names: <prefix>_<suffix>_online_runtime / _online_local.
 """
 from __future__ import annotations
 
 import argparse
 import sys
 
-from . import aws, models
+from . import aws
 
-ONLINE_EVALUATORS = ["label_accuracy", "label_important", "label_urgent", "label_decision", "label_level", "reject_quality"]  # label_level: only registered in the P0/P1/P2 scheme
+ONLINE_EVALUATORS = ["label_accuracy", "label_important", "label_urgent", "label_decision", "reject_quality"]
 ONLINE_BUILTINS = ["Builtin.Helpfulness"]
 
 
@@ -36,39 +33,28 @@ def role_arn() -> str:
         {"Effect": "Allow", "Action": ["logs:PutIndexPolicy"],
          "Resource": [f"arn:aws:logs:{r}:{a}:log-group:aws/spans", f"arn:aws:logs:{r}:{a}:log-group:aws/spans:*",
                       f"arn:aws:logs:{r}:{a}:log-group:/aws/bedrock-agentcore/*"]},
-        # Only a custom LLM-judge evaluator would invoke a model as this role (the online set uses Lambda
-        # evaluators and built-ins, which run on service capacity); allowlisted models only (labkit/models.py)
-        {"Effect": "Allow", "Action": list(models.INVOKE_ACTIONS), "Resource": models.invoke_resources(r, a)},
+        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream",
+                                       "bedrock:Converse", "bedrock:ConverseStream"],
+         "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]},
         {"Effect": "Allow", "Action": ["lambda:InvokeFunction", "lambda:GetFunction"],
          "Resource": [f"arn:aws:lambda:{r}:{a}:function:{c['LAB_NAME']}-eval-*"]},
         {"Effect": "Allow", "Action": ["cloudwatch:PutMetricData"], "Resource": "*"},
     ]}
-    return aws.ensure_role(c["ONLINE_EVAL_ROLE_NAME"], trust, inline, "adlc online evaluation role")
+    return aws.ensure_role(c["ONLINE_EVAL_ROLE_NAME"], trust, inline, "s12lab online evaluation role")
 
 
-MODES = ("runtime", "local")
-LABEL = {"runtime": "AgentCore Runtime", "local": "EC2 上自托管的 mock agent"}
+def config_name(path: str) -> str:
+    return f"{aws.cfg()['ONLINE_EVAL_NAME']}_{path}"
 
 
-def config_name(mode: str) -> str:
-    return f"{aws.cfg()['ONLINE_EVAL_NAME']}_{mode}"
-
-
-LEGACY = {"runtime": "b", "local": "a"}  # names before the rename (<prefix>_online_b / _online_a)
-
-
-def legacy_name(mode: str) -> str:
-    return f"{aws.cfg()['ONLINE_EVAL_NAME']}_{LEGACY[mode]}"
-
-
-def data_source(mode: str) -> dict:
+def data_source(path: str) -> dict:
     c = aws.cfg()
-    if mode == "local":
+    if path == "a":
         return {"cloudWatchLogs": {"logGroupNames": ["aws/spans", c["LOCAL_LOG_GROUP"]],
                                    "serviceNames": [c["LOCAL_SERVICE_NAME"]]}}
     st = aws.load_state("runtime")
     if not st:
-        raise SystemExit("❌ 还没有部署 Runtime：先运行 ./30-deploy-runtime.sh（第 3 章）")
+        raise SystemExit("❌ 还没有部署 Runtime：先运行 ./20-B-deploy-runtime.sh")
     return {"cloudWatchLogs": {"logGroupNames": ["aws/spans", st["logGroup"]], "serviceNames": [st["serviceName"]]}}
 
 
@@ -88,31 +74,30 @@ def find(name: str):
             return None
 
 
-def enable(mode: str) -> int:
+def enable(path: str) -> int:
     ctl = aws.client("bedrock-agentcore-control")
     ev = aws.load_state("evaluators") or {}
     if not ev:
-        raise SystemExit("❌ 先运行 ./40-create-evaluators.sh 注册评估器（第 4.2 步）")
+        raise SystemExit("❌ 先运行 ./30-create-evaluators.sh 注册评估器")
     evaluators = [{"evaluatorId": ev[k]["evaluatorId"]} for k in ONLINE_EVALUATORS if k in ev]
     evaluators += [{"evaluatorId": b} for b in ONLINE_BUILTINS]
-    name = config_name(mode)
-    role = role_arn()  # the stack's pre-created role on the lab EC2; created/refreshed on a laptop
+    name = config_name(path)
     existing = find(name)
     if existing:
         cid = existing["onlineEvaluationConfigId"]
         ctl.update_online_evaluation_config(onlineEvaluationConfigId=cid, executionStatus="ENABLED",
-                                            evaluators=evaluators, dataSourceConfig=data_source(mode),
-                                            evaluationExecutionRoleArn=role)
+                                            evaluators=evaluators, dataSourceConfig=data_source(path))
         print(f"✅ 在线评估配置 {name} 已启用（{cid}）")
     else:
         import time
+        role = role_arn()
         for attempt in range(8):
             try:
                 r = ctl.create_online_evaluation_config(
                     onlineEvaluationConfigName=name,
-                    description=f"adlc online evaluation ({mode})",
+                    description=f"s12lab online evaluation (path {path.upper()})",
                     rule={"samplingConfig": {"samplingPercentage": 100.0}, "sessionConfig": {"sessionTimeoutMinutes": 2}},
-                    dataSourceConfig=data_source(mode), evaluators=evaluators,
+                    dataSourceConfig=data_source(path), evaluators=evaluators,
                     evaluationExecutionRoleArn=role, enableOnCreate=True, tags=aws.tags_dict())
                 break
             except (ctl.exceptions.ValidationException, ctl.exceptions.ConflictException) as e:
@@ -126,46 +111,40 @@ def enable(mode: str) -> int:
         cid = r["onlineEvaluationConfigId"]
         print(f"✅ 已创建在线评估配置 {name}（{cid}），采样 100%，session 空闲 2 分钟后打分")
     st = aws.load_state("online", default={})
-    st[mode] = {"name": name, "id": cid}
+    st[path] = {"name": name, "id": cid}
     aws.save_state("online", st)
     print("   之后每个新 session 都会自动评分，结果写入 CloudWatch：")
     print("   CloudWatch 控制台 → GenAI Observability → Bedrock AgentCore → 你的 Agent → Evaluations")
     return 0
 
 
-def disable(mode: str) -> int:
+def disable(path: str) -> int:
     ctl = aws.client("bedrock-agentcore-control")
-    found = [x for x in (find(config_name(mode)), find(legacy_name(mode))) if x]  # legacy: set up before the rename
-    if not found:
+    x = find(config_name(path))
+    if not x:
         print("ℹ️  没有找到在线评估配置，无需停用"); return 0
-    for x in found:
-        ctl.update_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"], executionStatus="DISABLED")
-        print(f"✅ 已停用 {x['onlineEvaluationConfigName']}（之后用 enable 重新启用）")
+    ctl.update_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"], executionStatus="DISABLED")
+    print(f"✅ 已停用 {config_name(path)}（可以更新评估器了；之后用 enable 重新启用）")
     return 0
 
 
 def status() -> int:
-    for m in MODES:
-        x = find(config_name(m))
+    for p in ("a", "b"):
+        x = find(config_name(p))
         if x:
-            print(f"{LABEL[m]}: {x.get('onlineEvaluationConfigName')} {x.get('onlineEvaluationConfigId')} "
+            print(f"{p.upper()}: {x.get('onlineEvaluationConfigName')} {x.get('onlineEvaluationConfigId')} "
                   f"status={x.get('status')} execution={x.get('executionStatus')}")
         else:
-            print(f"{LABEL[m]}: 未创建")
-        old = find(legacy_name(m))
-        if old:
-            print(f"  ⚠️  还有改名前的旧配置 {old.get('onlineEvaluationConfigName')}（execution={old.get('executionStatus')}）："
-                  f"新旧两个都启用时每个 session 会被打两次分；./41-online-eval.sh disable 会一起停用，./99-cleanup.sh 会删除它")
+            print(f"{p.upper()}: 未创建")
     return 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["enable", "disable", "status"])
-    ap.add_argument("--mode", choices=list(MODES), default="runtime",
-                    help="runtime = AgentCore Runtime 上的 Agent（默认）；local = EC2 上自托管的 mock agent（扩展）")
+    ap.add_argument("--path", choices=["a", "b"], default="b")
     a = ap.parse_args(argv)
-    return {"enable": enable, "disable": disable}.get(a.cmd, lambda m: status())(a.mode)
+    return {"enable": enable, "disable": disable}.get(a.cmd, lambda p: status())(a.path)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>部署 V0 到 AgentCore Runtime · AgentDLC 动手实验手册</title>
+<title>部署 V0 到 AgentCore Runtime · 场景 12 实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="b3-deploy">
@@ -14,7 +14,7 @@
 <section class="card chapter-head">
 <h1><span class="num">B3</span>部署 V0 到 AgentCore Runtime <span class="applies b">B 版</span></h1>
 <p class="lead">把我们准备好的 mock agent（V0，故意留有缺陷）部署到 AgentCore Runtime，Runtime 会自动把 trace 发到 CloudWatch。</p>
-<div class="note">前提：已完成第 1 章（尤其 <a href="01-setup.html#s-1-8">1.8 Transaction Search</a>）和第 2 章。命令都在 EC2 的 <code>~/adlc-lab</code> 下执行。</div>
+<div class="note">前提：已完成第 1 章（尤其 <a href="01-setup.html#s-1-8">1.8 Transaction Search</a>）和第 2 章。命令都在 EC2 的 <code>~/scenario12-lab</code> 下执行。</div>
 </section>
 <section class="card">
 
@@ -24,9 +24,9 @@
   <table>
     <tr><th>文件</th><th>作用</th></tr>
     <tr><td><a data-repo="agent/main.py">agent/main.py</a></td><td>AgentCore Runtime 入口：收到 <code>{"feedback": {...}}</code>，返回判断结果 JSON</td></tr>
-    <tr><td><a data-repo="agent/adlc_agent/core.py">agent/adlc_agent/core.py</a></td><td>构建 Strands Agent（模型、提示词、工具），解析输出</td></tr>
-    <tr><td><a data-repo="agent/adlc_agent/prompts/v0.md">prompts/v0.md</a> · <a data-repo="agent/adlc_agent/prompts/v1-ref.md">prompts/v1-ref.md</a></td><td>V0 / V1 的系统提示词（V1 是第 8 章的参考优化版）</td></tr>
-    <tr><td><a data-repo="agent/adlc_agent/tools.py">agent/adlc_agent/tools.py</a></td><td>工具：V0 只有 <code>lookup_capability</code>；V1 有 <code>search_capabilities</code> + <code>find_similar_requests</code></td></tr>
+    <tr><td><a data-repo="agent/s12agent/core.py">agent/s12agent/core.py</a></td><td>构建 Strands Agent（模型、提示词、工具），解析输出</td></tr>
+    <tr><td><a data-repo="agent/s12agent/prompts/v0.md">prompts/v0.md</a> · <a data-repo="agent/s12agent/prompts/v1.md">prompts/v1.md</a></td><td>V0 / V1 的系统提示词（V1 是第 8 章的参考优化版）</td></tr>
+    <tr><td><a data-repo="agent/s12agent/tools.py">agent/s12agent/tools.py</a></td><td>工具：V0 只有 <code>lookup_capability</code>；V1 有 <code>search_capabilities</code> + <code>find_similar_requests</code></td></tr>
   </table>
   <p><b>V0 故意留下的缺陷</b>（第 7 章的评估会把它们暴露出来）：</p>
   <ul>
@@ -40,7 +40,7 @@
 <div class="step" id="s-b3-2">
   <div class="step-head"><span class="num">B3.2</span><h3>在 EC2 上本地冒烟测试</h3><span class="time">3 分钟</span></div>
   <p class="why">部署前先在本机跑一条，确认代码和模型都正常。</p>
-<pre><code>./ext-local-agent.sh smoke</code></pre>
+<pre><code>./10-A-run-local.sh smoke</code></pre>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">▶ 运行 1 条需求 · 路线 A · 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 并发 1
   [ 1/1] FB-2610-001       11.9s  重要=是 紧急=否 建议=迭代
@@ -52,27 +52,27 @@
 <div class="step" id="s-b3-3">
   <div class="step-head"><span class="num">B3.3</span><h3>打包、上传并创建 AgentCore Runtime（一条命令）</h3><span class="time">5 分钟</span></div>
   <p class="why">Runtime 支持直接部署代码包，不需要 Docker；脚本一次完成打包、上传、建角色、建 Runtime 并等待就绪。</p>
-<pre><code>./30-deploy-runtime.sh</code></pre>
-  <p class="where">脚本：<a data-repo="30-deploy-runtime.sh">30-deploy-runtime.sh</a> → <a data-repo="labkit/runtime.py">labkit/runtime.py</a></p>
+<pre><code>./20-B-deploy-runtime.sh</code></pre>
+  <p class="where">脚本：<a data-repo="20-B-deploy-runtime.sh">20-B-deploy-runtime.sh</a> → <a data-repo="labkit/runtime.py">labkit/runtime.py</a></p>
   <p>脚本依次做了这些事：</p>
   <ol class="clicks">
     <li>用 <code>uv</code> 下载 <b>linux/arm64</b> 版依赖（Runtime 运行在 ARM 上），和 <code>agent/</code> 代码、能力目录一起打成 zip；</li>
-    <li>上传到你的私有桶 <code>s3://adlc-zhang3-&lt;账号&gt;-&lt;区域&gt;/runtime/</code>；</li>
-    <li>创建执行角色 <code>adlc-zhang3-runtime-role-us-west-2</code>（调用 Bedrock 模型、写 CloudWatch）；</li>
-    <li>创建 Runtime <code>adlc_zhang3_agent</code>，入口 <code>opentelemetry-instrument main.py</code>（自动埋点），等待状态变为 READY。实测：首次下载依赖约 1–2 分钟，创建 Runtime 约 1 分钟；以后重新部署会复用依赖，整体约 1 分钟。</li>
+    <li>上传到你的私有桶 <code>s3://s12lab-zhang3-&lt;账号&gt;-&lt;区域&gt;/runtime/</code>；</li>
+    <li>创建执行角色 <code>s12lab-zhang3-runtime-role-us-west-2</code>（调用 Bedrock 模型、写 CloudWatch）；</li>
+    <li>创建 Runtime <code>s12lab_zhang3_agent</code>，入口 <code>opentelemetry-instrument main.py</code>（自动埋点），等待状态变为 READY。实测：首次下载依赖约 1–2 分钟，创建 Runtime 约 1 分钟；以后重新部署会复用依赖，整体约 1 分钟。</li>
   </ol>
   <div class="expect"><span class="label">预期输出：</span>
-<pre class="out">▶ 部署 adlc_zhang3_agent · Agent 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 区域 us-west-2
-  🪣 已创建 S3 桶 adlc-zhang3-&lt;account&gt;-us-west-2
+<pre class="out">▶ 部署 s12lab_zhang3_agent · Agent 版本 v0 · 模型 us.anthropic.claude-sonnet-5-5 · 区域 us-west-2
+  🪣 已创建 S3 桶 s12lab-zhang3-&lt;account&gt;-us-west-2
   ⬇️  下载 linux/arm64 依赖（Python 3.12，首次约 1-2 分钟）…
   📦 打包完成：build/runtime/agent-20261105T142531Z.zip（5552 个文件，39.6 MB）
-  ⬆️  已上传 s3://adlc-zhang3-&lt;account&gt;-us-west-2/runtime/agent-20261105T142531Z.zip
-  🔐 执行角色 adlc-zhang3-runtime-role-us-west-2
-  🆕 创建 Runtime adlc_zhang3_agent-DdcMnlBX1R
+  ⬆️  已上传 s3://s12lab-zhang3-&lt;account&gt;-us-west-2/runtime/agent-20261105T142531Z.zip
+  🔐 执行角色 s12lab-zhang3-runtime-role-us-west-2
+  🆕 创建 Runtime s12lab_zhang3_agent-DdcMnlBX1R
   ⏳ Runtime 状态 CREATING
   ⏳ Runtime 状态 READY
-✅ Runtime 就绪：adlc_zhang3_agent-DdcMnlBX1R（版本 1，Agent v0）
-   下一步：./30-deploy-runtime.sh invoke   （调用一次确认可用）</pre>
+✅ Runtime 就绪：s12lab_zhang3_agent-DdcMnlBX1R（版本 1，Agent v0）
+   下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）</pre>
   <p>Runtime ID（<code>-DdcMnlBX1R</code> 这一段）每个人不同；桶已存在时不会出现“已创建 S3 桶”这一行。</p></div>
   <div class="warn">如果显示 <code>❌ Runtime 状态 CREATE_FAILED</code>：看后面的原因。提到 “binary files that are incompatible with Linux ARM64” 时，删除 <code>build/runtime/</code> 后重跑；其它原因见 <a href="appendix.html#s-x-4">附录 排错</a>。</div>
 </div>
@@ -80,8 +80,8 @@
 <div class="step" id="s-b3-4">
   <div class="step-head"><span class="num">B3.4</span><h3>调用一次 Runtime 确认可用</h3><span class="time">2 分钟</span></div>
   <p class="why">发一条需求反馈给 Runtime，看到结构化的判断结果。</p>
-<pre><code>./30-deploy-runtime.sh invoke</code></pre>
-  <p>想换一条需求：<code>./30-deploy-runtime.sh invoke --one FB-2610-002</code>（编号见 <a data-repo="data/golden/golden_set.csv">黄金集</a>）。查看部署信息：<code>./30-deploy-runtime.sh status</code></p>
+<pre><code>./20-B-deploy-runtime.sh invoke</code></pre>
+  <p>想换一条需求：<code>./20-B-deploy-runtime.sh invoke --one FB-2610-002</code>（编号见 <a data-repo="data/golden/golden_set.csv">黄金集</a>）。查看部署信息：<code>./20-B-deploy-runtime.sh status</code></p>
   <div class="expect"><span class="label">预期输出：</span>
 <pre class="out">需求 FB-2610-001：列表页批量修改自定义字段
 {
@@ -94,7 +94,7 @@
   "reject_reason": "",
   "customer_reply": ""
 }
-✅ Runtime 调用成功，用时 13.2s，session = adlc-zhang3-smoke-faa4fa17…</pre>
+✅ Runtime 调用成功，用时 13.2s，session = s12lab-zhang3-smoke-faa4fa17…</pre>
   <p>注意 V0 的理由里那句“<b>查询只返回功能名称</b>”：这正是 V0 工具的缺陷——看不到能力的支持状态，只好判“待评估”（黄金集期望是“迭代”）。第 7 章的评估会把这类错误统计出来。</p></div>
   <div class="tip">第一次调用会慢一些（Runtime 冷启动）。超时就再执行一次。</div>
 </div>
@@ -102,7 +102,7 @@
 </section>
 </main>
 </div>
-<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 </body>
 </html>

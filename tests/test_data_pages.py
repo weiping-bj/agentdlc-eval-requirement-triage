@@ -235,10 +235,9 @@ def test_a_customer_file_is_not_called_synthetic(tmp_path, modified):
 
 def test_banner_wording_and_csp_per_page(tmp_path):
     assert _run(["--no-upload", "--out-dir", tmp_path]) == 0
-    assert "手册里没有黄金集网页版" in _read(tmp_path, "golden") and "实验包里自带的是" not in _read(tmp_path, "golden")
-    assert all("A/B 通用" not in _read(tmp_path, k) for k in ("catalog", "mock", "golden"))
+    assert "手册里没有黄金集网页版" in _read(tmp_path, "golden") and "同名网页" not in _read(tmp_path, "golden")
     for kind in ("catalog", "mock"):
-        assert "实验包里自带的是" in _read(tmp_path, kind) and "GitHub" not in _read(tmp_path, kind)
+        assert "手册里的同名网页是仓库里的" in _read(tmp_path, kind)
     import base64
     import re as _re
     for kind, n in (("catalog", 0), ("mock", 1), ("golden", 1)):
@@ -349,7 +348,7 @@ def test_no_upload_makes_no_aws_call(tmp_path, monkeypatch):
 def test_shell_wrapper_runs_locally_without_lab_config(tmp_path):
     env = {k: v for k, v in os.environ.items() if not k.startswith(("AWS_", "LAB_"))}
     env.update(AWS_SHARED_CREDENTIALS_FILE="/dev/null", AWS_CONFIG_FILE="/dev/null", AWS_EC2_METADATA_DISABLED="true",
-               ADLC_LOCAL_ENV=str(tmp_path / "none.env"))
+               S12_LOCAL_ENV=str(tmp_path / "none.env"))
     r = subprocess.run(["bash", str(ROOT / "tools" / "publish-data-pages.sh"), "--no-upload", "--out-dir", str(tmp_path)],
                        capture_output=True, text=True, env=env, timeout=120)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -411,7 +410,7 @@ class FakeS3:
         raise AssertionError(f"unexpected S3 call: {name}")
 
 
-BUCKET = "adlc-test-123456789012-us-west-2"
+BUCKET = "s12lab-test-123456789012-us-west-2"
 HTML_ARGS = {"ContentType": "text/html; charset=utf-8", "ExpectedBucketOwner": OWNER}
 
 
@@ -476,7 +475,7 @@ def test_upload_is_refused_when_the_bucket_is_not_provably_ours_and_private(tmp_
     out = capsys.readouterr().out
     assert not [c for c in fake.calls if c[0] in ("upload_file", "put_public_access_block")]
     assert "未上传" in out and _names(fake).count("get_public_access_block") == 1  # stops at the first page
-    with pytest.raises(P.NotPrivateError):  # the same guard for 51-compare.sh / 60-triage-report.sh
+    with pytest.raises(P.NotPrivateError):  # the same guard for 32-compare.sh / 34-triage-report.sh
         P.publish(str(tmp_path / FILES["catalog"]))
 
 
@@ -496,7 +495,7 @@ def test_one_failed_upload_is_reported_and_the_rest_still_go(tmp_path, s3, capsy
 
 
 def test_publish_cli_exits_1_when_the_bucket_is_not_private(tmp_path):
-    """`python -m labkit.publish` (51-compare.sh, 60-triage-report.sh): a refused upload fails the script, not a traceback."""
+    """`python -m labkit.publish` (32-compare.sh, 34-triage-report.sh): a refused upload fails the script, not a traceback."""
     page = tmp_path / "x.html"
     page.write_text("<p>x</p>", encoding="utf-8")
     code = ("import sys, runpy; sys.argv=['labkit.publish', %r]\n"

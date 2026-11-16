@@ -2,11 +2,11 @@
 
 During the group discussion the EC2 does not exist yet and it has no inbound ports, so the group's recorder edits
 the two template files on a laptop and, once the hands-on part starts, drags them into the participant's
-private adlc bucket in the S3 console. This module brings them onto the EC2.
+private s12lab bucket in the S3 console. This module brings them onto the EC2.
 
   python -m labkit.pull_templates --prepare     # create the private bucket if missing, print name + console link
   python -m labkit.pull_templates               # copy the two files into data/templates/
-  python -m labkit.pull_templates --bucket adlc-zhang3-<account>-us-west-2   # a group-mate's bucket
+  python -m labkit.pull_templates --bucket s12lab-zhang3-<account>-us-west-2   # a group-mate's bucket
   python -m labkit.pull_templates --dry-run     # show what would happen, write nothing
   python -m labkit.pull_templates --force       # also replace an EC2-edited file with an unedited upload
 
@@ -39,7 +39,7 @@ CSV_REQUIRED = ("golden_id", "操作")
 MAX_BYTES = 2_000_000
 MAX_CANDIDATES = 30
 RECORD = "last-pulled.json"  # in data/templates/.backup/: what this tool wrote last time, per file
-BUCKET_RE = re.compile(r"^adlc-[a-z0-9][a-z0-9-]{1,56}[a-z0-9]$")  # S3 max 63 = 5 + 1 + 56 + 1
+BUCKET_RE = re.compile(r"^s12lab-[a-z0-9][a-z0-9-]{1,54}[a-z0-9]$")
 BEIJING = timezone(timedelta(hours=8))  # attendees' wall clock; the EC2 itself runs in UTC
 
 
@@ -54,7 +54,7 @@ def normalize_bucket(arg: str) -> str:
         b = b[len("s3://"):]
     b = b.rstrip("/")
     if not BUCKET_RE.match(b):
-        raise PullError(f"桶名 {arg!r} 不对：只能是实验桶（以 adlc- 开头，例如 adlc-zhang3-123456789012-us-west-2）")
+        raise PullError(f"桶名 {arg!r} 不对：只能是实验桶（以 s12lab- 开头，例如 s12lab-zhang3-123456789012-us-west-2）")
     return b
 
 
@@ -249,7 +249,7 @@ def section_answered(text: str, default_text, n: int, older_texts=()) -> bool:
 
 
 def mock_feedback_given(text: str, default_text, older_texts=()) -> bool:
-    """Section 5 (mock data) answered -> the mock data step runs before the golden set step."""
+    """Section 5 (mock data) answered -> 2.4 runs before 2.5."""
     return section_answered(text, default_text, 5, older_texts)
 
 
@@ -540,7 +540,7 @@ class Puller:
         return 0
 
     def next_steps(self):
-        """Same numbered order every time; step 1 (mock data) is marked to do only when section 5 was answered."""
+        """Same numbered order every time; 2.4 (mock data) is marked to do only when section 5 was answered."""
         p, md = self.out, self.tdir / "discussion-feedback.md"
         try:
             text = decode(md.read_bytes())[0] if md.is_file() else ""
@@ -556,21 +556,21 @@ class Puller:
                 pass
         mock = mock_feedback_given(text, default, older)
         catalog = catalog_feedback_given(text, default, older)
-        p("下一步（扩展「按讨论意见重新生成模拟数据」，按顺序）：")
+        p("下一步（手册第 2 章，按顺序；2.1/2.2 只读、2.3 只在客户自带数据时做）：")
         if mock:
-            p("  1. 改模拟数据（模板第 5 节有意见，必须在改黄金集之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")
+            p("  1. 2.4 改 mock 数据（模板第 5 节有意见，必须在 2.5 之前）：claude \"$(cat data/prompts/02-regenerate-mock-data.md)\"")
         else:
-            p("  1. 改模拟数据 跳过：模板第 5 节没填，或写的是“基本符合”")
+            p("  1. 2.4 跳过：模板第 5 节没填，或写的是“基本符合”")
         if catalog:
-            p("  2. 改黄金集 模板第 3 节补了能力目录：先 claude \"$(cat data/prompts/04-update-capability-catalog.md)\"，")
+            p("  2. 2.5 模板第 3 节补了能力目录：先 claude \"$(cat data/prompts/04-update-capability-catalog.md)\"，")
             p("     再 python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，最后 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
         else:
-            p("  2. 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
+            p("  2. 2.5 改黄金集：python3 data/tools/golden_tool.py apply-feedback --dry-run 预览，")
             p("     再 claude \"$(cat data/prompts/03-update-golden-set.md)\"")
-        p("  3. 冻结：python3 data/tools/golden_tool.py freeze")
+        p("  3. 2.6 冻结：python3 data/tools/golden_tool.py freeze")
         changed = "mock 数据" if mock and not catalog else "能力目录" if catalog and not mock else "mock 数据和能力目录"
-        p("  4. 评估器已注册过：./40-create-evaluators.sh" + (
-            f"；Runtime 已部署过还要：./30-deploy-runtime.sh（把新的 {changed} 打进包）" if (mock or catalog) else ""))
+        p("  4. 评估器已注册过：./30-create-evaluators.sh（第 6 章）" + (
+            f"；B 版 Runtime 已部署过还要：./20-B-deploy-runtime.sh（B3，把新的 {changed} 打进包）" if (mock or catalog) else ""))
 
 
 # ----------------------------------------------------------------------------- AWS glue
@@ -614,7 +614,7 @@ def _aws_hint(e) -> str:
         code = str(e.response.get("Error", {}).get("Code", ""))
     name = type(e).__name__
     if code in ("AccessDenied", "403", "AllAccessDisabled") or "AccessDenied" in str(e):
-        return "没有权限（AccessDenied）：请在实验 EC2 上运行（实例角色 adlc-ec2-…），桶名要以 adlc- 开头、属于本账号"
+        return "没有权限（AccessDenied）：请在实验 EC2 上运行（实例角色 s12lab-ec2-…），桶名要以 s12lab- 开头、属于本账号"
     if name in ("NoCredentialsError", "PartialCredentialsError") or code in ("ExpiredToken", "InvalidClientTokenId"):
         return "没有可用的 AWS 凭证：请在实验 EC2 上运行（它用实例角色，不需要密钥）"
     if name in ("EndpointConnectionError", "ConnectTimeoutError", "ReadTimeoutError"):
@@ -647,7 +647,7 @@ def main(argv=None) -> int:
                 from .runtime import ensure_bucket
                 ensure_bucket()  # creates it private (all four public-access blocks) and tagged
             print(f"✅ 你的私有桶：{own}")
-            print("   名字规则：adlc-<个人后缀>-<12 位账号 ID>-<区域>；只在本实验账号内可见")
+            print("   名字规则：s12lab-<个人后缀>-<12 位账号 ID>-<区域>；只在本实验账号内可见")
             print("👉 在笔记本浏览器打开下面的链接（需已登录控制台），点「上传」，把 discussion-feedback.md 和")
             print("   golden-set-feedback.csv 拖进去（不要改文件名；放在 templates/ 文件夹里也可以），再点「上传」：")
             print(f"   {console_url(own, region)}")

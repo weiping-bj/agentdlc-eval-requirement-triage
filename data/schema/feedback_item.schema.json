@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "adlc/feedback_item",
+  "$id": "s12/feedback_item",
   "title": "需求反馈条目（Agent 输入）",
   "description": "data/feedback_last_month.jsonl 每行一条。必需：id、title、content；推荐：customer、customer_tier、module、submitted_at、feedback_type。",
   "type": "object",
@@ -73,7 +73,7 @@
     },
     "extra": {
       "type": "object",
-      "description": "附加列（可选；Agent 不读）"
+      "description": "客户数据中未映射的列（仅 ingest 输出）"
     }
   },
   "additionalProperties": true

@@ -4,18 +4,18 @@ import os
 
 import pytest
 
-from adlc_eval_helpers import EV, event, load_pkg, output_from_gold, triage_span
+from s12_eval_helpers import EV, event, load_pkg, output_from_gold, triage_span
 
-la = load_pkg("adlc_label_accuracy")
-rq = load_pkg("adlc_reject_quality")
-bs = load_pkg("adlc_label_accuracy", "batch_score")
+la = load_pkg("s12_label_accuracy")
+rq = load_pkg("s12_reject_quality")
+bs = load_pkg("s12_label_accuracy", "batch_score")
 
 
 class _Lazy:
     """pillars.py imported on first use (so each test fails on its own assertion when the module is missing)."""
 
     def __getattr__(self, name):
-        return getattr(load_pkg("adlc_label_accuracy", "pillars"), name)
+        return getattr(load_pkg("s12_label_accuracy", "pillars"), name)
 
 
 pillars = _Lazy()
@@ -23,7 +23,7 @@ pillars = _Lazy()
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
-    for k in ("ADLC_SCORE_FIELD", "ADLC_LABEL_SCHEME", "ADLC_LEVEL_TOLERANCE", "ADLC_GOLDEN_PATH"):
+    for k in ("S12_SCORE_FIELD", "S12_LABEL_SCHEME", "S12_LEVEL_TOLERANCE", "S12_GOLDEN_PATH"):
         monkeypatch.delenv(k, raising=False)
 
 
@@ -47,12 +47,12 @@ def test_misreject_fails_whole_item_even_when_other_labels_are_right(golden_rows
 @pytest.mark.parametrize("field", ["important", "urgent", "decision"])
 def test_single_label_evaluators_also_veto_a_misreject(golden_rows, field):
     out = output_from_gold(non_rejectable(golden_rows), decision="拒绝")
-    r = la.handler(event([triage_span(out)], name=f"adlc_ab12_label_{field}"))
+    r = la.handler(event([triage_span(out)], name=f"s12lab_ab12_label_{field}"))
     assert r["label"] == "CriticalFail" and r["value"] == 0.0
 
 
 def test_score_record_keeps_raw_correctness_for_diagnosis(golden_rows):
-    ls = load_pkg("adlc_label_accuracy", "label_scoring")
+    ls = load_pkg("s12_label_accuracy", "label_scoring")
     gold = ls.gold_from_golden_item(non_rejectable(golden_rows))
     pred = dict(output_from_gold(non_rejectable(golden_rows), decision="拒绝"))
     s = ls.score_record(pred, gold)
@@ -92,7 +92,7 @@ def test_lowest_failing_grade_is_shared_and_zero_stays_not_applicable():
 
 
 def test_native_judge_config_puts_every_red_flag_at_the_lowest_grade():
-    cfg = json.load(open(os.path.join(EV, "llm_judge_config", "adlc_reject_quality.json"), encoding="utf-8"))["llmAsAJudge"]
+    cfg = json.load(open(os.path.join(EV, "llm_judge_config", "s12_reject_quality.json"), encoding="utf-8"))["llmAsAJudge"]
     ins = cfg["instructions"]
     assert "一律给“不合格”（0.2）" in ins and "最高只能给“较差”" not in ins
     scale = {x["value"]: x for x in cfg["ratingScale"]["numerical"]}

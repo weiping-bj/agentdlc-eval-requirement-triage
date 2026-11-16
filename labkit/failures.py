@@ -1,7 +1,7 @@
-"""Step 4.7: list the failed golden items of one evaluation with their five-dimension labels.
+"""Step 7.5: list the failed golden items of one evaluation with their five-dimension labels.
 
   python -m labkit.failures                              # latest results/eval-*.json
-  python -m labkit.failures results/eval-local-v0-....json   # a specific evaluation
+  python -m labkit.failures results/eval-A-v0-....json   # a specific evaluation
   python -m labkit.failures <eval.json> --golden data/golden/golden_set.jsonl
 
 For every session whose label_accuracy is Fail / CriticalFail it prints the wrong fields (expected ->
@@ -29,7 +29,7 @@ from .compare import parse_obj
 from .config import ROOT
 
 DIMS = ("认知", "质量", "责任", "成本", "性能")
-# The 4.7 reading table (handbook chapter 4; old docs/07-evaluate.html 7.5, "维度 / 典型失败现象 / 多半是哪里的问题"); the compare page shows it
+# The 7.5 reading table (docs/07-evaluate.html, "维度 / 典型失败现象 / 多半是哪里的问题"); the compare page shows it
 # next to the tally. tests/test_compare_story.py checks the chapter still prints the same text.
 DIM_HINTS = {
     "认知": ("平台已支持的能力被判“迭代”；超出定位的需求没被拒绝；单客户定制被当成通用需求",
@@ -49,7 +49,7 @@ _EXPLAINED = re.compile(r"(是否重要|是否紧急|处理建议|优先级) (�
 _BLOCK = re.compile(r"需求 (\S+?)（")
 _NEGATION = re.compile(r"(不|暂不|不予|无需|无须|无法|没有|won'?t|not\b|^un|n't)")
 
-# The evaluator's tolerated variants (evaluators/adlc_label_accuracy/span_adapter.py), for the fallback only.
+# The evaluator's tolerated variants (evaluators/s12_label_accuracy/span_adapter.py), for the fallback only.
 _KEYS = {"important": ("important", "is_important", "importance", "是否重要", "重要"),
          "urgent": ("urgent", "is_urgent", "urgency", "是否紧急", "紧急"),
          "decision": ("decision", "action", "suggestion", "recommendation", "处理建议", "建议")}
@@ -83,7 +83,7 @@ def clip(s, cols: int) -> str:
 def latest_eval() -> Path:
     files = glob.glob(str(ROOT / "results" / "eval-*.json"))
     if not files:
-        raise SystemExit("❌ results/ 里还没有 eval-*.json：先完成 4.5（./43-run-eval.sh）")
+        raise SystemExit("❌ results/ 里还没有 eval-*.json：先完成 7.2（./31-run-eval.sh）")
     return Path(max(files, key=os.path.getmtime))
 
 
@@ -278,7 +278,7 @@ def load_golden(path: Path) -> dict:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="python -m labkit.failures", description="列出判错的黄金集用例并按五维统计（4.7）")
+    ap = argparse.ArgumentParser(prog="python -m labkit.failures", description="列出判错的黄金集用例并按五维统计（7.5）")
     ap.add_argument("eval", nargs="?", help="评估结果 JSON（默认：results/ 里最新的 eval-*.json）")
     ap.add_argument("--golden", help="黄金集 JSONL（默认：data/golden/golden_set.jsonl）")
     a = ap.parse_args(argv)
@@ -290,14 +290,14 @@ def main(argv=None) -> int:
     except (OSError, ValueError) as e:
         raise SystemExit(f"❌ 无法读取评估结果 {eval_path}：{e}")
     if not isinstance(ev, dict):
-        raise SystemExit(f"❌ {eval_path} 不是评估结果文件（应为 43-run-eval.sh 生成的 eval-*.json）")
+        raise SystemExit(f"❌ {eval_path} 不是评估结果文件（应为 31-run-eval.sh 生成的 eval-*.json）")
     if a.golden:
         golden_path = Path(a.golden)
     else:
         try:
             golden_path = items.golden_path()
         except FileNotFoundError:
-            raise SystemExit("❌ 找不到黄金集 data/golden/golden_set.jsonl（第 2 章冻结），或用 --golden 指定") from None
+            raise SystemExit("❌ 找不到黄金集 data/golden/golden_set.jsonl（第 2 章生成），或用 --golden 指定") from None
     print(render(ev, analyze(ev, load_golden(golden_path)), eval_path, golden_path))
     return 0
 

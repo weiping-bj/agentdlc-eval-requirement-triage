@@ -252,26 +252,10 @@ def cmd_freeze(a) -> int:
     return rc
 
 
-def _lab_scheme() -> str:
-    """The lab's current label scheme, resolved exactly like every lab script (labkit/config.py: lab.env <
-    local.env < a deliberate environment override; a value equal to its _ADLC_EXP_ snapshot is only an earlier
-    `source ./00-config.sh` and loses to the files), so a bare `freeze` validates in the scheme the evaluators use."""
-    try:
-        if C.REPO not in sys.path:
-            sys.path.insert(0, C.REPO)
-        from labkit import config as labcfg  # stdlib-only module, Python 3.9 compatible
-        v = str(labcfg.load(require_suffix=False).get("LABEL_SCHEME") or "")
-    except Exception:  # noqa: BLE001 - outside the lab repo layout: fall back to the default
-        v = os.environ.get("LABEL_SCHEME", "")
-    v = v.strip().lower()
-    return v if v in ("binary", "level") else "binary"
-
-
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--golden", default=C.GOLDEN_PATH)
-    ap.add_argument("--scheme", choices=["binary", "level"], default=_lab_scheme(),
-                    help="标签口径：二元或分级（默认取实验配置的 LABEL_SCHEME，见 ./ext-switch-label-scheme.sh）")
+    ap.add_argument("--scheme", choices=["binary", "level"], default="binary", help="标签口径：二元（默认）或分级")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("validate")
     s = sub.add_parser("stats")

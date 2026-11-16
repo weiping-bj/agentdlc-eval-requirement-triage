@@ -3,7 +3,7 @@
 CloudWatch Logs Insights cannot see events whose timestamp is earlier than the log group's
 creation time. On a first send the wrapper creates the imported-logs group seconds before the
 converter re-stamps the sessions to "ending ~2 min ago", so every content record was invisible:
-ext-check-telemetry showed 用户输入 0/5 and 43-run-eval had no inputs until a second send.
+12-A-check-telemetry showed 用户输入 0/5 and 31-run-eval had no inputs until a second send.
 """
 import json
 import sys
@@ -21,7 +21,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from labkit import aws, convert_logs  # noqa: E402
 
-GROUP = "/aws/bedrock-agentcore/adlc-zz-imported-logs"
+GROUP = "/aws/bedrock-agentcore/s12lab-zz-imported-logs"
 DAY = 86400
 
 
@@ -64,8 +64,8 @@ def _send(tmp_path, monkeypatch, n, created, tools=0, capsys=None):
     """Run convert_logs.send() on n log lines with fake CloudWatch groups; return what it emitted."""
     tmp_path.mkdir(parents=True, exist_ok=True)
     state, results = tmp_path / ".lab-state", tmp_path / "results"
-    cfg = {"LAB_NAME": "adlc-zz", "LAB_SUFFIX": "zz", "RESULTS_DIR": str(results), "STATE_DIR": str(state),
-           "LAB_ROOT": str(tmp_path), "CONVERTED_SERVICE_NAME": "adlc-zz-imported-logs",
+    cfg = {"LAB_NAME": "s12lab-zz", "LAB_SUFFIX": "zz", "RESULTS_DIR": str(results), "STATE_DIR": str(state),
+           "LAB_ROOT": str(tmp_path), "CONVERTED_SERVICE_NAME": "s12lab-zz-imported-logs",
            "CONVERTED_LOG_GROUP": GROUP}
     monkeypatch.setattr(aws, "cfg", lambda: cfg)
     logs = FakeLogs(created)
@@ -185,7 +185,7 @@ def test_hint_only_when_sessions_reach_past_the_query_window(tmp_path, monkeypat
     assert five.rc == 0 and "ℹ️  日志组" not in five.out
     now = time.time()
     twelve = _send(tmp_path / "b", monkeypatch, 12, {GROUP: now - 3, "aws/spans": now - 30 * DAY}, capsys=capsys)
-    assert twelve.rc == 0 and f"ℹ️  日志组 {GROUP}" in twelve.out and "再运行 ./43-run-eval.sh" in twelve.out
+    assert twelve.rc == 0 and f"ℹ️  日志组 {GROUP}" in twelve.out and "再运行 ./31-run-eval.sh" in twelve.out
 
 
 def test_missing_aws_spans_warns_and_bounds_by_the_target_group(tmp_path, monkeypatch, capsys):
@@ -197,7 +197,7 @@ def test_missing_aws_spans_warns_and_bounds_by_the_target_group(tmp_path, monkey
 
 def test_creation_lookups_are_not_traced_as_part_of_the_imported_service(tmp_path, monkeypatch):
     """The describe calls run inside the opentelemetry-instrument process; botocore spans for them
-    would show up as extra traces under adlc-<suffix>-imported-logs."""
+    would show up as extra traces under s12lab-<suffix>-imported-logs."""
     now = time.time()
     r = _send(tmp_path, monkeypatch, 2, {GROUP: now - 3, "aws/spans": now - 30 * DAY})
     describes = [c for c in r.logs.calls if c[0] == "describe"]

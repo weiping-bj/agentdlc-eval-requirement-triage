@@ -1,4 +1,4 @@
-# 已有 Agent 日志 → CloudWatch：日志格式（手册扩展「已有日志接入」）
+# 已有 Agent 日志 → CloudWatch：日志格式（A 版第 A4 章）
 
 把你的 Agent **每一次调用**整理成一行 JSON（JSONL 文件，UTF-8）。转换脚本
 [`labkit/convert_logs.py`](../labkit/convert_logs.py) 会把每一行变成一个 session / 一条 trace，
@@ -27,7 +27,7 @@
 先检查、再发送：
 
 ```bash
-./ext-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl
-./ext-convert-logs.sh send  telemetry/samples/customer-agent-logs.jsonl
-./ext-check-telemetry.sh
+./11-A-convert-logs.sh check telemetry/samples/customer-agent-logs.jsonl
+./11-A-convert-logs.sh send  telemetry/samples/customer-agent-logs.jsonl
+./12-A-check-telemetry.sh
 ```

@@ -1,0 +1,12 @@
+{
+  "_说明": "客户数据列名 → 实验统一字段。只在自动识别失败时需要；以下划线开头的键会被忽略。目标字段：id,title,content,customer,industry,customer_tier,channel,module,submitted_at,feedback_type,contract_commitment；历史判断：label_important,label_urgent,label_decision,label_level,label_reject_reason,label_reply",
+  "需求单号": "id",
+  "需求一句话": "title",
+  "详细说明": "content",
+  "租户名": "customer",
+  "客户级别(S/A/B/C)": "customer_tier",
+  "所属产品": "module",
+  "录入日期": "submitted_at",
+  "单据类型": "feedback_type",
+  "产品结论": "label_decision"
+}

@@ -4,9 +4,9 @@ import os
 
 import pytest
 
-from adlc_eval_helpers import REPO, load_pkg, triage_span
+from s12_eval_helpers import REPO, load_pkg, triage_span
 
-sa = load_pkg("adlc_label_accuracy", "span_adapter")
+sa = load_pkg("s12_label_accuracy", "span_adapter")
 OUT = {"feedback_id": "FB-2610-001", "important": "是", "urgent": "否", "decision": "迭代", "level": None,
        "reasoning": "r", "reject_reason": "", "customer_reply": ""}
 T = "a" * 32
@@ -37,8 +37,8 @@ def test_split_mode_log_record_with_block_list_string():
 def test_unified_mode_span_events_snake_case_and_tool_blocks_ignored():
     final = dict(OUT)
     final.pop("feedback_id")
-    span = {"trace_id": T.upper(), "name": "invoke_agent adlc_triage_v1", "start_time": "3",
-            "attributes": {"adlc.feedback_id": "FB-2610-009"},
+    span = {"trace_id": T.upper(), "name": "invoke_agent s12lab_triage_v1", "start_time": "3",
+            "attributes": {"s12lab.feedback_id": "FB-2610-009"},
             "span_events": [
                 {"event_name": "gen_ai.user.message", "body": {"content": [{"text": "需求编号: FB-2610-009"}]}},
                 {"name": "gen_ai.choice", "body": {"message": {"content": [{"toolUse": {"name": "search_capabilities", "input": {"q": "x"}}}]}}},
@@ -100,7 +100,7 @@ def test_otel_sdk_event_attributes_and_event_time_ordering():
     final = json.dumps(dict(OUT, decision="待评估"), ensure_ascii=False)
     draft = json.dumps(dict(OUT, decision="拒绝"), ensure_ascii=False)
     root = {"traceId": T, "name": "invoke_agent triage_agent", "startTimeUnixNano": 100,
-            "attributes": {"adlc.feedback_id": "FB-2610-001"},
+            "attributes": {"s12lab.feedback_id": "FB-2610-001"},
             "events": [{"name": "gen_ai.user.message", "timeUnixNano": 100,
                         "attributes": {"content": json.dumps([{"text": "需求编号: FB-2610-001"}], ensure_ascii=False)}},
                        {"name": "gen_ai.choice", "timeUnixNano": 900, "attributes": {"message": final, "finish_reason": "end_turn"}}]}
@@ -124,7 +124,7 @@ def test_real_adot_split_mode_fixture(strip_attr):
         docs = json.loads(json.dumps(s["docs"]))
         if strip_attr:  # force the message-parsing fallback (customer agents without the triage span)
             for d in docs:
-                (d.get("attributes") or {}).pop("adlc.triage_output", None)
+                (d.get("attributes") or {}).pop("s12lab.triage_output", None)
         tids = {sa.trace_id_of(d) for d in docs if sa.trace_id_of(d)}
         found = []
         for tid in tids:
@@ -140,7 +140,7 @@ def test_real_adot_split_mode_fixture(strip_attr):
 def test_review_M4_draft_then_final_keeps_final():
     text = ('先给一个草稿：{"important":"是","urgent":"否","decision":"拒绝"} 复核后最终结论：'
             + json.dumps(dict(OUT, decision="迭代"), ensure_ascii=False))
-    span = {"traceId": T, "name": "chat", "attributes": {"gen_ai.completion": text, "adlc.feedback_id": "FB-2610-001"}}
+    span = {"traceId": T, "name": "chat", "attributes": {"gen_ai.completion": text, "s12lab.feedback_id": "FB-2610-001"}}
     recs = sa.extract_records([span], T)["records"]
     assert [(r["feedback_id"], r["output"]["decision"]) for r in recs] == [("FB-2610-001", "迭代")]
     parts = [{"type": "reasoning", "content": json.dumps(dict(OUT, decision="拒绝"), ensure_ascii=False)},
@@ -167,5 +167,5 @@ def test_review_L1_ordering_ties_attr_end_time_iso():
 
 def test_review_L8_double_encoded_attribute():
     span = triage_span(OUT)
-    span["attributes"]["adlc.triage_output"] = json.dumps(json.dumps(OUT, ensure_ascii=False), ensure_ascii=False)
+    span["attributes"]["s12lab.triage_output"] = json.dumps(json.dumps(OUT, ensure_ascii=False), ensure_ascii=False)
     assert sa.extract_records([span], T)["records"][0]["output"]["decision"] == "迭代"

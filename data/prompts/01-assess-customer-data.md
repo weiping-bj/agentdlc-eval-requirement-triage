@@ -1,0 +1,34 @@
+# 任务：评估并标准化客户自带的需求数据
+
+你是本仓库（场景 12：需求价值打分 Agent 实验）的数据助手。客户提供了一份“上个月的需求反馈”文件，路径是：`<客户文件路径>`（如果我没写路径，请先问我）。
+
+## 背景
+- 实验统一的输入格式见 `data/schema/feedback_item.schema.json`，样例见 `data/feedback_last_month.jsonl`。
+- 判断三项标签（是否重要 / 是否紧急 / 处理建议）需要哪些信息，见 `data/golden/LABELING_GUIDE.md`。
+- 这个仓库是**公开**的，客户的真实数据**绝不能**写进 `data/customer/` 以外的位置，也不能提交。
+
+## 步骤
+1. 运行：`python3 data/tools/ingest_customer_data.py --in <客户文件路径>`
+   - 如果提示“找不到标题/需求描述列”，或报告里“字段识别”表映射错了：
+     1. 参考 `data/templates/column-mapping.example.json`，新建 `data/customer/mapping.json`，写清“源列名 → 目标字段”。
+     2. 加上 `--mapping data/customer/mapping.json` 重跑。
+   - Excel 有多个工作表时，先问我用哪一个，再加 `--sheet <工作表名>`（名字写错会报错，并列出文件里所有工作表）。
+   - CSV 是 UTF-8 或 GBK（Excel 中文版默认）都可以；读不出来时，在 Excel 里“另存为 → CSV UTF-8”。
+   - 客户的“状态”这类通用列不会被自动当作“处理建议”；确实要用时，在 mapping.json 里写 `"状态": "label_decision"`。
+   - 报告开头的“⚠️ 这些列没有用上”列出的是客户有、我们没有的列：它们留在 `feedback.normalized.jsonl` 的 `extra` 里，但 Agent 不读。逐列判断它对三项判断（重要 / 紧急 / 处理建议）有没有用，例如影响用户数、截止日期、所属区域：
+     1. 有用的：建议加 `--append-to-content "列名1,列名2"` 重跑，把它们以“列名: 值”一行追加到需求描述末尾。**等我确认后再重跑。**
+     2. 没用的：在汇报里列为“下一轮迭代再考虑”。不要为此修改 schema 或脚本。
+2. 阅读 `data/customer/report.md`，用 5 行以内的中文向我汇报：
+   - 结论（充足 / 基本可用 / 不足）；
+   - 最关键的 1~2 个缺项；
+   - 是否带有历史判断、能否做黄金集候选；
+   - 哪些列没有用上，你建议追加到需求描述的是哪几列（以及理由）。
+3. 根据结论给出建议，**等我确认后再执行**：
+   - **充足**：建议加 `--use-as-input` 重跑。它会生成 `data/customer/agent_data/`（客户数据 + 能力目录副本，不进 git），并打印 `export S12_DATA_DIR=…`；设置后 Agent 就读取客户数据。仓库里的 mock 文件不会被改动。
+   - **基本可用**：列出客户需要补充的字段。也可以建议与 mock 数据合并：在 `data/customer/agent_data/` 里生成合并后的 `feedback_last_month.jsonl`（mock 条目 + 打过码的 `data/customer/feedback.normalized.jsonl` 里的客户条目，去掉 `extra` 字段，`id` 不冲突；不要用客户的原始文件）和 `capability_catalog.json` 副本，再用 `export S12_DATA_DIR=…` 指向它。**不要**改仓库里的 `data/feedback_last_month.jsonl`：它和由它生成的 `docs/mock-data.html` 都会公开发布。
+   - **不足**：建议继续使用 mock 数据。用一句话说明原因，方便我说服客户，例如“缺少客户等级和反馈类型，Agent 无法判断重要和紧急，评估结果没有可比性”。
+4. 如果客户数据带有历史判断（输出了 `data/customer/golden_candidates.jsonl`）：告诉我条数和三项标签的分布，作为和 mock 黄金集对照的参考。**不要**把它们并入 `data/golden/`：仓库是公开的，黄金集还会被复制进 `evaluators/*/golden_set.json`。用客户自己的黄金集记作下一轮迭代的事项。
+
+## 约束
+- 不要修改 `data/tools/` 下的脚本。脚本报错时，把错误原文发给我。
+- 不要把客户数据内容复制到聊天回复以外的任何地方。汇报里引用原文最多 1 条，并且要打码。

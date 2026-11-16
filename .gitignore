@@ -20,7 +20,7 @@ logs/
 outputs/
 .env
 .env.*
-# Generated compare pages (regenerate with 51-compare.sh)
+# Generated compare pages (regenerate with 32-compare.sh)
 docs/compare/*.html
 !docs/compare/sample-compare.html
 # OS / editor

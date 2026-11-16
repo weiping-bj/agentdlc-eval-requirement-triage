@@ -1,14 +1,14 @@
 """Span adapter: AgentCore Evaluations `sessionSpans` (ADOT span docs + event log records)
--> AgentDLC lab triage records.
+-> scenario-12 triage records.
 
 Canonical copy lives in evaluators/shared/; `python3 evaluators/sync_shared.py` copies it next to
 each Lambda handler (each Lambda package must be self-contained). Standard library only.
 
 Read order for one trace (see evaluators/README.md "埋点契约"):
-  1. span attribute `adlc.triage_output` (JSON string written by the agent)  -> source="attribute"
+  1. span attribute `s12lab.triage_output` (JSON string written by the agent)  -> source="attribute"
   2. final assistant text found in span events / gen_ai attributes / log-record bodies
      (`events` or `span_events` -> body/attributes; top-level `body.output.messages`)   -> source="message"
-Feedback id: output JSON `feedback_id` -> span attribute `adlc.feedback_id` -> `需求编号: <id>` in user text.
+Feedback id: output JSON `feedback_id` -> span attribute `s12lab.feedback_id` -> `需求编号: <id>` in user text.
 
 Both camelCase (traceId, startTimeUnixNano) and snake_case (trace_id, start_time, span_events)
 key styles are accepted, because the Lambda payload shape has varied across delivery modes.
@@ -20,9 +20,9 @@ import re
 from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-OUTPUT_ATTRS = ("adlc.triage_output", "triage.output")
-FEEDBACK_ID_ATTRS = ("adlc.feedback_id", "triage.feedback_id", "feedback_id")
-VERSION_ATTRS = ("adlc.agent_version", "agent.version")
+OUTPUT_ATTRS = ("s12lab.triage_output", "s12.triage_output", "triage.output")
+FEEDBACK_ID_ATTRS = ("s12lab.feedback_id", "s12.feedback_id", "triage.feedback_id", "feedback_id")
+VERSION_ATTRS = ("s12lab.agent_version", "agent.version")
 USER_EVENT_NAMES = ("gen_ai.user.message",)
 ASSISTANT_EVENT_NAMES = ("gen_ai.choice", "gen_ai.assistant.message")
 ASSISTANT_ATTRS = ("gen_ai.completion", "gen_ai.output.messages", "output.value", "gen_ai.choice")

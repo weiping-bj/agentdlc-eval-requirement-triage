@@ -1,7 +1,7 @@
-"""AgentDLC lab business output: static HTML triage report of one batch run over last month's feedback.
+"""Scenario 12 business output: static HTML triage report of one batch run over last month's feedback.
 
   python -m labkit.report                                    # latest run with source=feedback in .lab-state/runs.json
-  python -m labkit.report --run results/run-runtime-v1-....jsonl   # a run JSONL (or a run_id registered in runs.json)
+  python -m labkit.report --run results/run-B-v1-....jsonl   # a run JSONL (or a run_id registered in runs.json)
   python -m labkit.report --run <...> --feedback data/feedback_last_month.jsonl --out page.html
 
 No golden set needed: the page shows what the agent decided for each feedback item (counts of
@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from labkit.compare import (ALIASES, as_dict, clip, esc, feedback_index, first_present, fmt_time,
-                            load_state_list, num, page, parse_obj, path_of, pill, root, safe_name, shown_path, text, version_label,
+                            load_state_list, num, page, parse_obj, path_of, pill, root, safe_name, shown_path, text,
                             topbar, write_page)
 
 # decision -> (filter code, pill class, chart color); order = display order (validated categorical trio)
@@ -165,7 +165,7 @@ def pick_run(arg) -> tuple:
         raise SystemExit(f"❌ 找不到运行结果文件或 run_id：{arg}")
     fb_runs = [r for r in runs if str(r.get("source")) == "feedback" and r.get("file")]
     if not fb_runs:
-        raise SystemExit("❌ .lab-state/runs.json 里没有 source=feedback 的运行：先运行 ./60-triage-report.sh"
+        raise SystemExit("❌ .lab-state/runs.json 里没有 source=feedback 的运行：先运行 ./34-triage-report.sh"
                          "（或 python -m labkit.batch --source feedback），或用 --run 指定运行结果 JSONL")
     return root() / str(fb_runs[-1]["file"]), fb_runs[-1]
 
@@ -178,7 +178,7 @@ def build_report(recs: list, entry: dict, fb: dict, run_file: Path) -> str:
     first = next((r for r in recs if r.get("run_id")), recs[0] if recs else {})
     run_id = text(entry.get("run_id") or first.get("run_id") or Path(run_file).stem.removeprefix("run-"))
     version = text(entry.get("version") or first.get("version")).strip()
-    vlabel = version_label(version)
+    vlabel = version.upper() if version else "?"
     model = text(entry.get("model") or first.get("model")) or "—"
     letter, plabel = path_of(entry.get("mode") or first.get("mode"))
     starts = sorted(text(r.get("started_at")) for r in recs if r.get("started_at"))
@@ -217,7 +217,7 @@ def build_report(recs: list, entry: dict, fb: dict, run_file: Path) -> str:
         notes += '<div class="note">未找到需求明细文件（data/feedback_last_month.jsonl），清单只显示需求编号。</div>'
     head = (f'<div class="card"><h2>{esc(vlabel)} 分诊结果总览</h2>{notes}<div class="kpis">{"".join(tiles)}</div></div>')
 
-    info_rows = [("run_id", f'<span class="mono">{esc(run_id)}</span>'), ("运行位置", esc(plabel)),
+    info_rows = [("run_id", f'<span class="mono">{esc(run_id)}</span>'), ("路线", esc(plabel)),
                  ("版本", esc(vlabel)), ("模型", f'<span class="mono">{esc(model)}</span>'), ("运行时间", esc(when)),
                  ("条数", esc(f"{total} 条（成功 {len(ok)}，失败 {len(errs)}）")),
                  ("平均耗时", esc(f"{sum(lats) / len(lats) / 1000:.1f} 秒/条" if lats else "—")),
@@ -326,8 +326,8 @@ def build_report(recs: list, entry: dict, fb: dict, run_file: Path) -> str:
                  '<th>耗时</th></tr></thead><tbody>' + "".join(xrows) + "</tbody></table>"
                  if xrows else '<p class="muted">没有失败的条目。</p>') + "</div>")
 
-    bar = topbar(f"上月需求反馈分诊报告 · {vlabel}", "AgentDLC 动手实验 · 需求反馈分诊 Agent · 业务输出（不需要黄金集）",
-                 [("run_id", run_id), ("模型", model), ("运行位置", letter)])
+    bar = topbar(f"上月需求反馈分诊报告 · {vlabel}", "场景 12 · 需求反馈分诊 Agent · 业务输出（不需要黄金集）",
+                 [("run_id", run_id), ("模型", model), ("路线", f"{letter} 版")])
     body = (head + info + f'<div class="grid2">{matrix}{modules}</div>' + full + rejects + evals + errors)
     return page(f"需求分诊报告 {vlabel} · {run_id}", bar, body, FOOTER, EXTRA_CSS)
 

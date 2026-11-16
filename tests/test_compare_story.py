@@ -16,7 +16,7 @@ from labkit import compare, compare_story, failures  # noqa: E402
 from labkit import config as labcfg  # noqa: E402
 from test_compare_report import INJ, INJ_ESC, V0, V1, well_formed  # noqa: E402
 
-PROMPTS = ROOT / "agent" / "adlc_agent" / "prompts"
+PROMPTS = ROOT / "agent" / "s12agent" / "prompts"
 FIELDS = ("important", "urgent", "decision")
 
 
@@ -104,24 +104,24 @@ def test_dim_hints_are_the_chapter_7_5_table():
 def test_change_card_diffs_prompt_tools_and_model(tmp_path):
     card = _card(_page(tmp_path), "story-changes")
     lb = (PROMPTS / "v0.md").read_text(encoding="utf-8").splitlines()
-    la = (PROMPTS / "v1-ref.md").read_text(encoding="utf-8").splitlines()
+    la = (PROMPTS / "v1.md").read_text(encoding="utf-8").splitlines()
     diff = list(difflib.unified_diff(lb, la, lineterm=""))
     plus = sum(1 for x in diff if x.startswith("+") and not x.startswith("+++"))
     minus = sum(1 for x in diff if x.startswith("-") and not x.startswith("---"))
     text = _plain(card)
-    assert f"prompts/v0.md（{len(lb)} 行）→ prompts/v1-ref.md（{len(la)} 行）：新增 {plus} 行、删去 {minus} 行" in text
+    assert f"prompts/v0.md（{len(lb)} 行）→ prompts/v1.md（{len(la)} 行）：新增 {plus} 行、删去 {minus} 行" in text
     assert "lookup_capability" in text and "search_capabilities" in text and "find_similar_requests" in text
     assert "去掉： lookup_capability" in text
     assert "未变： us.anthropic.claude-sonnet-5-5" in text
     assert "能力目录" in text and "无法自动比较" in text
     # the shipped V1 change notes, rendered as a table
-    assert "agent/adlc_agent/prompts/v1-ref.changes.md" in text
+    assert "agent/s12agent/prompts/v1.changes.md" in text
     assert "<th>失败原因（评估发现）</th><th>修改（文件）</th><th>预期影响的指标</th>" in card
     assert "修 V1 红线（第一步）" in text and "评审加入菜单路径（第二步）" in text
 
 
 def test_v1_change_notes_carry_the_two_follow_up_changes():
-    notes = (PROMPTS / "v1-ref.changes.md").read_text(encoding="utf-8")
+    notes = (PROMPTS / "v1.changes.md").read_text(encoding="utf-8")
     for s in ("修 V1 红线", "评审加入菜单路径", "从 8 条降到 2 条", "9 次都通过", "0.80 → 0.84", "12% → 36%",
               "| 失败原因（评估发现） | 修改（文件） | 预期影响的指标 |"):
         assert s in notes, s
@@ -160,12 +160,12 @@ def test_flip_per_field_counts_add_up_to_the_gates():
 
 def _v2_root(tmp_path, monkeypatch, notes: str | None) -> Path:
     monkeypatch.setattr(labcfg, "ROOT", tmp_path)
-    p = tmp_path / "agent" / "adlc_agent" / "prompts"
+    p = tmp_path / "agent" / "s12agent" / "prompts"
     p.mkdir(parents=True)
-    shutil.copy(PROMPTS / "v1-ref.md", p / "v1.md")   # an attendee V1 (here: the reference text) under v2
-    (p / "v2.md").write_text((PROMPTS / "v1-ref.md").read_text(encoding="utf-8") + "\n## 新增口径\n- 一条新规则\n",
+    shutil.copy(PROMPTS / "v1.md", p / "v1.md")
+    (p / "v2.md").write_text((PROMPTS / "v1.md").read_text(encoding="utf-8") + "\n## 新增口径\n- 一条新规则\n",
                              encoding="utf-8")
-    shutil.copy(ROOT / "agent" / "adlc_agent" / "tools.py", tmp_path / "agent" / "adlc_agent" / "tools.py")
+    shutil.copy(ROOT / "agent" / "s12agent" / "tools.py", tmp_path / "agent" / "s12agent" / "tools.py")
     if notes is not None:
         (p / "v2.changes.md").write_text(notes, encoding="utf-8")
     for name, ver in (("v1", "v1"), ("v2", "v2")):
@@ -182,11 +182,11 @@ def test_v2_change_notes_are_shown_and_escaped(tmp_path, monkeypatch):
     root = _v2_root(tmp_path, monkeypatch, notes)
     page = _page(tmp_path, root / "eval-v1.json", root / "eval-v2.json")
     card = _card(page, "story-changes")
-    assert "agent/adlc_agent/prompts/v2.changes.md" in card
+    assert "agent/s12agent/prompts/v2.changes.md" in card
     assert "<td>紧急被带偏</td><td><code>prompts/v2.md</code> 加事实标准</td><td>是否紧急准确率</td>" in card
     assert "<b>口径</b>" in card and "a | b" in card
     assert INJ not in page and "<img src=x" not in page and INJ_ESC in card
-    assert "TOOLSETS 里没有 v2，沿用 v1-ref（V1 参考版）的工具" in card and "两个版本的工具相同" in card
+    assert "TOOLSETS 里没有 v2，沿用 v1 的工具" in card and "两个版本的工具相同" in card
     assert "prompts/v1.md" in card and "新增 3 行、删去 0 行" in _plain(card)
     assert well_formed(page).scripts == 1
 
@@ -195,8 +195,8 @@ def test_v2_without_change_notes_is_graceful(tmp_path, monkeypatch):
     root = _v2_root(tmp_path, monkeypatch, None)
     page = _page(tmp_path, root / "eval-v1.json", root / "eval-v2.json")
     card = _plain(_card(page, "story-changes"))
-    assert "没有找到 agent/adlc_agent/prompts/v2.changes.md" in card and "不影响对比" in card
-    assert "prompts/v1.md" in card                # the prompt / tool diff is still there
+    assert "没有找到 agent/s12agent/prompts/v2.changes.md" in card and "不影响对比" in card
+    assert "prompts/v1.md" in card            # the prompt / tool diff is still there
     well_formed(page)
 
 
@@ -219,8 +219,8 @@ def test_own_agent_runs_do_not_show_mock_agent_files(tmp_path, monkeypatch):
         (root / n).write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
     page = _page(tmp_path, root / "eval-v1.json", root / "eval-v2.json")
     card = _plain(_card(page, "story-changes"))
-    assert "不对比 mock agent 的提示词和工具文件" in card and "自带 Agent 接入指南" in card
-    assert "v2.changes.md" not in card and "prompts/v1-ref.md" not in card
+    assert "不对比 mock agent 的提示词和工具文件" in card and "G.15" in card
+    assert "v2.changes.md" not in card and "prompts/v1.md" not in card
 
 
 def test_story_survives_minimal_eval_files(tmp_path):
@@ -246,9 +246,9 @@ def test_render_notes_subset():
 def test_chapter_8_2_asks_the_coding_agent_for_the_change_notes():
     page = (ROOT / "docs" / "08-optimize.html").read_text(encoding="utf-8")
     prompt = page[page.index('id="s-8-2"'):page.index('id="s-8-3"')]
-    assert "7. 把总结写进 agent/adlc_agent/prompts/v2.changes.md" in prompt
+    assert "7. 把总结写进 agent/s12agent/prompts/v2.changes.md" in prompt
     assert "| 失败原因（评估发现） | 修改（文件） | 预期影响的指标 |" in prompt
-    assert "v1-ref.changes.md" in prompt.split("6. ")[1].split("\n")[0]   # step 6 protects the shipped V1 notes
+    assert "v1.changes.md" in prompt.split("6. ")[1].split("\n")[0]   # step 6 protects the shipped V1 notes
 
 
 def test_chapter_9_2_describes_the_four_cards():
@@ -291,13 +291,13 @@ def test_flip_rows_name_only_fields_that_changed_and_the_red_line(tmp_path):
 
 def test_change_notes_follow_the_version_chain(tmp_path, monkeypatch):
     root = _v2_root(tmp_path, monkeypatch, "基于 v1；依据 results/eval-B-v1-x.json\n\n| a | b | c |\n|-|-|-|\n| 1 | 2 | 3 |\n")
-    shutil.copy(PROMPTS / "v0.md", root / "agent" / "adlc_agent" / "prompts" / "v0.md")
-    shutil.copy(PROMPTS / "v1-ref.changes.md", root / "agent" / "adlc_agent" / "prompts" / "v1.changes.md")
+    shutil.copy(PROMPTS / "v0.md", root / "agent" / "s12agent" / "prompts" / "v0.md")
+    shutil.copy(PROMPTS / "v1.changes.md", root / "agent" / "s12agent" / "prompts" / "v1.changes.md")
     d = json.loads(V0.read_text(encoding="utf-8"))
     d["run"].update(mode="runtime")
     _write(root / "eval-v0.json", d)
     card = _plain(_card(_page(tmp_path, root / "eval-v0.json", root / "eval-v2.json"), "story-changes"))
-    i1, i2 = card.index("V0 → V1 来自 agent/adlc_agent/prompts/v1.changes.md"), card.index("V1 → V2 来自 agent/adlc_agent/prompts/v2.changes.md")
+    i1, i2 = card.index("V0 → V1 来自 agent/s12agent/prompts/v1.changes.md"), card.index("V1 → V2 来自 agent/s12agent/prompts/v2.changes.md")
     assert i1 < i2 and "基于 v1；依据 results/eval-B-v1-x.json" in card
     assert "a b c 1 2 3" in card                                     # |-|-| is a header separator (GFM)
     for before, after in (("eval-v1.json", "eval-v1.json"), ("eval-v2.json", "eval-v1.json")):
@@ -321,7 +321,7 @@ def test_sessions_without_ids_are_keyed_like_the_pillars(tmp_path):
     right_after = {k for k, it in pa["_items"].items() if compare_story._right(it, [k2 for _n, k2, _c in specs])}
     expected = sum(1 for w in res["wrong"] if w["fid"] in right_after)
     assert {w["fid"] for w in res["wrong"]} <= set(pb["_items"])     # same keys as the pillar items
-    assert f"判错的 {len(res['wrong'])} 条，V1 参考版 整条答对 {expected} 条" in card
+    assert f"判错的 {len(res['wrong'])} 条，V1 整条答对 {expected} 条" in card
 
 
 def test_gate_column_uses_the_gate_counts_when_a_run_lacks_an_item(tmp_path):
@@ -352,7 +352,7 @@ def test_graded_scheme_shows_the_level_and_says_how_it_counts(tmp_path):
 
 def test_prompt_diff_counts_lines_that_look_like_headers(tmp_path, monkeypatch):
     monkeypatch.setattr(labcfg, "ROOT", tmp_path)
-    p = tmp_path / "agent" / "adlc_agent" / "prompts"
+    p = tmp_path / "agent" / "s12agent" / "prompts"
     p.mkdir(parents=True)
     (p / "v1.md").write_text("a\n---\nb\n", encoding="utf-8")
     (p / "v2.md").write_text("a\nb\n++ y\n", encoding="utf-8")
@@ -363,14 +363,14 @@ def test_prompt_diff_counts_lines_that_look_like_headers(tmp_path, monkeypatch):
 
 def test_toolsets_reads_later_assignments_and_flags_unreadable_lists(tmp_path, monkeypatch):
     monkeypatch.setattr(labcfg, "ROOT", tmp_path)
-    (tmp_path / "agent" / "adlc_agent").mkdir(parents=True)
-    (tmp_path / "agent" / "adlc_agent" / "tools.py").write_text(
+    (tmp_path / "agent" / "s12agent").mkdir(parents=True)
+    (tmp_path / "agent" / "s12agent" / "tools.py").write_text(
         "def a():\n    '''工具 A。'''\n\ndef b():\n    pass\n\nV1_TOOLS = [a]\n"
-        "TOOLSETS: dict = {'v0': [a], 'v1-ref': V1_TOOLS}\nTOOLSETS['v2'] = [a, mod.b]\nTOOLSETS['v3'] = make()\n", encoding="utf-8")
+        "TOOLSETS: dict = {'v0': [a], 'v1': V1_TOOLS}\nTOOLSETS['v2'] = [a, mod.b]\nTOOLSETS['v3'] = make()\n", encoding="utf-8")
     sets, docs = compare_story.toolsets()
-    assert sets == {"v0": ["a"], "v1-ref": ["a"], "v2": ["a", "b"], "v3": None} and docs["a"] == "工具 A。"
+    assert sets == {"v0": ["a"], "v1": ["a"], "v2": ["a", "b"], "v3": None} and docs["a"] == "工具 A。"
     assert compare_story._tools_of(sets, "v3") == (None, "读不到 v3 的工具列表（不是直接写出的列表）")
-    assert compare_story._tools_of(sets, "v4")[1] == "TOOLSETS 里没有 v4，沿用 v1-ref（V1 参考版）的工具"
+    assert compare_story._tools_of(sets, "v4")[1] == "TOOLSETS 里没有 v4，沿用 v1 的工具"
 
 
 def test_problem_card_names_ties_and_lists_red_lines(tmp_path):
@@ -399,31 +399,3 @@ def test_sample_compare_page_is_current(tmp_path):
     committed = stamp.sub("", (ROOT / "docs" / "compare" / "sample-compare.html").read_text(encoding="utf-8"))
     assert fresh == committed, ("regenerate: python -m labkit.compare --before tests/fixtures/eval-sample-v0.json "
                                 "--after tests/fixtures/eval-sample-v1.json --out docs/compare/sample-compare.html")
-
-
-def test_round_one_versions_v1_and_v1_ref_name_their_own_notes(tmp_path, monkeypatch):
-    """V0 -> V1 参考版 shows v1-ref.changes.md; V1 (attendee) vs V1 参考版 shows both round-1 notes."""
-    root = _v2_root(tmp_path, monkeypatch, None)
-    pdir = root / "agent" / "adlc_agent" / "prompts"
-    shutil.copy(PROMPTS / "v0.md", pdir / "v0.md")
-    shutil.copy(PROMPTS / "v1-ref.md", pdir / "v1-ref.md")
-    shutil.copy(PROMPTS / "v1-ref.changes.md", pdir / "v1-ref.changes.md")
-    (pdir / "v1.changes.md").write_text("基于 v0；我们自己的 V1\n", encoding="utf-8")
-    d = json.loads(V0.read_text(encoding="utf-8"))
-    d["run"].update(mode="runtime")
-    _write(root / "eval-v0.json", d)
-    d = json.loads(V1.read_text(encoding="utf-8"))
-    d["run"].update(version="v1-ref", run_id="runtime-v1-ref-x", mode="runtime")
-    _write(root / "eval-ref.json", d)
-    card = _plain(_card(_page(tmp_path, root / "eval-v0.json", root / "eval-ref.json"), "story-changes"))
-    assert "③ V0 → V1 参考版 改了什么" in card
-    assert "V0 → V1 参考版 来自 agent/adlc_agent/prompts/v1-ref.changes.md" in card and "我们自己的 V1" not in card
-    card = _plain(_card(_page(tmp_path, root / "eval-v1.json", root / "eval-ref.json"), "story-changes"))
-    i1, i2 = card.index("V0 → V1 来自 agent/adlc_agent/prompts/v1.changes.md"), card.index("V0 → V1 参考版 来自")
-    assert i1 < i2 and "两个都是第 1 轮的版本" in card
-
-
-def test_version_label_names_the_reference_version():
-    assert compare.version_label("v1-ref") == "V1 参考版" and compare.version_label("v1") == "V1"
-    assert compare.version_label("v0") == "V0" and compare.version_label("") == "?"
-    assert compare.version_label("custom-ref") == "CUSTOM-REF"    # only v<N>-ref is the reference naming

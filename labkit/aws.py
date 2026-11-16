@@ -3,13 +3,11 @@ from __future__ import annotations
 
 import functools
 import json
-import re
 import threading
 import time
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError
 
 from . import config as labcfg
 
@@ -52,7 +50,7 @@ def bucket_name() -> str:
 
 def tags_dict() -> dict:
     c = cfg()
-    return {"adlc:lab": "agentdlc", "adlc:owner": c["LAB_SUFFIX"]}
+    return {"s12lab:lab": "scenario12", "s12lab:owner": c["LAB_SUFFIX"]}
 
 
 def tags_list(key_name: str = "Key", value_name: str = "Value") -> list:
@@ -71,54 +69,22 @@ def wait_until(fn, desc: str, timeout: int = 600, interval: int = 10):
         time.sleep(interval)
 
 
-MANAGED_TAG = ("adlc:managed-by", "cloudformation")
-
-
-def stack_managed(role: dict) -> bool:
-    """A lab role pre-created by the EC2 CloudFormation stack (its trust and permissions are fixed there)."""
-    return any(t.get("Key") == MANAGED_TAG[0] and t.get("Value") == MANAGED_TAG[1] for t in role.get("Tags") or [])
-
-
-# The instance role of a lab stack is adlc-ec2-<suffix>-<region>; a role created by hand for ec2/README
-# 方式二 is adlc-ec2-<suffix> (no stack, no pre-created roles: it creates the lab roles itself).
-STACK_EC2_ROLE = re.compile(r":assumed-role/adlc-ec2-[a-z][a-z0-9]{1,11}-[a-z]{2}(?:-[a-z]+)+-\d+/")
-
-
-def on_stack_ec2() -> bool:
-    return bool(STACK_EC2_ROLE.search(caller_arn()))
-
-
-def _no_stack_role(name: str) -> SystemExit:
-    return SystemExit(f"❌ 找不到由 EC2 堆栈预先创建的角色 {name}（实验 EC2 不能自己创建或修改 IAM 角色）。"
-                      f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致"
-                      f"（当前 {cfg()['AWS_REGION']}）；EC2 堆栈若是旧版本模板创建的，请用新模板重新创建。")
-
-
 def ensure_role(name: str, trust: dict, inline: dict, description: str = "") -> str:
-    """The ARN of lab role `name`.
-
-    On a lab stack's EC2 the stack pre-creates the three lab roles and the EC2 has no IAM write permissions, so
-    the role is used as is (nothing can re-trust it). Elsewhere (a laptop with admin credentials, or the manual
-    EC2 role of ec2/README 方式二) the role is created or updated here with `trust` and one inline policy, with
-    the lab boundary when one exists. A role tagged as stack-managed is never changed from anywhere."""
+    """Create (or update) an IAM role with one inline policy; return its ARN."""
     iam = client("iam")
+    on_lab_ec2 = "assumed-role/s12lab-ec2-" in caller_arn()
+    if on_lab_ec2 and not boundary_arn():
+        raise SystemExit(f"❌ 找不到实验权限边界 {cfg()['BOUNDARY_POLICY_NAME']}（由 EC2 堆栈创建）。"
+                         f"请确认个人后缀与 EC2 堆栈一致（当前 {cfg()['LAB_SUFFIX']}），区域与 EC2 所在区域一致（当前 {cfg()['AWS_REGION']}）。")
     try:
         role = iam.get_role(RoleName=name)["Role"]
-    except iam.exceptions.NoSuchEntityException:
-        role = None
-    except ClientError as e:  # GetRole is only granted on the stack's own suffix: a different suffix lands here
-        if e.response.get("Error", {}).get("Code") in ("AccessDenied", "AccessDeniedException"):
-            raise _no_stack_role(name) from e
-        raise
-    if role is not None and stack_managed(role):
-        return role["Arn"]
-    if on_stack_ec2():
-        raise _no_stack_role(name)
-    if role is not None:
+        if on_lab_ec2 and not role.get("PermissionsBoundary"):
+            raise SystemExit(f"❌ 角色 {name} 是在没有权限边界时创建的，实验 EC2 不能再修改它。"
+                             f"请先运行 ./99-cleanup.sh 删除旧资源，再重新运行本脚本。")
         arn = role["Arn"]
         iam.update_assume_role_policy(RoleName=name, PolicyDocument=json.dumps(trust))
         created = False
-    else:
+    except iam.exceptions.NoSuchEntityException:
         kw = {}
         b = boundary_arn()
         if b:
@@ -139,8 +105,10 @@ def caller_arn() -> str:
 
 @functools.lru_cache(maxsize=1)
 def boundary_arn():
-    """The lab permissions boundary created by the EC2 CloudFormation stack (if any): roles created from a
-    laptop in an account that has the stack get it too; without a stack, roles are created without one."""
+    """The lab permissions boundary created by the EC2 CloudFormation stack (if any).
+
+    On the lab EC2 the instance role may only create roles with this boundary; on a laptop
+    (no stack) roles are created without one."""
     arn = f"arn:aws:iam::{account_id()}:policy/{cfg()['BOUNDARY_POLICY_NAME']}"
     try:
         client("iam").get_policy(PolicyArn=arn)

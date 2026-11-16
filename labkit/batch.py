@@ -1,12 +1,11 @@
 """Run the agent over a set of feedback items and record one session per item.
 
-  python -m labkit.batch --mode runtime --source golden     # AgentCore Runtime (the main path)
-  python -m labkit.batch --mode local   --source golden     # self-hosted on the lab EC2 (extension; run under
-                                                            # opentelemetry-instrument, see 42-run-golden.sh)
+  python -m labkit.batch --mode local   --source golden     # A path (run under opentelemetry-instrument)
+  python -m labkit.batch --mode runtime --source golden     # B path (AgentCore Runtime)
   python -m labkit.batch --mode local --one FB-2026-10-001  # single item smoke test
 
-Writes results/run-<mode>-<version>-<timestamp>.jsonl and registers the run in
-.lab-state/runs.json (used by 43-run-eval.sh and 51-compare.sh).
+Writes results/run-<path>-<version>-<timestamp>.jsonl and registers the run in
+.lab-state/runs.json (used by 31-run-eval.sh and 32-compare.sh).
 """
 from __future__ import annotations
 
@@ -31,7 +30,7 @@ def _session_id(prefix: str, version: str, fid: str) -> str:
 def _local_one(row: dict, version: str, model: str, sid: str) -> dict:
     from opentelemetry import baggage, context  # provided by strands / ADOT
     sys.path.insert(0, str(Path(aws.cfg()["LAB_ROOT"]) / "agent"))
-    from adlc_agent.core import triage
+    from s12agent.core import triage
 
     token = context.attach(baggage.set_baggage("session.id", sid))
     try:
@@ -71,22 +70,22 @@ def run(mode: str, source: str, version: str, limit: int | None, workers: int, o
     if limit:
         rows = rows[:limit]
     model = c["AGENT_MODEL_ID"]
-    where = "EC2 上自托管" if mode == "local" else "AgentCore Runtime"
+    path_tag = "A" if mode == "local" else "B"
     arn = None
     if mode == "runtime":
         st = aws.load_state("runtime") or {}
         arn = st.get("agentRuntimeArn")
         if not arn:
-            raise SystemExit("❌ 找不到 Runtime（.lab-state/runtime.json）。请先运行 ./30-deploy-runtime.sh（第 3 章）")
+            raise SystemExit("❌ 找不到 Runtime（.lab-state/runtime.json）。请先运行 ./20-B-deploy-runtime.sh")
         version = st.get("agentVersion", version)
         model = st.get("modelId", model)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_id = label or f"{mode}-{version}-{ts}"
+    run_id = label or f"{path_tag}-{version}-{ts}"
     out_dir = Path(c["RESULTS_DIR"])
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"run-{run_id}.jsonl"
     prefix = c["LAB_NAME"]
-    print(f"▶ 运行 {len(rows)} 条需求 · {where} · 版本 {version} · 模型 {model} · 并发 {workers}")
+    print(f"▶ 运行 {len(rows)} 条需求 · 路线 {path_tag} · 版本 {version} · 模型 {model} · 并发 {workers}")
     started = time.time()
 
     def work(row):

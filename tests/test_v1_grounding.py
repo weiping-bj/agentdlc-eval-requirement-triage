@@ -1,7 +1,7 @@
 """V1 grounding (no AWS calls).
 
 The reject-quality judge checks a rejection against a catalog excerpt built from each capability's
-name / description / limits / workaround / how_to (menu path) (evaluators/adlc_reject_quality/lambda_function.capability_hints).
+name / description / limits / workaround / how_to (menu path) (evaluators/s12_reject_quality/lambda_function.capability_hints).
 A platform fact the agent states from any other source -- e.g. a menu path it made up or rephrased, or the
 model's own knowledge -- cannot be verified there (unless the golden reply points happen to list it) and
 tends to be judged "编造平台并不存在的功能或配置路径" (a red line, one-vote veto). So V1's capability tool hands the
@@ -28,7 +28,7 @@ def _catalog() -> list:
 
 def _judge_hints():
     """capability_hints of the reject-quality evaluator package, imported in isolation."""
-    d = str(ROOT / "evaluators" / "adlc_reject_quality")
+    d = str(ROOT / "evaluators" / "s12_reject_quality")
     for m in ("lambda_function", "span_adapter", "golden_store", "judge", "rubric", "pillars"):
         sys.modules.pop(m, None)
     sys.path.insert(0, d)
@@ -42,7 +42,7 @@ def _judge_hints():
 
 def test_v1_capability_search_returns_the_catalog_menu_path():
     pytest.importorskip("strands")
-    from adlc_agent import tools
+    from s12agent import tools
     caps = {c["id"]: c for c in _catalog()}
     seen = set()
     for c in _catalog():
@@ -60,7 +60,7 @@ def test_v1_tool_fields_match_the_judge_excerpt_line():
     it, once that capability is in the excerpt (module / effort_hint are internal hints the agent does not quote).
     Whether it gets into the top-5 excerpt is the citation test below."""
     pytest.importorskip("strands")
-    from adlc_agent import tools
+    from s12agent import tools
     hints = _judge_hints()
     for c in _catalog():
         hit = next(h for h in json.loads(tools.search_capabilities._tool_func(c["name"])) if h["id"] == c["id"])
@@ -73,14 +73,14 @@ def test_v1_tool_fields_match_the_judge_excerpt_line():
 
 
 def test_citing_capabilities_in_reject_reason_puts_them_in_the_judge_excerpt():
-    """v1-ref.md asks reject_reason to name every capability the reply relies on, with its catalog wording. The
+    """v1.md asks reject_reason to name every capability the reply relies on, with its catalog wording. The
     judge's excerpt is the top 5 (default k) by overlap with requirement + reject_reason, so a citation in that
     form brings each golden capability into the excerpt; without it some fall outside the top 5. (A looser
     citation in a real run can still miss: this checks the rule's intent, the runs check the behaviour.)"""
     pytest.importorskip("strands")
-    v1 = (ROOT / "agent" / "adlc_agent" / "prompts" / "v1-ref.md").read_text(encoding="utf-8")
+    v1 = (ROOT / "agent" / "s12agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
     assert "话术里用到的每一项平台能力，都在这里写出编号、名称和依据" in v1
-    from adlc_agent.core import format_input
+    from s12agent.core import format_input
     hints = _judge_hints()
     caps = {c["id"]: c for c in _catalog()}
     rows = [json.loads(l) for l in (ROOT / "data" / "golden" / "golden_set.jsonl").read_text(encoding="utf-8").splitlines()
@@ -100,7 +100,7 @@ def test_citing_capabilities_in_reject_reason_puts_them_in_the_judge_excerpt():
 
 
 def test_v1_prompt_keeps_platform_facts_to_catalog_fields():
-    v1 = (ROOT / "agent" / "adlc_agent" / "prompts" / "v1-ref.md").read_text(encoding="utf-8")
+    v1 = (ROOT / "agent" / "s12agent" / "prompts" / "v1.md").read_text(encoding="utf-8")
     assert "菜单路径只能原样引用本次 `search_capabilities` 结果里该功能的 how_to" in v1  # never an invented path
     assert "不增减、不改写其中任何一级" in v1 and "就不写路径" in v1
     assert "不要写菜单路径" not in v1
@@ -114,7 +114,7 @@ def test_v1_prompt_keeps_platform_facts_to_catalog_fields():
 
 def test_v0_baseline_tool_still_returns_names_only():
     pytest.importorskip("strands")
-    from adlc_agent import tools
+    from s12agent import tools
     assert tools.TOOLSETS["v0"] == [tools.lookup_capability]
     names = json.loads(tools.lookup_capability._tool_func("审批"))
     assert names and all(isinstance(n, str) for n in names)

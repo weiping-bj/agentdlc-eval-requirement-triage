@@ -18,12 +18,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE_FILE = ROOT / "config" / "lab.env"
-LOCAL_FILE = ROOT / "config" / "local.env"  # ADLC_LOCAL_ENV overrides (tests / alternate profiles)
-SUFFIX_RE = re.compile(r"^(?!ec2$)[a-z][a-z0-9]{1,11}$")  # "ec2": adlc-ec2-* is the participant EC2-role namespace
+LOCAL_FILE = ROOT / "config" / "local.env"  # S12_LOCAL_ENV overrides (tests / alternate profiles)
+SUFFIX_RE = re.compile(r"^[a-z][a-z0-9]{1,11}$")
 KEYS = [
     "AWS_REGION", "LAB_PREFIX", "LAB_SUFFIX", "AGENT_MODEL_ID", "JUDGE_MODEL_ID",
     "FALLBACK_MODEL_ID", "CODING_AGENT_MODEL_ID", "CODING_AGENT_FAST_MODEL_ID",
-    "AGENT_VERSION", "TARGET_ACCURACY", "LABEL_SCHEME", "LEVEL_TOLERANCE", "RUNTIME_PYTHON", "AWS_PROFILE",
+    "AGENT_VERSION", "TARGET_ACCURACY", "RUNTIME_PYTHON", "AWS_PROFILE",
 ]
 
 
@@ -53,24 +53,24 @@ def parse_env_file(path: Path) -> dict:
 def load(require_suffix: bool = True) -> dict:
     cfg: dict = {}
     cfg.update(parse_env_file(BASE_FILE))
-    local = Path(os.environ["ADLC_LOCAL_ENV"]) if os.environ.get("ADLC_LOCAL_ENV") else LOCAL_FILE
+    local = Path(os.environ["S12_LOCAL_ENV"]) if os.environ.get("S12_LOCAL_ENV") else LOCAL_FILE
     cfg.update(parse_env_file(local))
     origin = {k: "file" for k in cfg}
     for k in KEYS:
         v = os.environ.get(k)
-        # `source ./00-config.sh` exports every FILE-derived key together with a _ADLC_EXP_<key>
+        # `source ./00-config.sh` exports every FILE-derived key together with a _S12_EXP_<key>
         # snapshot. An env value equal to its snapshot is only our own earlier export, so the files
-        # (e.g. 50-switch-version.sh / use-model.sh writing config/local.env) still win. Values that
+        # (e.g. 40-switch-version.sh / use-model.sh writing config/local.env) still win. Values that
         # really come from the environment (EC2 ~/.bashrc region, one-off `K=v ./script`) have no
         # snapshot, so they override the files and keep doing so in child processes.
-        if v and v != os.environ.get(f"_ADLC_EXP_{k}"):
+        if v and v != os.environ.get(f"_S12_EXP_{k}"):
             cfg[k] = v
             origin[k] = "env"
     cfg["_ORIGIN"] = origin
     suffix = cfg.get("LAB_SUFFIX", "")
     if require_suffix and not SUFFIX_RE.match(suffix or ""):
         raise ConfigError(
-            "LAB_SUFFIX 未设置或格式不对（小写字母开头，2-12 位小写字母/数字；ec2 保留不能用）。"
+            "LAB_SUFFIX 未设置或格式不对（小写字母开头，2-12 位小写字母/数字）。"
             "请先运行: ./tools/set-suffix.sh <你的后缀>   例如 ./tools/set-suffix.sh zhang3"
         )
     cfg.update(derive(cfg))
@@ -82,7 +82,7 @@ def origin_of(cfg: dict, key: str) -> str:
 
 
 def derive(cfg: dict) -> dict:
-    p = cfg.get("LAB_PREFIX", "adlc")
+    p = cfg.get("LAB_PREFIX", "s12lab")
     s = cfg.get("LAB_SUFFIX", "") or "unset"
     r = cfg.get("AWS_REGION", "us-west-2")
     dash, us = f"{p}-{s}", f"{p}_{s}"
@@ -97,7 +97,7 @@ def derive(cfg: dict) -> dict:
         "EVALUATOR_JUDGE_NAME": f"{us}_reject_quality",
         "ONLINE_EVAL_NAME": f"{us}_online",
         "ONLINE_EVAL_ROLE_NAME": f"{dash}-online-eval-role-{r}",
-        # self-hosted mock agent on the lab EC2 (extension; not on Runtime): OTel service name + log group
+        # A path (agent not on Runtime): OTel service name + CloudWatch log group
         "LOCAL_SERVICE_NAME": f"{dash}-local-agent",
         "LOCAL_LOG_GROUP": f"/aws/bedrock-agentcore/{dash}-local-agent",
         "CONVERTED_SERVICE_NAME": f"{dash}-imported-logs",
@@ -130,9 +130,9 @@ def main(argv: list) -> int:
             print(f"export {k}={shlex.quote(str(cfg[k]))}")
             if k in KEYS:
                 if origin_of(cfg, k) == "file":
-                    print(f"export _ADLC_EXP_{k}={shlex.quote(str(cfg[k]))}")
+                    print(f"export _S12_EXP_{k}={shlex.quote(str(cfg[k]))}")
                 else:
-                    print(f"unset _ADLC_EXP_{k}")
+                    print(f"unset _S12_EXP_{k}")
         print("export AWS_DEFAULT_REGION=\"$AWS_REGION\"")
     else:
         w = max(len(k) for k in cfg)

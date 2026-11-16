@@ -1,4 +1,4 @@
-# 黄金集标注标准（AgentDLC 动手实验：需求价值打分）
+# 黄金集标注标准（场景 12：需求价值打分）
 
 > 版本 v1 · 所有样例均为合成数据。分组讨论后若口径变化，修改本文件 + [`data/templates/discussion-feedback.md`](../templates/discussion-feedback.md)，再用 [`data/prompts/03-update-golden-set.md`](../prompts/03-update-golden-set.md) 重新生成黄金集。
 
@@ -64,7 +64,7 @@
   - 不泄露其他客户名称或内部排期；
   - 不编造平台没有的功能或配置路径。
 
-LLM 评审评估器 [`evaluators/adlc_reject_quality`](../../evaluators/adlc_reject_quality/) 按这套要点和 5 个维度（理由专业性、理解与礼貌、原因说明、替代方案、风险控制）打分。
+LLM 评审评估器 [`evaluators/s12_reject_quality`](../../evaluators/s12_reject_quality/) 按这套要点和 5 个维度（理由专业性、理解与礼貌、原因说明、替代方案、风险控制）打分。
 
 ## 6. 优先级（分级模式，可选）
 
@@ -73,7 +73,7 @@ LLM 评审评估器 [`evaluators/adlc_reject_quality`](../../evaluators/adlc_rej
 - 重要但不紧急 = **P1**；
 - 其它 = **P2**。
 
-现场可以改成自己的定义，例如“P0=本迭代必须做”。评估时可以按等级完全一致打分（`ADLC_LEVEL_TOLERANCE=0`），也可以允许相差一级（`=1`）。
+现场可以改成自己的定义，例如“P0=本迭代必须做”。评估时可以按等级完全一致打分（`S12_LEVEL_TOLERANCE=0`），也可以允许相差一级（`=1`）。
 
 ## 7. 五维标签（每条 1~3 个）
 

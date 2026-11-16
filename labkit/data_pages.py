@@ -1,13 +1,13 @@
-"""Handbook 2.1 (optional) / extension "regenerate mock data": publish the CURRENT data files as self-contained pages in the private lab bucket.
+"""Step 2.7: publish the CURRENT data files as self-contained pages in the private lab bucket.
 
   ./tools/publish-data-pages.sh                 # capability catalog + mock feedback + golden set: render, upload, print links
   ./tools/publish-data-pages.sh --no-upload     # only write reports/data-pages/*.html (no AWS call at all)
   ./tools/publish-data-pages.sh --only golden   # one page only (catalog / mock / golden; repeat or comma-separate)
   python -m labkit.data_pages --catalog X.json --feedback Y.jsonl --golden Z.jsonl --out-dir DIR --no-upload
 
-Why: the handbook has no page for the current data (the old GitHub Pages catalog.html / mock-data.html show the
-repo's original sample, and there is no golden set page). Once a group changes the data on its EC2 (golden items
-added in 2.4, regenerated mock data, prompt 04 catalog) nothing else shows it, and the EC2 has no inbound ports, so its files cannot be
+Why: the handbook's catalog.html and mock-data.html are the repo's original sample (GitHub Pages) and the
+handbook has no golden set page. Once a group changes the data on its EC2 (2.4 mock data, prompt 04 catalog,
+2.5/2.6 golden set) the handbook no longer shows it, and the EC2 has no inbound ports, so its files cannot be
 opened in a browser either. This module renders the files as they are NOW, with the same renderers that build
 the handbook pages (data/tools/catalog_views.py, data/tools/mock_views.py; the golden set page is rendered
 here in the same page shape), turns each page into a self-contained file (style.css inlined, no external
@@ -54,7 +54,7 @@ PAGES = {"catalog": ("data-catalog.html", "能力目录"),
 # inline script would not run; style-src needs 'unsafe-inline' for the templates' style="" attributes.
 CSP = ("default-src 'none'; style-src 'unsafe-inline'; script-src {scripts}; img-src data:; "
        "base-uri 'none'; form-action 'none'")
-_CSP_META = '<meta http-equiv="Content-Security-Policy" content="__ADLC_CSP__">'
+_CSP_META = '<meta http-equiv="Content-Security-Policy" content="__S12_CSP__">'
 _SCRIPT_RX = re.compile(r"<script>(.*?)</script>", re.S)
 STANDALONE_CSS = """
 .layout { max-width: 1680px; }
@@ -94,11 +94,11 @@ def golden_freeze_note(golden_path) -> str:
         man = json.loads(m.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return ("<br>⚠️ 没找到冻结记录（<code>MANIFEST.json</code>）：确认无误后运行 "
-                "<code>python3 data/tools/golden_tool.py freeze</code>（手册 2.4）。")
+                "<code>python3 data/tools/golden_tool.py freeze</code>（第 2.6 步）。")
     if man.get("sha256") == sha:
         return f"<br>✅ 已冻结（{E(man.get('frozen_at'))}），评估器用的就是这一版（重新注册过评估器的前提下）。"
     return ("<br>⚠️ 这一版<b>还没有冻结</b>（和 <code>MANIFEST.json</code> 记录的不一致）：确认无误后运行 "
-            "<code>python3 data/tools/golden_tool.py freeze</code>（手册 2.4），再运行 <code>./40-create-evaluators.sh</code>，评估器才会用上。")
+            "<code>python3 data/tools/golden_tool.py freeze</code>（第 2.6 步），评估器才会用上。")
 
 
 # ---------------------------------------------------------------- self-contained check
@@ -180,9 +180,9 @@ def _anchor(m) -> str:
     return f"<code>{target.group(1)}</code>" if target else ""
 
 
-ORIG_NOTE = "实验包里自带的是<b>原始样例</b>；这一页按 EC2 上的当前文件生成，包含你们的修改。"
-GOLDEN_ORIG_NOTE = ("手册里没有黄金集网页版；实验包里自带的 <code>golden_set.jsonl</code> / <code>.csv</code> 是"
-                    "<b>原始样例</b>，这一页按 EC2 上的当前文件生成，包含你们的修改。")
+ORIG_NOTE = "手册里的同名网页是仓库里的<b>原始样例</b>，不会随你们的修改变化。"
+GOLDEN_ORIG_NOTE = ("手册里没有黄金集网页版；GitHub 上的 <code>golden_set.jsonl</code> / <code>.csv</code> 是仓库里的"
+                    "<b>原始样例</b>，不会随你们的修改变化。")
 NOT_SAMPLE_NOTE = ("<br>⚠️ 来源不是仓库自带的示例数据文件：页面可能含真实客户信息，只在本账号内查看，"
                    "不要下载后外传，也不要把对象改成公开。")
 
@@ -214,22 +214,21 @@ def standalone(page: str, title: str, label: str, src: dict, count: str, extra_n
     s = s.replace("</head>", f"<style>\n{load_css()}\n{STANDALONE_CSS}</style>\n</head>", 1)
     s = s.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n' + _CSP_META, 1)
     s = re.sub(r'<p\b[^>]*\bdata-handbook-only\b[^>]*>.*?</p>\n?', "", s, flags=re.S)
-    s = s.replace(' <span class="applies common">A/B 通用</span>', "")   # old GitHub Pages nav pill, not for these pages
     s = _A_RX.sub(_anchor, s)
     s = s.replace('<nav id="toc"></nav>\n', "").replace('<nav id="toc"></nav>', "")
-    bar = topbar(f"{label}（当前版本）· AgentDLC 动手实验", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
+    bar = topbar(f"{label}（当前版本）· 场景 12", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
                  [("生成于", f"{stamp} 北京时间"), ("sha256", src["sha"][:12])])
     s = s.replace('<div id="topbar"></div>', bar, 1)
     banner = (f'<section class="card" id="snapshot"><div class="warn"><b>这是 EC2 上数据文件的当前版本</b>'
               f"（{E(label)}，{E(count)}，生成于 {E(stamp)} 北京时间）。{orig_note}"
               f"<br>来源：<code>{E(src['path'])}</code> · sha256 <code>{E(src['sha'][:12])}</code>"
-              f" · 文件修改于 {E(src['mtime'])}{'' if sample else NOT_SAMPLE_NOTE}{extra_note}<br>数据再改后（补黄金样本并冻结、重新生成模拟数据、提示词 04），在 EC2 上重新运行 "
+              f" · 文件修改于 {E(src['mtime'])}{'' if sample else NOT_SAMPLE_NOTE}{extra_note}<br>数据再改后（2.4 / 2.5 / 2.6 / 提示词 04），在 EC2 上重新运行 "
               f"<code>./tools/publish-data-pages.sh</code>：同名对象被覆盖，在控制台重新点「打开」就是新版本。</div></section>\n")
     s = s.replace("<main>\n", "<main>\n" + banner, 1)
     s = s.replace("</footer>", f" · 生成于 {E(stamp)} 北京时间</footer>", 1)
     if not sample:
         s = _not_sample(s)
-    s = s.replace("__ADLC_CSP__", _csp(s), 1)
+    s = s.replace("__S12_CSP__", _csp(s), 1)
     bad = external_refs(s)
     if bad or "<style>" not in s or "script-src" not in s or "id=\"snapshot\"" not in s:
         raise ValueError(f"{label}：页面不是自包含的，未发布：{sorted(set(bad)) or '缺少内联样式 / CSP / 版本说明'}")
@@ -241,15 +240,15 @@ def failure_page(label: str, src_path, err: str, now: Optional[datetime] = None)
     never keeps claiming to be the current version."""
     stamp = (now or datetime.now(timezone.utc)).astimezone(BEIJING).strftime("%Y-%m-%d %H:%M")
     s = (f'<!doctype html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n{_CSP_META}\n'
-         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>{E(label)}（生成失败）· AgentDLC 动手实验</title>\n'
+         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>{E(label)}（生成失败）· 场景 12</title>\n'
          f"<style>\n{load_css()}\n{STANDALONE_CSS}</style>\n</head>\n<body>\n"
-         + topbar(f"{label}（生成失败）· AgentDLC 动手实验", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
+         + topbar(f"{label}（生成失败）· 场景 12", "按 EC2 上的数据文件生成 · 只在你的私有 S3 桶里，不公开",
                   [("生成于", f"{stamp} 北京时间")])
          + f'\n<div class="layout"><main>\n<section class="card" id="snapshot"><div class="danger"><b>{E(label)}这次没能生成</b>'
          f"（{E(stamp)} 北京时间），上一版已被这张说明替换，免得把旧数据当成当前版本。<br>来源：<code>{E(shown(src_path))}</code>"
          f"<br>原因：<code>{E(err)}</code><br>在 EC2 上修好数据文件（黄金集可先运行 <code>python3 data/tools/golden_tool.py validate</code>）"
          f"后重新运行 <code>./tools/publish-data-pages.sh</code>。</div></section>\n</main></div>\n</body>\n</html>\n")
-    s = s.replace("__ADLC_CSP__", _csp(s), 1)
+    s = s.replace("__S12_CSP__", _csp(s), 1)
     bad = external_refs(s)
     if bad:
         raise ValueError(f"{label}：失败说明页不是自包含的：{sorted(set(bad))}")
@@ -339,7 +338,7 @@ def golden_validation_note(rows: List[dict], golden_path, catalog_ids: Optional[
         return ""
     head = "；".join(E(x) for x in errors[:3]) + ("……" if len(errors) > 3 else "")
     return (f"<br>⚠️ 校验有 <b>{len(errors)} 个错误</b>（页面按原值显示，评估器可能另有解读）：{head}。"
-            "运行 <code>python3 data/tools/golden_tool.py validate</code> 查看全部，改好后再冻结（手册 2.4）。")
+            "运行 <code>python3 data/tools/golden_tool.py validate</code> 查看全部，改好后再冻结（第 2.6 步）。")
 
 
 def render_golden_html(rows: List[dict], cap_names: Optional[Dict[str, str]] = None) -> str:
@@ -392,7 +391,7 @@ def render_golden_html(rows: List[dict], cap_names: Optional[Dict[str, str]] = N
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>黄金集 · AgentDLC 动手实验手册</title>
+<title>黄金集 · 场景 12 实验手册</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="golden-set">
@@ -402,9 +401,9 @@ def render_golden_html(rows: List[dict], cap_names: Optional[Dict[str, str]] = N
 <main>
 
 <section class="card chapter-head">
-  <h1><span class="num">金</span>黄金集（{total} 条）</h1>
+  <h1><span class="num">金</span>黄金集（{total} 条） <span class="applies common">A/B 通用</span></h1>
   <p class="lead">黄金集是评估用的“标准答案”：每条需求的期望标签、可接受的其它建议、是否可自动拒绝、拒绝要点、话术要点、标注理由、五维和样例类型。</p>
-  <p>要补样本，按手册 2.4（判据 → 黄金集）；要逐条改，写进 <a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a>（扩展「按讨论意见重新生成模拟数据」），改完冻结；标注标准见 <a data-repo="data/golden/LABELING_GUIDE.md">LABELING_GUIDE.md</a>。</p>
+  <p>要改哪一条，按第 2.5 步写进 <a data-repo="data/templates/golden-set-feedback.csv">golden-set-feedback.csv</a>，改完按第 2.6 步冻结；标注标准见 <a data-repo="data/golden/LABELING_GUIDE.md">LABELING_GUIDE.md</a>。</p>
   <p class="where">版本 {E(versions)} · 多答案可接受 {st["ambiguous_multi_answer"]} 条 · 不可自动拒绝 {st["not_auto_rejectable"]} 条 · Excel 版：<a data-download="data/golden/golden_set.csv"></a>（运行 freeze 时导出）</p>
 </section>
 
@@ -426,7 +425,7 @@ def render_golden_html(rows: List[dict], cap_names: Optional[Dict[str, str]] = N
 
 </main>
 </div>
-<footer>AgentDLC 动手实验 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
+<footer>场景 12 · 需求价值打分 Agent 实验手册 · 所有数据均为合成数据</footer>
 <script src="assets/site.js"></script>
 <script>
 (function () {{
@@ -464,7 +463,7 @@ def build_catalog(catalog_path, now=None) -> Tuple[str, str]:
     catalog = CV.load(str(catalog_path))
     n = len(catalog.get("capabilities") or [])
     label = PAGES["catalog"][1]
-    page = standalone(CV.render_html(catalog), f"{label}（当前版本，{n} 项）· AgentDLC 动手实验", label,
+    page = standalone(CV.render_html(catalog), f"{label}（当前版本，{n} 项）· 场景 12", label,
                       source_info(catalog_path), f"{n} 项", now=now, sample=_is_repo_file(catalog_path, C.CATALOG_PATH))
     return page, f"{n} 项"
 
@@ -478,7 +477,7 @@ def build_mock(feedback_path, pool_path=C.POOL_PATH, extra_path: Optional[str] =
     unknown = sum(1 for c in cats if c == MV.UNKNOWN)
     note = (f"<br>⚠️ 有 {unknown} 条不在种子库或补充条目里，类别分布里记为“未能归类”。" if unknown else "")
     label = PAGES["mock"][1]
-    page = standalone(MV.render_html(feedback, cats), f"{label}（当前版本，{len(feedback)} 条）· AgentDLC 动手实验", label,
+    page = standalone(MV.render_html(feedback, cats), f"{label}（当前版本，{len(feedback)} 条）· 场景 12", label,
                       source_info(feedback_path), f"{len(feedback)} 条", note, now=now,
                       sample=_is_repo_file(feedback_path, C.FEEDBACK_PATH))
     return page, f"{len(feedback)} 条"
@@ -493,7 +492,7 @@ def build_golden(golden_path, catalog_path=C.CATALOG_PATH, now=None) -> Tuple[st
         cap_names = {}
     label = PAGES["golden"][1]
     notes = golden_freeze_note(golden_path) + golden_validation_note(rows, golden_path, set(cap_names) or None)
-    page = standalone(render_golden_html(rows, cap_names), f"{label}（当前版本，{len(rows)} 条）· AgentDLC 动手实验", label,
+    page = standalone(render_golden_html(rows, cap_names), f"{label}（当前版本，{len(rows)} 条）· 场景 12", label,
                       source_info(golden_path), f"{len(rows)} 条", notes, now=now, orig_note=GOLDEN_ORIG_NOTE,
                       sample=_is_repo_file(golden_path, C.GOLDEN_PATH))
     return page, f"{len(rows)} 条"
@@ -517,7 +516,7 @@ def _kinds(only: List[str]) -> List[str]:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="./tools/publish-data-pages.sh", allow_abbrev=False,  # the wrapper matches exact flags
-                                 description="把 EC2 上当前的能力目录 / mock 需求 / 黄金集生成自包含网页，上传到你的私有 S3 桶")
+                                 description="把 EC2 上当前的能力目录 / mock 需求 / 黄金集生成自包含网页，上传到你的私有 S3 桶（第 2.7 步）")
     ap.add_argument("--no-upload", action="store_true", help="只生成本地文件，不上传（不调用任何 AWS 接口）")
     ap.add_argument("--only", action="append", default=[], help="只做这几页：catalog / mock / golden（可写多次或用逗号分隔）")
     ap.add_argument("--out-dir", default=str(OUT_DIR), help="本地输出目录（默认 reports/data-pages/）")
@@ -529,8 +528,8 @@ def main(argv=None) -> int:
     kinds = _kinds(a.only)
     out_dir = Path(a.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    if os.environ.get("ADLC_DATA_DIR"):
-        print(f"ℹ️  设置了 ADLC_DATA_DIR={os.environ['ADLC_DATA_DIR']}：Agent 读的是那里的数据；"
+    if os.environ.get("S12_DATA_DIR"):
+        print(f"ℹ️  设置了 S12_DATA_DIR={os.environ['S12_DATA_DIR']}：Agent 读的是那里的数据；"
               "要展示那份数据，请用 --feedback / --catalog 指定文件。")
     print(f"▶ 按 EC2 上的当前数据生成网页 → {shown(out_dir)}/")
     builders = {"catalog": (a.catalog, lambda: build_catalog(a.catalog)),

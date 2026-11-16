@@ -52,6 +52,7 @@ python3 data/tools/golden_tool.py stats                 # 标签分布
 python3 data/tools/golden_tool.py apply-feedback        # 按 templates/golden-set-feedback.csv 修改黄金集
 python3 data/tools/golden_tool.py freeze                # 冻结版本 + 同步到评估器
 python3 data/tools/generate_mock_data.py                # 按 templates/mock-data-params.yaml 重新生成 mock 输入
+python3 data/tools/ingest_customer_data.py --in <客户文件>   # 客户数据：充分性报告 + 标准化
 python3 -m pytest -q data/tests                         # 工具的单元测试（需要 pytest）
 ```
 

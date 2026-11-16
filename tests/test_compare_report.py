@@ -21,7 +21,7 @@ FX = ROOT / "tests" / "fixtures"
 V0 = FX / "eval-sample-v0.json"
 V1 = FX / "eval-sample-v1.json"
 RUN = FX / "run-sample-feedback.jsonl"
-V0_ID, V1_ID, RUN_ID = "runtime-v0-20261105T130000Z", "runtime-v1-ref-20261105T150000Z", "runtime-v1-ref-20261105T160000Z"
+V0_ID, V1_ID, RUN_ID = "B-v0-20261105T130000Z", "B-v1-20261105T150000Z", "B-v1-20261105T160000Z"
 INJ = '<script>alert("xss")</script>'
 INJ_ESC = html.escape(INJ, quote=True)
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
@@ -103,7 +103,7 @@ def test_compare_page_from_fixtures(tmp_path, capsys):
     page = out.read_text(encoding="utf-8")
     for s in ("是否重要", "是否紧急", "处理建议", "70%", V0_ID, V1_ID, "整条通过率", "拒绝话术通过率", "红线（一票否决）",
               "三大支柱", "门禁（全部达标才通过）", "观测（只看趋势，不影响结论）",
-              "Builtin.Correctness", "Builtin.Helpfulness", "运行位置", "AgentCore Runtime", "us.anthropic.claude-sonnet-5-5", "us-west-2",
+              "Builtin.Correctness", "Builtin.Helpfulness", "路线 B", "us.anthropic.claude-sonnet-5-5", "us-west-2",
               "数据为合成数据；分数来自 AgentCore Evaluations（按需评估）", "stroke-dasharray", "<svg"):
         assert s in page, s
     for name in SINGLE:  # KPI values come from the single-label evaluator means
@@ -169,7 +169,7 @@ def test_compare_tolerates_missing_keys_and_error_entries(tmp_path):
     out = tmp_path / "c.html"
     assert compare.main(["--before", str(pb), "--after", str(pa), "--out", str(out)]) == 0
     page = out.read_text(encoding="utf-8")
-    assert "R-after" in page and "EC2 上自托管的 mock agent" in page
+    assert "R-after" in page and "A 版" in page
     assert "评估对比 ? vs V1" in page             # missing version -> "?", run_id falls back to the file name
     assert "格式错误" in page and "⛔ V1 误拒" in page
     well_formed(page)
@@ -217,12 +217,12 @@ def test_compare_defaults_from_lab_state(tmp_path, monkeypatch, capsys):
     late["run"]["run_id"] = "B-v0-late"
     (root / "results" / "eval-B-v0-late.json").write_text(json.dumps(late, ensure_ascii=False), encoding="utf-8")
     evals = [{"run_id": V0_ID, "file": f"results/eval-{V0_ID}.json", "version": "v0", "mode": "runtime"},
-             {"run_id": V1_ID, "file": f"results/eval-{V1_ID}.json", "version": "v1-ref", "mode": "runtime"},
+             {"run_id": V1_ID, "file": f"results/eval-{V1_ID}.json", "version": "v1", "mode": "runtime"},
              {"run_id": "B-v0-late", "file": "results/eval-B-v0-late.json", "version": "v0", "mode": "runtime"}]
     (root / ".lab-state" / "evals.json").write_text(json.dumps(evals), encoding="utf-8")
     assert compare.main([]) == 0
     rel = f"results/compare-{V0_ID}-vs-{V1_ID}.html"
-    assert last_line(capsys) == rel          # repo-relative: the 51-compare.sh wrapper greps results/...html
+    assert last_line(capsys) == rel          # repo-relative: the 32-compare.sh wrapper greps results/...html
     page = (root / rel).read_text(encoding="utf-8")
     assert V0_ID in page and V1_ID in page and "B-v0-late" not in page
     assert "#topbar" in page                  # fallback CSS when docs/assets/style.css is absent
@@ -243,7 +243,7 @@ def test_compare_falls_back_to_last_two_entries(tmp_path, monkeypatch, capsys):
     assert compare.main([]) == 0
     assert last_line(capsys) == "results/compare-B-v1-a-vs-B-v1-b.html"
     page = (root / "results" / "compare-B-v1-a-vs-B-v1-b.html").read_text(encoding="utf-8")
-    assert "V1 参考版（前）" in page and "V1 参考版（后）" in page   # the fixture is the reference V1
+    assert "V1（前）" in page and "V1（后）" in page
 
 
 def test_compare_without_state_explains_what_to_do(tmp_path, monkeypatch):
@@ -316,7 +316,7 @@ def test_report_escapes_and_tolerates_bad_records(tmp_path):
     assert report.main(["--run", str(run), "--out", str(out), "--feedback", str(tmp_path / "missing.jsonl")]) == 0
     page = out.read_text(encoding="utf-8")
     assert INJ not in page and INJ_ESC in page
-    for s in ("FB-X5", "处理建议取值无效：以后再说", "Agent 没有返回结果", "不是合法 JSON", "不是 JSON 对象", "自托管"):
+    for s in ("FB-X5", "处理建议取值无效：以后再说", "Agent 没有返回结果", "不是合法 JSON", "不是 JSON 对象", "A 版"):
         assert s in page, s
     assert well_formed(page).scripts == 1
 

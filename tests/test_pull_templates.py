@@ -88,7 +88,7 @@ def repo(tmp_path):
 def run(repo, s3, **kw):
     lines = []
     kw.setdefault("default_reader", lambda root, name: {MD: DEFAULT_MD, CSV: DEFAULT_CSV}[name])
-    rc = pt.Puller(s3, "adlc-zhang3-000000000000-us-west-2", root=repo, now=datetime(2026, 11, 7, 14, 5, 9),
+    rc = pt.Puller(s3, "s12lab-zhang3-000000000000-us-west-2", root=repo, now=datetime(2026, 11, 7, 14, 5, 9),
                    out=lines.append, **kw).run()
     return rc, "\n".join(lines)
 
@@ -202,11 +202,11 @@ def test_only_allowlisted_names_and_real_templates_dir(repo):
 
 
 @pytest.mark.parametrize("arg,ok", [
-    ("adlc-zhang3-123456789012-us-west-2", True), ("s3://adlc-zhang3-123456789012-us-west-2/", True),
-    ("my-company-data", False), ("adlc-", False), ("adlc-../x", False), ("ADLC-ZHANG3", False)])
+    ("s12lab-zhang3-123456789012-us-west-2", True), ("s3://s12lab-zhang3-123456789012-us-west-2/", True),
+    ("my-company-data", False), ("s12lab-", False), ("s12lab-../x", False), ("S12LAB-ZHANG3", False)])
 def test_bucket_argument_limited_to_lab_buckets(arg, ok):
     if ok:
-        assert pt.normalize_bucket(arg) == "adlc-zhang3-123456789012-us-west-2"
+        assert pt.normalize_bucket(arg) == "s12lab-zhang3-123456789012-us-west-2"
     else:
         with pytest.raises(pt.PullError):
             pt.normalize_bucket(arg)
@@ -310,10 +310,10 @@ def test_r1_prepare_with_dry_run_is_rejected_before_any_aws_call():
 
 
 def test_r1_bucket_owner_is_pinned(repo):
-    """F11: an adlc-* bucket in another account must not be read."""
+    """F11: an s12lab-* bucket in another account must not be read."""
     s3 = FakeS3({CSV: (edited_csv_gbk(), t(6))})
     lines = []
-    pt.Puller(s3, "adlc-zhang3-000000000000-us-west-2", root=repo, owner="000000000000",
+    pt.Puller(s3, "s12lab-zhang3-000000000000-us-west-2", root=repo, owner="000000000000",
               default_reader=lambda r, n: None, out=lines.append).run()
     assert s3.kwargs and all(kw.get("ExpectedBucketOwner") == "000000000000" for _, kw in s3.kwargs)
 
@@ -396,7 +396,7 @@ def test_r2_prepare_reapplies_public_access_block():
             self.puts.append(kw)
 
     s3 = S3()
-    assert pt.ensure_private(s3, "adlc-zhang3-000000000000-us-west-2", "000000000000") == "reapplied"
+    assert pt.ensure_private(s3, "s12lab-zhang3-000000000000-us-west-2", "000000000000") == "reapplied"
     assert all(s3.puts[0]["PublicAccessBlockConfiguration"].values())
 
     class Denied(S3):
@@ -404,7 +404,7 @@ def test_r2_prepare_reapplies_public_access_block():
             raise ClientError({"Error": {"Code": "AccessDenied"}}, "GetPublicAccessBlock")
 
     with pytest.raises(pt.PullError):
-        pt.ensure_private(Denied(), "adlc-zhang3-000000000000-us-west-2", "000000000000")
+        pt.ensure_private(Denied(), "s12lab-zhang3-000000000000-us-west-2", "000000000000")
 
 
 def test_r2_config_error_is_a_friendly_message(monkeypatch, capsys):
@@ -424,7 +424,7 @@ def test_unit_tests_cannot_reach_aws():
         assert rc == 1  # no LAB_SUFFIX on this machine: stopped by the config check
 
 
-# ----------------------------------------------------------------------------- next steps (mock data before golden set)
+# ----------------------------------------------------------------------------- next steps (2.4 before 2.5)
 def _next_steps(out):
     lines = out.splitlines()
     i = next(k for k, line in enumerate(lines) if line.startswith("下一步"))
@@ -432,13 +432,8 @@ def _next_steps(out):
 
 
 def _step(steps, sec):
-    """(index, line) of the numbered step named `sec` ("  1. 改模拟数据 ..."), not a mere mention."""
-    sec = STEP_NAMES.get(sec, sec)
-    return next((k, line) for k, line in enumerate(steps) if re.match(rf"\s*\d\. {re.escape(sec)}[ ：（]", line))
-
-
-# the extension's step names, keyed by the old handbook section they replace
-STEP_NAMES = {"2.4": "改模拟数据", "2.5": "改黄金集", "2.6": "冻结"}
+    """(index, line) of the numbered step for manual section `sec` ("  1. 2.4 ..."), not a mere mention."""
+    return next((k, line) for k, line in enumerate(steps) if re.match(rf"\s*\d\. {re.escape(sec)} ", line))
 
 
 def test_next_steps_put_mock_data_2_4_before_golden_set_when_section_5_is_filled(repo):
@@ -499,7 +494,7 @@ def test_guide_expected_output_matches_the_next_steps_printed(repo):
     s20 = guide.split('id="s-2-0"', 1)[1].split('id="s-2-1"', 1)[0]
     for line in block:
         assert line in s20, line
-    assert 'id="s-2-0-next"' in s20 and all(f'href="#s-2-{k}"' in s20 for k in (1, 2, 4, 5, 6))   # 2.3 removed
+    assert 'id="s-2-0-next"' in s20 and all(f'href="#s-2-{k}"' in s20 for k in range(1, 7))
 
 
 def test_section_3_catalog_detection():
@@ -523,7 +518,7 @@ def test_next_steps_add_prompt_04_and_the_b_note_when_only_section_3_changed(rep
     block = "\n".join(steps)
     assert block.index("04-update-capability-catalog.md") < block.index("apply-feedback --dry-run") < block.index("03-update-golden-set.md")
     last = [line for line in steps if line.strip()][-1]
-    assert last.lstrip().startswith("4.") and "./30-deploy-runtime.sh" in last and "能力目录" in last and "mock" not in last
+    assert last.lstrip().startswith("4.") and "./20-B-deploy-runtime.sh" in last and "能力目录" in last and "mock" not in last
 
 
 def test_crlf_template_is_read_the_same():

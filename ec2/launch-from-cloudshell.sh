@@ -1,31 +1,31 @@
 #!/usr/bin/env bash
-# AgentDLC lab - create your lab EC2 from AWS CloudShell.
+# Scenario 12 lab - create your lab EC2 from AWS CloudShell.
 #
 #   用法 / Usage:   bash launch-from-cloudshell.sh <suffix>      例如: bash launch-from-cloudshell.sh zhang3
 #
-# - Stack name: adlc-ec2-<suffix>, template: adlc-ec2.yaml (same folder as this script)
+# - Stack name: s12lab-ec2-<suffix>, template: s12lab-ec2.yaml (same folder as this script)
 # - Region: the CloudShell region (${AWS_REGION:-$(aws configure get region)})
 # - Uses the default VPC when it exists (avoids the 5-VPCs-per-Region quota);
 #   otherwise the template creates a small dedicated VPC.
 # - Re-running is safe: an existing healthy stack is NOT redeployed (set
-#   ADLC_UPDATE=1 to force an update), it just prints the login link again.
-# Optional env: ADLC_INSTANCE_TYPE (t3.large | t3.xlarge | m7i.large),
-#               ADLC_ALLOW_ANY_REGION=1 (skip the us-west-2/us-east-1 check)
+#   S12LAB_UPDATE=1 to force an update), it just prints the login link again.
+# Optional env: S12LAB_INSTANCE_TYPE (t3.large | t3.xlarge | m7i.large),
+#               S12LAB_ALLOW_ANY_REGION=1 (skip the us-west-2/us-east-1 check)
 set -euo pipefail
 export AWS_PAGER=""
 
 SUFFIX="${1:-}"
-if [[ ! "$SUFFIX" =~ ^[a-z][a-z0-9]{1,11}$ ]] || [ "$SUFFIX" = ec2 ]; then
+if [[ ! "$SUFFIX" =~ ^[a-z][a-z0-9]{1,11}$ ]]; then
   echo "用法: bash $0 <后缀>    例如: bash $0 zhang3" >&2
-  echo "后缀规则: 2-12 位，小写字母或数字，必须以字母开头；ec2 保留不能用" >&2
+  echo "后缀规则: 2-12 位，小写字母或数字，必须以字母开头" >&2
   exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE="$SCRIPT_DIR/adlc-ec2.yaml"
+TEMPLATE="$SCRIPT_DIR/s12lab-ec2.yaml"
 if [ ! -f "$TEMPLATE" ]; then
   echo "找不到模板文件: $TEMPLATE" >&2
-  echo "请把 adlc-ec2.yaml 和本脚本下载到同一个目录。" >&2
+  echo "请把 s12lab-ec2.yaml 和本脚本下载到同一个目录。" >&2
   exit 1
 fi
 
@@ -34,14 +34,14 @@ if [ -z "$REGION" ]; then
   echo "无法确定区域。请先执行: export AWS_REGION=us-west-2   (或 us-east-1)" >&2
   exit 1
 fi
-if [ "$REGION" != "us-west-2" ] && [ "$REGION" != "us-east-1" ] && [ "${ADLC_ALLOW_ANY_REGION:-0}" != "1" ]; then
+if [ "$REGION" != "us-west-2" ] && [ "$REGION" != "us-east-1" ] && [ "${S12LAB_ALLOW_ANY_REGION:-0}" != "1" ]; then
   echo "当前区域是 $REGION。本实验只支持 us-west-2 或 us-east-1。" >&2
   echo "请在控制台右上角切换到讲师指定的区域，重新打开 CloudShell 后再运行。" >&2
   exit 1
 fi
 
-STACK="adlc-ec2-$SUFFIX"
-INSTANCE_TYPE="${ADLC_INSTANCE_TYPE:-t3.large}"
+STACK="s12lab-ec2-$SUFFIX"
+INSTANCE_TYPE="${S12LAB_INSTANCE_TYPE:-t3.large}"
 aws_() { aws --region "$REGION" "$@"; }
 stack_out() {
   aws_ cloudformation describe-stacks --stack-name "$STACK" \
@@ -125,25 +125,10 @@ if [ "$STATUS" = "NONE" ]; then
     fi
     PARAMS+=("NewSubnetAz=$FIRST_AZ")
   fi
-elif [ "${ADLC_UPDATE:-0}" = "1" ]; then
+elif [ "${S12LAB_UPDATE:-0}" = "1" ]; then
   DEPLOY=1
-  if [ -n "${ADLC_INSTANCE_TYPE:-}" ]; then PARAMS+=("InstanceType=$ADLC_INSTANCE_TYPE"); fi
-  echo "==> ADLC_UPDATE=1: 将更新堆栈。注意: 如果期间发布了新的 AL2023 AMI，EC2 会被重建，盘上数据会丢失。"
-fi
-
-# The stack pre-creates the lab's three service roles. IAM role names are global: a same-name role left by
-# an older lab version or a laptop run would fail the deploy, so stop here with what to do instead.
-if [ "$DEPLOY" = "1" ]; then
-  for KIND in runtime eval-lambda online-eval; do
-    ROLE="adlc-$SUFFIX-$KIND-role-$REGION"
-    if OWNER="$(aws_ iam get-role --role-name "$ROLE" \
-        --query "Role.Tags[?Key=='adlc:managed-by'].Value | [0]" --output text 2>/dev/null)" \
-        && [ "$OWNER" != "cloudformation" ]; then
-      echo "IAM 角色 $ROLE 已存在，但不是由 EC2 堆栈创建的（旧版本实验或在笔记本上运行实验时留下的）。" >&2
-      echo "请先在创建它的地方（旧的实验 EC2 或笔记本）运行 ./99-cleanup.sh 删除旧资源，或换一个后缀重新运行。" >&2
-      exit 1
-    fi
-  done
+  if [ -n "${S12LAB_INSTANCE_TYPE:-}" ]; then PARAMS+=("InstanceType=$S12LAB_INSTANCE_TYPE"); fi
+  echo "==> S12LAB_UPDATE=1: 将更新堆栈。注意: 如果期间发布了新的 AL2023 AMI，EC2 会被重建，盘上数据会丢失。"
 fi
 
 if [ "$DEPLOY" = "1" ]; then
@@ -153,7 +138,7 @@ if [ "$DEPLOY" = "1" ]; then
       --stack-name "$STACK" \
       --capabilities CAPABILITY_NAMED_IAM \
       --parameter-overrides "${PARAMS[@]}" \
-      --tags adlc:lab=agentdlc "adlc:owner=$SUFFIX" \
+      --tags s12lab:lab=scenario12 "s12lab:owner=$SUFFIX" \
       --no-fail-on-empty-changeset; then
     echo "创建失败。失败原因如下（请截图发给讲师）:" >&2
     aws_ cloudformation describe-stack-events --stack-name "$STACK" --max-items 40 \
@@ -181,7 +166,7 @@ for i in $(seq 1 20); do
 done
 
 echo
-echo "==================== adlc EC2 ===================="
+echo "==================== s12lab EC2 ===================="
 echo "  后缀:      $SUFFIX"
 echo "  区域:      $REGION"
 echo "  实例 ID:   $INSTANCE_ID"

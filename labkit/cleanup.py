@@ -1,12 +1,12 @@
 """Chapter 10: delete every lab resource and prove nothing is left.
 
-  python -m labkit.cleanup                 # my resources (prefix adlc, my suffix)
-  python -m labkit.cleanup --all           # instructor: every adlc-* / adlc_* resource in this account+region (+ EC2 stacks)
+  python -m labkit.cleanup                 # my resources (prefix s12lab, my suffix)
+  python -m labkit.cleanup --all           # instructor: every s12lab* resource in this account+region (+ EC2 stacks)
   python -m labkit.cleanup --all --account-level   # + revert Transaction Search, delete aws/spans
   python -m labkit.cleanup --verify-only   # only list what is left
 Deletion order respects dependencies: online eval configs -> evaluators -> Lambdas ->
 Runtime -> S3 -> log groups -> IAM roles. The EC2 CloudFormation stack is deleted by --all
-(participants delete their own stack in the console; a Workshop Studio account is reclaimed by the event).
+(participants delete their own stack in the console, step 10.3).
 """
 from __future__ import annotations
 
@@ -124,7 +124,7 @@ class Cleaner:
         return [b["Name"] for b in aws.client("s3").list_buckets().get("Buckets", [])
                 if b["Name"].startswith(self.dash) and b["Name"].endswith(f"-{r}")]
 
-    def _all_lab_roles(self):
+    def roles(self):
         iam = aws.client("iam")
         out = []
         for page in iam.get_paginator("list_roles").paginate():
@@ -132,38 +132,8 @@ class Cleaner:
             # region suffix existed (legacy names) so nothing is left behind.
             legacy = ("-runtime-role", "-eval-lambda-role", "-online-eval-role")
             out += [r["RoleName"] for r in page["Roles"] if r["RoleName"].startswith(self.dash)
-                    and not r["RoleName"].startswith("adlc-ec2-")
                     and (r["RoleName"].endswith(f"-{self.c['AWS_REGION']}") or r["RoleName"].endswith(legacy))]
         return out
-
-    def _roles_by_state(self):
-        """Lab roles by state: 'lab' (this cleanup deletes them), 'managed' (pre-created by an EC2 stack, tag
-        adlc:managed-by=cloudformation: deleted with the stack, never here) and 'unreadable' (fail closed: never
-        deleted, reported as a listing problem)."""
-        iam = aws.client("iam")
-        out = {"lab": [], "managed": [], "unreadable": []}
-        for name in self._all_lab_roles():
-            try:
-                role = iam.get_role(RoleName=name)["Role"]
-            except Exception as e:  # noqa: BLE001
-                if getattr(e, "response", {}).get("Error", {}).get("Code") == "NoSuchEntity":
-                    continue  # deleted meanwhile
-                out["unreadable"].append(name)
-                continue
-            out["managed" if aws.stack_managed(role) else "lab"].append(name)
-        return out
-
-    def roles(self):
-        """Lab roles this cleanup deletes (stack-managed and unreadable roles excluded)."""
-        by = self._roles_by_state()
-        if by["unreadable"]:
-            print(f"  ⚠️  无法读取这些 IAM 角色，不删除：{by['unreadable']}")
-            if "IAM 角色（无法读取）" not in self.list_errors:
-                self.list_errors.append("IAM 角色（无法读取）")
-        return by["lab"]
-
-    def managed_roles(self):
-        return self._roles_by_state()["managed"]
 
     def log_groups(self, runtime_ids=()):
         logs = aws.client("logs")
@@ -212,14 +182,14 @@ class Cleaner:
         for page in cfn.get_paginator("list_stacks").paginate(StackStatusFilter=[
                 "CREATE_COMPLETE", "UPDATE_COMPLETE", "ROLLBACK_COMPLETE", "CREATE_FAILED", "UPDATE_ROLLBACK_COMPLETE",
                 "DELETE_FAILED", "CREATE_IN_PROGRESS", "UPDATE_IN_PROGRESS"]):
-            out += [s["StackName"] for s in page["StackSummaries"] if s["StackName"].startswith("adlc-ec2-")]
+            out += [s["StackName"] for s in page["StackSummaries"] if s["StackName"].startswith("s12lab-ec2-")]
         if not self.all:
-            out = [s for s in out if s == f"adlc-ec2-{self.c['LAB_SUFFIX']}"]
+            out = [s for s in out if s == f"s12lab-ec2-{self.c['LAB_SUFFIX']}"]
         return out
 
     # ---- delete ----
     def run(self, account_level: bool, delete_stacks: bool) -> None:
-        print(f"▶ 清理范围：{'本账号所有 adlc 资源' if self.all else '我的资源 ' + self.dash + '*'} · 区域 {self.c['AWS_REGION']}")
+        print(f"▶ 清理范围：{'本账号所有 s12lab 资源' if self.all else '我的资源 ' + self.dash + '*'} · 区域 {self.c['AWS_REGION']}")
         cfgs = self.safe('在线评估配置', self.online_configs)
         cfg_ids = [x["onlineEvaluationConfigId"] for x in cfgs]
         result_groups = [g for g in self.safe('评估结果日志组', lambda: self.eval_result_groups(cfg_ids))]
@@ -253,6 +223,8 @@ class Cleaner:
                 for ap in iam.list_attached_role_policies(RoleName=name).get("AttachedPolicies", []):
                     iam.detach_role_policy(RoleName=name, PolicyArn=ap["PolicyArn"])
                 iam.delete_role(RoleName=name)
+            if rn.startswith("s12lab-ec2-"):
+                continue  # owned by the EC2 CloudFormation stack
             self.act(f"删除 IAM 角色 {rn}", del_role)
         if delete_stacks:
             cfn = aws.client("cloudformation")
@@ -331,10 +303,7 @@ class Cleaner:
             print(f"  {'✅' if not stacks else '❌'} EC2 堆栈: {len(stacks)} {stacks if stacks else ''}")
             left += len(stacks)
         elif stacks:
-            print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：实验 EC2 最后删除；Workshop Studio 活动结束时随账号回收）")
-        managed = self.safe('IAM 角色（堆栈管理）', self.managed_roles)
-        if managed:
-            print(f"  ℹ️  {len(managed)} 个实验角色由 EC2 堆栈预先创建，删除堆栈时一并删除（不算残留）：{managed}")
+            print(f"  ℹ️  EC2 堆栈 {stacks[0]} 仍在（正常：最后在第 10.3 步删除）")
         if self.list_errors:
             print(f"⚠️  有 {len(self.list_errors)} 类资源无法列出（权限不足）：{self.list_errors}，结论不完整")
             return 3

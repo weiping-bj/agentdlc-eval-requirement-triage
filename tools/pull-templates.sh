@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 扩展「按讨论意见重新生成模拟数据」：把在笔记本上填好的两份讨论模板，从你的私有 S3 桶拷到 EC2 的 data/templates/。
+# 第 2.0 步：把分组讨论时在笔记本上填好的两份模板，从你的私有 S3 桶拷到 EC2 的 data/templates/。
 #   ./tools/pull-templates.sh --prepare    # 先做：创建你的私有桶（已存在就跳过），打印桶名和控制台链接
 #   ./tools/pull-templates.sh              # 在控制台上传后：拷贝 discussion-feedback.md 和 golden-set-feedback.csv
 #   ./tools/pull-templates.sh --bucket <同组操作员的桶名>   # 一组多台 EC2：从同一个桶拉同一份文件
@@ -10,4 +10,4 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source ./00-config.sh
-exec "${_ADLC_PY}" -m labkit.pull_templates "$@"
+exec "${_S12_PY}" -m labkit.pull_templates "$@"

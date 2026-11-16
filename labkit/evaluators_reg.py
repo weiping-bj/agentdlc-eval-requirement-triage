@@ -1,18 +1,15 @@
-"""Chapter 4 (evaluate): deploy the custom evaluator Lambdas and register all evaluators in AgentCore Evaluations.
+"""Chapter 6: deploy the custom evaluator Lambdas and register all evaluators in AgentCore Evaluations.
 
   python -m labkit.evaluators_reg            # create or update everything (idempotent)
   python -m labkit.evaluators_reg --list     # show registered evaluators
 
-Registered (names get the personal prefix adlc_<suffix>_...):
+Registered (names get the personal prefix s12lab_<suffix>_...):
   label_accuracy   code-based TRACE  3-label hit ratio vs golden set (the 70% target)
   label_important  code-based TRACE  single label 0/1 (console average = accuracy)
   label_urgent     code-based TRACE
   label_decision   code-based TRACE
   reject_quality   code-based TRACE  LLM review of rejection reason + customer reply (Skipped if not rejected)
   reject_quality_llm  LLM-as-a-judge TRACE (native AgentCore judge, same rubric)
-  label_level      code-based TRACE  only when LABEL_SCHEME=level (extension "label scheme switch")
-LABEL_SCHEME / LEVEL_TOLERANCE (config/lab.env, config/local.env) reach every label Lambda as
-ADLC_LABEL_SCHEME / ADLC_LEVEL_TOLERANCE.
 Source code lives in evaluators/ (see evaluators/README.md).
 """
 from __future__ import annotations
@@ -24,7 +21,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from . import aws, models
+from . import aws
 
 ROOT = Path(aws.cfg()["LAB_ROOT"])
 EV = ROOT / "evaluators"
@@ -32,11 +29,11 @@ EV = ROOT / "evaluators"
 LAMBDAS = {
     # key: (source dir, handler, extra env). One function per scored field, so the
     # field never depends on what the service puts into the event.
-    "label": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "all"}),
-    "label-important": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "important"}),
-    "label-urgent": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "urgent"}),
-    "label-decision": ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "decision"}),
-    "reject": ("adlc_reject_quality", "lambda_function.handler", {}),
+    "label": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "all"}),
+    "label-important": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "important"}),
+    "label-urgent": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "urgent"}),
+    "label-decision": ("s12_label_accuracy", "lambda_function.handler", {"S12_SCORE_FIELD": "decision"}),
+    "reject": ("s12_reject_quality", "lambda_function.handler", {}),
 }
 CODE_EVALUATORS = [
     # (name suffix, lambda key, description)
@@ -46,26 +43,7 @@ CODE_EVALUATORS = [
     ("label_decision", "label-decision", "处理建议 单项准确率（0/1）"),
     ("reject_quality", "reject", "拒绝理由与客户话术质量（LLM 评审，非拒绝则 Skipped）"),
 ]
-# graded label scheme (LABEL_SCHEME=level): one more single-field Lambda + evaluator for 优先级
-LEVEL_LAMBDA = ("label-level", ("adlc_label_accuracy", "lambda_function.handler", {"ADLC_SCORE_FIELD": "level"}))
-LEVEL_EVALUATOR = ("label_level", "label-level", "优先级 P0/P1/P2 单项准确率（0/1，分级口径）")
-
-
-def label_scheme() -> str:
-    s = (aws.cfg().get("LABEL_SCHEME") or "binary").strip().lower()
-    return s if s in ("binary", "level") else "binary"
-
-
-def lambdas() -> dict:
-    out = dict(LAMBDAS)
-    if label_scheme() == "level":
-        out[LEVEL_LAMBDA[0]] = LEVEL_LAMBDA[1]
-    return out
-
-
-def code_evaluators() -> list:
-    return CODE_EVALUATORS + ([LEVEL_EVALUATOR] if label_scheme() == "level" else [])
-JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/adlc_reject_quality.json", "llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
+JUDGE_CONFIG_CANDIDATES = ["llm_judge_config/s12_reject_quality.json", "llm_judge_config/reject_quality_llm.json", "llm_judge_config/evaluator_config.json",
                            "llm_judge_config/config.json"]
 
 
@@ -84,10 +62,9 @@ def lambda_role() -> str:
     inline = {"Version": "2012-10-17", "Statement": [
         {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
          "Resource": f"arn:aws:logs:*:{a}:log-group:/aws/lambda/{c['LAB_NAME']}-*"},
-        # judge + fallback model, allowlist only (labkit/models.py)
-        {"Effect": "Allow", "Action": list(models.INVOKE_ACTIONS),
-         "Resource": models.invoke_resources(c["AWS_REGION"], a)}]}
-    return aws.ensure_role(c["EVAL_LAMBDA_ROLE_NAME"], trust, inline, "adlc evaluator Lambda role")
+        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:Converse"],
+         "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]}]}
+    return aws.ensure_role(c["EVAL_LAMBDA_ROLE_NAME"], trust, inline, "s12lab evaluator Lambda role")
 
 
 def zip_dir(src: Path) -> bytes:
@@ -111,15 +88,14 @@ def zip_dir(src: Path) -> bytes:
 
 def deploy_lambda(key: str, role_arn: str) -> str:
     c = aws.cfg()
-    src_dir, handler, extra = lambdas()[key]
+    src_dir, handler, extra = LAMBDAS[key]
     src = EV / src_dir
     if not src.exists():
         raise SystemExit(f"❌ 找不到评估器源码 {src.relative_to(ROOT)}")
     lam = aws.client("lambda")
     name = fn_name(key)
     env = {"Variables": {"JUDGE_MODEL_ID": c["JUDGE_MODEL_ID"], "FALLBACK_MODEL_ID": c["FALLBACK_MODEL_ID"],
-                         "TARGET_ACCURACY": c["TARGET_ACCURACY"], "ADLC_LABEL_SCHEME": label_scheme(),
-                         "ADLC_LEVEL_TOLERANCE": str(c.get("LEVEL_TOLERANCE") or "0"), **extra}}
+                         "TARGET_ACCURACY": c["TARGET_ACCURACY"], **extra}}
     code = zip_dir(src)
     try:
         lam.get_function(FunctionName=name)
@@ -134,7 +110,7 @@ def deploy_lambda(key: str, role_arn: str) -> str:
                 lam.create_function(FunctionName=name, Runtime="python3.12", Architectures=["arm64"], Role=role_arn,
                                     Handler=handler, Code={"ZipFile": code}, Timeout=120, MemorySize=512,
                                     Environment=env, Tags=aws.tags_dict(),
-                                    Description=f"adlc evaluator ({src_dir})")
+                                    Description=f"s12lab evaluator ({src_dir})")
                 break
             except lam.exceptions.InvalidParameterValueException as e:
                 if "role" in str(e).lower() and attempt < 5:
@@ -219,33 +195,29 @@ def needs_replacement(existing: dict, desired: dict) -> bool:
 
 
 def remove_online() -> list:
-    """Delete my online evaluation configs (they pin evaluators); return the modes to restore."""
+    """Delete my online evaluation configs (they pin evaluators); return the paths to restore."""
     from . import online
     ctl = aws.client("bedrock-agentcore-control")
-    modes = []
-    gone = []
-    for mode in online.MODES:
-        for name in (online.config_name(mode), online.legacy_name(mode)):  # legacy: a lab set up before the rename
-            x = online.find(name)
-            if x:
-                ctl.delete_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"])
-                gone.append(name)
-                if mode not in modes:
-                    modes.append(mode)
-                print(f"  ⏸  临时删除在线评估配置 {x['onlineEvaluationConfigName']}（更新被锁定的评估器需要）")
-    for name in gone:
+    paths = []
+    for path in ("a", "b"):
+        x = online.find(online.config_name(path))
+        if x:
+            ctl.delete_online_evaluation_config(onlineEvaluationConfigId=x["onlineEvaluationConfigId"])
+            paths.append(path)
+            print(f"  ⏸  临时删除在线评估配置 {x['onlineEvaluationConfigName']}（更新被锁定的评估器需要）")
+    for path in paths:
         for _ in range(30):
-            if not online.find(name):
+            if not online.find(online.config_name(path)):
                 break
             time.sleep(3)
-    return modes
+    return paths
 
 
-def restore_online(modes: list) -> None:
+def restore_online(paths: list) -> None:
     from . import online
-    for mode in modes:
-        print(f"  ▶️  重新创建在线评估配置（{online.LABEL[mode]}）")
-        online.enable(mode)
+    for path in paths:
+        print(f"  ▶️  重新创建在线评估配置（路线 {path.upper()}）")
+        online.enable(path)
 
 
 def judge_config() -> dict | None:
@@ -262,10 +234,10 @@ def register() -> dict:
     c = aws.cfg()
     print(f"▶ 部署评估器 Lambda 并注册到 AgentCore Evaluations（区域 {c['AWS_REGION']}）")
     role = lambda_role()
-    arns = {k: deploy_lambda(k, role) for k in lambdas()}
+    arns = {k: deploy_lambda(k, role) for k in LAMBDAS}
     existing = list_custom()
     desired = {ev_name(s): ("TRACE", {"codeBased": {"lambdaConfig": {"lambdaArn": arns[k], "lambdaTimeoutInSeconds": 120}}})
-               for s, k, _ in code_evaluators()}
+               for s, k, _ in CODE_EVALUATORS}
     jc = judge_config()
     if jc:
         desired[ev_name("reject_quality_llm")] = ("TRACE", jc)
@@ -273,7 +245,7 @@ def register() -> dict:
         print("  ℹ️  未找到原生 LLM 评审配置（evaluators/llm_judge_config/），跳过")
     removed = remove_online() if needs_replacement(existing, desired) else []
     state = {}
-    for suffix, key, desc in code_evaluators():
+    for suffix, key, desc in CODE_EVALUATORS:
         state[suffix] = upsert(ev_name(suffix), *desired[ev_name(suffix)], desc, existing)
     if jc:
         try:
@@ -288,7 +260,7 @@ def register() -> dict:
     for k, v in state.items():
         if not k.startswith("_"):
             print(f"   {ev_name(k):<40} {v['evaluatorId']}")
-    print("   下一步：./41-online-eval.sh enable   （开启在线评估，让分数显示在 CloudWatch 控制台）")
+    print("   下一步：./33-online-eval.sh enable --path b   （A 版用 --path a；开启在线评估，让分数显示在 CloudWatch 控制台）")
     return state
 
 

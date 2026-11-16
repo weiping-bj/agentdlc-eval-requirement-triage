@@ -1,6 +1,6 @@
-"""Chapter 3 (build): package the mock agent and deploy it to AgentCore Runtime (direct code deploy, no Docker).
+"""B path: package the mock agent and deploy it to AgentCore Runtime (direct code deploy, no Docker).
 
-  python -m labkit.runtime deploy [--version v0|v1|v1-ref]   # create or update the Runtime
+  python -m labkit.runtime deploy [--version v0|v1]   # create or update the Runtime
   python -m labkit.runtime invoke --one FB-2610-001   # smoke test one item
   python -m labkit.runtime status
 """
@@ -10,7 +10,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -19,7 +18,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import aws, items, models
+from . import aws, items
 
 ROOT = Path(aws.cfg()["LAB_ROOT"])
 BUILD = ROOT / "build" / "runtime"
@@ -67,14 +66,14 @@ def build_zip() -> Path:
             if p.is_file() and "__pycache__" not in p.parts and p.name != ".complete":
                 add(zf, p, str(p.relative_to(deps))); n += 1
         add(zf, ROOT / "agent" / "main.py", "main.py"); n += 1
-        for p in sorted((ROOT / "agent" / "adlc_agent").rglob("*")):
+        for p in sorted((ROOT / "agent" / "s12agent").rglob("*")):
             if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc":
-                add(zf, p, "adlc_agent/" + str(p.relative_to(ROOT / "agent" / "adlc_agent"))); n += 1
-        data_dir = Path(os.environ["ADLC_DATA_DIR"]) if os.environ.get("ADLC_DATA_DIR") else ROOT / "data"
+                add(zf, p, "s12agent/" + str(p.relative_to(ROOT / "agent" / "s12agent"))); n += 1
+        data_dir = Path(os.environ["S12_DATA_DIR"]) if os.environ.get("S12_DATA_DIR") else ROOT / "data"
         for f in DATA_FILES:
             src = data_dir / f
             if src.exists():
-                add(zf, src, f"adlc_agent/agent_data/{f}"); n += 1
+                add(zf, src, f"s12agent/agent_data/{f}"); n += 1
     print(f"  📦 打包完成：{out.relative_to(ROOT)}（{n} 个文件，{out.stat().st_size/1e6:.1f} MB）")
     return out
 
@@ -109,15 +108,16 @@ def ensure_role() -> str:
                                        "xray:GetSamplingTargets"], "Resource": "*"},
         {"Effect": "Allow", "Action": "cloudwatch:PutMetricData", "Resource": "*",
          "Condition": {"StringEquals": {"cloudwatch:namespace": "bedrock-agentcore"}}},
-        # model allowlist (labkit/models.py); Converse/ConverseStream are authorized by these two actions
-        {"Effect": "Allow", "Action": list(models.INVOKE_ACTIONS), "Resource": models.invoke_resources(r, a)},
+        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream",
+                                       "bedrock:Converse", "bedrock:ConverseStream"],
+         "Resource": ["arn:aws:bedrock:*::foundation-model/*", f"arn:aws:bedrock:*:{a}:inference-profile/*"]},
         {"Effect": "Allow", "Action": ["bedrock-agentcore:GetWorkloadAccessToken",
                                        "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
                                        "bedrock-agentcore:GetWorkloadAccessTokenForUserId"],
          "Resource": [f"arn:aws:bedrock-agentcore:{r}:{a}:workload-identity-directory/default",
                       f"arn:aws:bedrock-agentcore:{r}:{a}:workload-identity-directory/default/workload-identity/*"]},
     ]}
-    return aws.ensure_role(c["RUNTIME_ROLE_NAME"], trust, inline, "adlc AgentCore Runtime execution role")
+    return aws.ensure_role(c["RUNTIME_ROLE_NAME"], trust, inline, "s12lab AgentCore Runtime execution role")
 
 
 def find_runtime(name: str):
@@ -154,9 +154,8 @@ def deploy(version: str) -> dict:
         roleArn=role_arn,
         networkConfiguration={"networkMode": "PUBLIC"},
         protocolConfiguration={"serverProtocol": "HTTP"},
-        environmentVariables={"AGENT_VERSION": version, "AGENT_MODEL_ID": c["AGENT_MODEL_ID"],
-                              "ADLC_LABEL_SCHEME": (c.get("LABEL_SCHEME") or "binary").strip().lower()},
-        description=f"AgentDLC lab triage agent ({version})",
+        environmentVariables={"AGENT_VERSION": version, "AGENT_MODEL_ID": c["AGENT_MODEL_ID"]},
+        description=f"s12lab scenario 12 triage agent ({version})",
     )
     existing = find_runtime(c["RUNTIME_NAME"])
     for attempt in range(6):
@@ -192,14 +191,14 @@ def deploy(version: str) -> dict:
              "deployedAt": datetime.now(timezone.utc).isoformat()}
     aws.save_state("runtime", state)
     print(f"✅ Runtime 就绪：{rid}（版本 {state['agentRuntimeVersion']}，Agent {version}）")
-    print("   下一步：./30-deploy-runtime.sh invoke   （调用一次确认可用）")
+    print("   下一步：./20-B-deploy-runtime.sh invoke   （调用一次确认可用）")
     return state
 
 
 def invoke_one(fid: str | None) -> int:
     st = aws.load_state("runtime")
     if not st:
-        print("❌ 还没有部署 Runtime：先运行 ./30-deploy-runtime.sh"); return 1
+        print("❌ 还没有部署 Runtime：先运行 ./20-B-deploy-runtime.sh"); return 1
     rows = items.load("golden")
     row = next((r for r in rows if items.fid_of(r) == fid), rows[0]) if fid else rows[0]
     import uuid
@@ -228,13 +227,6 @@ def main(argv=None) -> int:
     i.add_argument("--one")
     sub.add_parser("status")
     a = ap.parse_args(argv)
-    if a.cmd in (None, "deploy"):
-        v = getattr(a, "version", None) or aws.cfg()["AGENT_VERSION"]
-        if not re.fullmatch(r"v[0-9]{1,3}(?:-ref)?", v or ""):
-            raise SystemExit(f"❌ 版本名 {v!r} 不对：只能是 v0、v1、v1-ref 这种形式（./50-switch-version.sh 切换）")
-        if not (ROOT / "agent" / "adlc_agent" / "prompts" / f"{v}.md").is_file():
-            raise SystemExit(f"❌ 没有 agent/adlc_agent/prompts/{v}.md，不能部署这个版本。可用的版本用 ./50-switch-version.sh 切换"
-                             "（v0、v1-ref；你自己的 v1 要先做第 5.2 步）")
     if a.cmd in (None, "deploy"):
         deploy(getattr(a, "version", None) or aws.cfg()["AGENT_VERSION"])
         return 0

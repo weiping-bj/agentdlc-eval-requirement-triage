@@ -1,23 +1,23 @@
 {
  "schemaVersion": "1.0",
  "evaluatorId": "sample-0000000000",
- "evaluatorName": "adlc_sample_label_accuracy",
+ "evaluatorName": "s12lab_sample_label_accuracy",
  "evaluationLevel": "TRACE",
  "evaluationInput": {
   "sessionSpans": [
    {
     "traceId": "33333333333333333333333333333333",
     "spanId": "0000000000000001",
-    "name": "adlc.triage",
+    "name": "s12lab.triage",
     "scope": {
-     "name": "adlc.triage"
+     "name": "s12lab.triage"
     },
     "startTimeUnixNano": 1730000000000000000,
     "attributes": {
-     "session.id": "adlc-sample",
-     "adlc.feedback_id": "FB-2610-003",
-     "adlc.agent_version": "v1",
-     "adlc.triage_output": "{\"feedback_id\": \"FB-2610-003\", \"important\": \"是\", \"urgent\": \"是\", \"decision\": \"拒绝\", \"level\": null, \"reasoning\": \"（示例）依据能力目录与相似需求统计\", \"reject_reason\": \"（示例）偶发问题，不做\", \"customer_reply\": \"（示例）抱歉\"}"
+     "session.id": "s12lab-sample",
+     "s12lab.feedback_id": "FB-2610-003",
+     "s12lab.agent_version": "v1",
+     "s12lab.triage_output": "{\"feedback_id\": \"FB-2610-003\", \"important\": \"是\", \"urgent\": \"是\", \"decision\": \"拒绝\", \"level\": null, \"reasoning\": \"（示例）依据能力目录与相似需求统计\", \"reject_reason\": \"（示例）偶发问题，不做\", \"customer_reply\": \"（示例）抱歉\"}"
     }
    },
    {
@@ -29,7 +29,7 @@
     "timeUnixNano": 1730000000500000000,
     "attributes": {
      "event.name": "strands.telemetry.tracer",
-     "session.id": "adlc-sample"
+     "session.id": "s12lab-sample"
     },
     "body": {
      "input": {
